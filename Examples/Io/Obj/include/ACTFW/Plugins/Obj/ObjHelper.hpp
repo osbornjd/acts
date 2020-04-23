@@ -49,6 +49,19 @@ void writePlanarFace(std::ofstream& stream, VtnCounter& vtnCounter,
                      double thickness = 0.,
                      const std::vector<unsigned int>& vsides = {});
 
+ /// This will write a disc surface with annulus bounds
+  ///
+  /// @param stream is the stream where to write to
+  void
+  writeAnnulusDisc(std::ofstream&                     stream,
+                   VtnCounter&                        vtnCounter,
+                   double                             scalor,
+                   unsigned int                       nSegments,
+                   const Acts::Transform3D&           transform,
+                   const std::vector<Acts::Vector2D>& vertices,
+                   double                             thickness = 0.);
+
+
 /// This will write a cylindrical object
 ///
 /// @param stream is the stream where to write to

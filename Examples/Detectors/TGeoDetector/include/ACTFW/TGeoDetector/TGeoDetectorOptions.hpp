@@ -130,6 +130,7 @@ void addTGeoGeometryOptions(options_t& opt) {
       po::value<read_range>()->multitoken()->default_value({}),
       "Z-tolerances (if > 0.) that triggers splitting "
       " of collected surfaces into different positive layers.")(
+
       "geo-tgeo-cmoduleaxes",
       po::value<read_strings>()->multitoken()->default_value({}),
       "Axes definition for central sensitive objects, odered along the "
@@ -165,6 +166,7 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
 
   std::array<read_series, 3> layers = {nlayers, clayers, players};
 
+
   std::array<size_t, 3> series_size = {nlayers.size(), clayers.size(),
                                        players.size()};
 
@@ -172,6 +174,7 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
 
   read_range ringtolerance =
       vm["geo-tgeo-ringtolerance"].template as<read_range>();
+
 
   // The layer names to parse for in the TGeo
   read_strings nlayernames =
@@ -181,8 +184,10 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
   read_strings playernames =
       vm["geo-tgeo-playernames"].template as<read_strings>();
 
+
   std::array<read_strings, 3> layernames = {nlayernames, clayernames,
                                             playernames};
+
 
   read_strings nsensitivenames =
       vm["geo-tgeo-nmodulenames"].template as<read_strings>();
@@ -192,6 +197,7 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
       vm["geo-tgeo-pmodulenames"].template as<read_strings>();
 
   // The sensitive names to parse for in the TGeo
+
   std::array<read_strings, 3> sensitivenames = {
       nsensitivenames, csensitivenames, psensitivenames};
 
@@ -201,6 +207,7 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
       vm["geo-tgeo-cmoduleaxes"].template as<read_strings>();
   read_strings psensitiveaxes =
       vm["geo-tgeo-pmoduleaxes"].template as<read_strings>();
+
 
   std::array<read_strings, 3> sensitiveaxes = {nsensitiveaxes, csensitiveaxes,
                                                psensitiveaxes};
@@ -299,8 +306,8 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
 
     // Now add it to the configs
     detLayerConfigs.push_back(layerBuilderConfig);
-  }
-  return detLayerConfigs;
+    }
+    return detLayerConfigs;
 }
 
 }  // namespace Options

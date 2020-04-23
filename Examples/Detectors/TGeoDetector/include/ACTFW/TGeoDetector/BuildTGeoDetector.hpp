@@ -26,7 +26,10 @@
 #include "Acts/Material/Material.hpp"
 #include "Acts/Material/MaterialProperties.hpp"
 #include "Acts/Plugins/TGeo/TGeoDetectorElement.hpp"
+#include "Acts/Utilities/Units.hpp"
 #include "TGeoManager.h"
+
+using namespace Acts::UnitLiterals;
 
 namespace FW {
 namespace TGeo {
@@ -111,11 +114,14 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     bpvConfig.buildToRadiusZero = true;
     auto beamPipeVolumeBuilder =
         std::make_shared<const Acts::CylinderVolumeBuilder>(
+
             bpvConfig,
             Acts::getDefaultLogger("BeamPipeVolumeBuilder", volumeLogLevel));
     // add to the list of builders
     volumeBuilders.push_back(beamPipeVolumeBuilder);
+
   }
+
 
   // import the file from
   TGeoManager::Import(rootFileName.c_str());
@@ -137,9 +143,11 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     Acts::CylinderVolumeBuilder::Config volumeConfig;
     volumeConfig.trackingVolumeHelper = cylinderVolumeHelper;
     volumeConfig.volumeName = lbc.configurationName;
+
     volumeConfig.checkRingLayout = lbc.checkRingLayout;
     volumeConfig.ringTolerance = lbc.ringTolerance;
     volumeConfig.buildToRadiusZero = (volumeBuilders.size() == 0);
+
     volumeConfig.layerEnvelopeR = {1. * Acts::units::_mm,
                                    5. * Acts::units::_mm};
     volumeConfig.layerBuilder = layerBuilder;
