@@ -120,7 +120,9 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     // add to the list of builders
     volumeBuilders.push_back(beamPipeVolumeBuilder);
 
+
   }
+
 
 
   // import the file from
@@ -144,9 +146,11 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     volumeConfig.trackingVolumeHelper = cylinderVolumeHelper;
     volumeConfig.volumeName = lbc.configurationName;
 
+
     volumeConfig.checkRingLayout = lbc.checkRingLayout;
     volumeConfig.ringTolerance = lbc.ringTolerance;
     volumeConfig.buildToRadiusZero = (volumeBuilders.size() == 0);
+
 
     volumeConfig.layerEnvelopeR = {1. * Acts::units::_mm,
                                    5. * Acts::units::_mm};
