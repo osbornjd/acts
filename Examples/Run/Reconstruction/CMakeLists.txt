@@ -44,3 +44,4 @@ install(
    TARGETS 
      ActsRecTruthTracks
    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
