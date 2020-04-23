@@ -14,3 +14,6 @@ target_link_libraries(
 install(
   TARGETS ActsExamplesDetectorTGeo
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+install(
+DIRECTORY include/ACTFW DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
