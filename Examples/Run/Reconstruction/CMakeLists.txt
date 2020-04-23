@@ -19,6 +19,7 @@ install(
   TARGETS ActsRecTruthTracks
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+
 add_executable(
     ActsRecCKFTracks
     RecCKFTracks.cpp)
@@ -39,3 +40,7 @@ install(
   ActsRecCKFTracks
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+install(
+   TARGETS 
+     ActsRecTruthTracks
+   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
