@@ -1,6 +1,7 @@
 add_library(
   ActsExamplesFitting SHARED
   src/FittingAlgorithm.cpp
+  src/TrkrClusterFittingAlgorithmFitterFunction.cpp
   src/FittingAlgorithmFitterFunction.cpp)
 target_include_directories(
   ActsExamplesFitting
@@ -15,3 +16,5 @@ target_link_libraries(
 install(
   TARGETS ActsExamplesFitting
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+install(DIRECTORY include/ACTFW DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
