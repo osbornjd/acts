@@ -8,4 +8,7 @@ target_link_libraries(
   ActsExamplesDetectorsCommon
   INTERFACE Boost::program_options)
 
+install(
+DIRECTORY include/ACTFW DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
 # interface libraries do not exist in the filesystem; no installation needed
