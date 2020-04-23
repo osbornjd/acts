@@ -33,3 +33,5 @@ target_compile_features(
 install(
   TARGETS ActsExamplesFramework
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(
+DIRECTORY include/ACTFW DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
