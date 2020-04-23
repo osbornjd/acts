@@ -7,8 +7,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "ACTFW/Plugins/Obj/ObjHelper.hpp"
-
+#include <iostream>
 #include <vector>
+#include "Acts/Utilities/Helpers.hpp"
 
 void FW::Obj::writeVTN(std::ofstream& stream, VtnCounter& vtnCounter,
                        double scalor, const Acts::Vector3D& vertex,
@@ -95,6 +96,83 @@ void FW::Obj::writePlanarFace(std::ofstream& stream, VtnCounter& vtnCounter,
   // now process the vertical sides
   constructVerticalFaces(stream, fvertex, vsides);
 }
+
+void
+FW::Obj::writeAnnulusDisc(std::ofstream&                     stream,
+                          VtnCounter&                        vtnCounter,
+                          double                             scalor,
+                          unsigned int                       nSegments,
+                          const Acts::Transform3D&           transform,
+                          const std::vector<Acts::Vector2D>& vertices,
+                          double                             thickness)
+{
+
+  unsigned int cvc = vtnCounter.vcounter;
+
+  std::vector<Acts::Vector3D> gVertices;
+  // Write the vertices
+  for (auto& v : vertices) {
+    gVertices.push_back(transform * Acts::Vector3D(v.x(), v.y(), 0.));
+  }
+
+  // Complete if there are segments defined for a bow
+  if (nSegments > 1) {
+
+    /// Fill the vertices in betwen
+    auto fillBow
+        = [&](const Acts::Vector3D& first,
+              const Acts::Vector3D& second) -> std::vector<Acts::Vector3D> {
+      // The completed list of vertices
+      std::vector<Acts::Vector3D> completed3D;
+
+      double oseg = 1. / nSegments;
+      double phif = Acts::VectorHelpers::phi(first);
+      double phis = Acts::VectorHelpers::phi(second);
+      double phiD = (phis - phif);
+
+      if (std::abs(phiD) > M_PI and phif * phis < 0.) {
+        phiD += phiD < 0. ? 2 * M_PI : -2 * M_PI;
+      }
+
+      double rf = Acts::VectorHelpers::perp(first);
+      double rs = Acts::VectorHelpers::perp(second);
+      double zf = first.z();
+      double zs = second.z();
+
+      phiD *= oseg;
+      double rD = (rs - rf) * oseg;
+      double zD = (zs - zf) * oseg;
+
+      for (unsigned int is = 0; is < nSegments + 1; ++is) {
+        double r   = rf + is * rD;
+        double phi = phif + is * phiD;
+        double z   = zf + is * zD;
+        completed3D.push_back(Acts::Vector3D(r * cos(phi), r * sin(phi), z));
+      }
+      // Reassing the global points
+      return completed3D;
+    };
+    // Fill the bows
+    auto completedBow1 = fillBow(gVertices[0], gVertices[1]);
+    auto completedBow2 = fillBow(gVertices[2], gVertices[3]);
+    // Clear the vertices
+    gVertices = completedBow1;
+    gVertices.insert(
+        gVertices.end(), completedBow2.begin(), completedBow2.end());
+  }
+
+  // Write the vertices
+  for (const auto& gv : gVertices) {
+    writeVTN(stream, vtnCounter, scalor, gv, "v");
+  }
+  // Write the faces
+  stream << "f";
+  for (unsigned int iv = 0; iv < gVertices.size(); ++iv) {
+    stream << " " << cvc + iv + 1;
+  }
+  stream << std::endl;
+}
+
 
 void FW::Obj::writeTube(std::ofstream& stream, VtnCounter& vtnCounter,
                         double scalor, unsigned int nSegments,

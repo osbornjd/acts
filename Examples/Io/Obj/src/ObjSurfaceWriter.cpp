@@ -10,6 +10,7 @@
 
 #include <Acts/Geometry/GeometryID.hpp>
 #include <Acts/Geometry/Layer.hpp>
+#include <Acts/Surfaces/AnnulusBounds.hpp>
 #include <Acts/Surfaces/CylinderBounds.hpp>
 #include <Acts/Surfaces/PlanarBounds.hpp>
 #include <Acts/Surfaces/RadialBounds.hpp>
@@ -45,14 +46,14 @@ FW::ProcessCode FW::Obj::ObjSurfaceWriter::write(
   ACTS_DEBUG(">>Obj: Writer for Surface object called.");
 
   auto scalor = m_cfg.outputScalor;
-  // let's get the bounds & the transform
-  const Acts::SurfaceBounds& surfaceBounds = surface.bounds();
-  auto sTransform = surface.transform(context.geoContext);
 
-  // dynamic_cast to PlanarBounds
-  const Acts::PlanarBounds* planarBounds =
-      dynamic_cast<const Acts::PlanarBounds*>(&surfaceBounds);
-  // only continue if the cast worked
+  // Bounds and transform defines the full 3D object
+  const auto& surfaceBounds = surface.bounds();
+  auto        sTransform    = surface.transform(context.geoContext);
+
+  // Dynamic_cast to PlanarBounds
+  auto planarBounds = dynamic_cast<const Acts::PlanarBounds*>(&surfaceBounds);
+
   if (planarBounds && m_cfg.outputSensitive) {
     ACTS_VERBOSE(">>Obj: Writing out a PlaneSurface");
     // set the precision - just to be sure
@@ -82,9 +83,26 @@ FW::ProcessCode FW::Obj::ObjSurfaceWriter::write(
     (*(m_cfg.outputStream)) << '\n';
   }
 
-  // check if you have layer and check what your have
-  // dynamic cast to CylinderBounds work the same
-  const Acts::CylinderBounds* cylinderBounds =
+   // Dynamic cast to AnnulusBounds
+  auto annulusBounds = dynamic_cast<const Acts::AnnulusBounds*>(&surfaceBounds);
+  if (annulusBounds != nullptr and m_cfg.outputSensitive) {
+    ACTS_VERBOSE(">>Obj: Writing out a Annulus bounded disc");
+    // Set the precision
+    (*(m_cfg.outputStream)) << '\n';
+    (*(m_cfg.outputStream)) << std::setprecision(m_cfg.outputPrecision);
+    // Get the vertices
+    auto annulusVertices = annulusBounds->vertices(1);
+    Obj::writeAnnulusDisc(*(m_cfg.outputStream),
+                          m_vtnCounter,
+                          scalor,
+                          3,
+                          sTransform,
+                          annulusVertices);
+    (*(m_cfg.outputStream)) << '\n';
+  }
+
+  // Dynamic cast to CylinderBounds work the same
+  auto cylinderBounds =
       dynamic_cast<const Acts::CylinderBounds*>(&surfaceBounds);
   if (cylinderBounds && m_cfg.outputLayerSurface) {
     ACTS_VERBOSE(">>Obj: Writing out a CylinderSurface with r = "
