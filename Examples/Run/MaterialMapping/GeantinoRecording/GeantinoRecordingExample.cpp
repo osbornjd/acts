@@ -30,6 +30,17 @@ int main(int argc, char* argv[]) {
   FW::Options::addSequencerOptions(desc);
   FW::Options::addOutputOptions(desc);
   FW::Options::addDD4hepOptions(desc);
+  desc.add_options()("g4-gdml-input",
+                     po::value<std::string>()->default_value(""),
+                     "GDML input file for geometry building.")(
+      "g4-random-seed1",
+      po::value<int>()->default_value(536235167),
+      "Primary random seed for Geant4")(
+      "g4-random-seed2",
+      po::value<int>()->default_value(729237523),
+      "Secondary random seed for Geant4")("mat-recording-tracks",
+                                          po::value<int>()->default_value(100),
+                                          "Tracks per event for the recording");
 
   // Parse the options
   auto vm = FW::Options::parse(desc, argc, argv);
@@ -38,30 +49,45 @@ int main(int argc, char* argv[]) {
   }
 
   FW::Sequencer g4sequencer(FW::Options::readSequencerConfig(vm));
+  Acts::GeometryContext geoContext;
 
   size_t nTracks = 100;
   int randomSeed1 = 536235167;
   int randomSeed2 = 729237523;
 
-  Acts::GeometryContext geoContext;
+  // set up the algorithm writing out the material map
+  FW::GeantinoRecording::Config g4rConfig;
+  g4rConfig.tracksPerEvent = nTracks;
+  g4rConfig.seed1          = randomSeed1;
+  g4rConfig.seed2          = randomSeed2;
 
   // DETECTOR:
-  // --------------------------------------------------------------------------------
-  // DD4Hep detector definition
-  // read the detector config & dd4hep detector
-  auto dd4HepDetectorConfig =
-      FW::Options::readDD4hepConfig<po::variables_map>(vm);
-  auto geometrySvc =
-      std::make_shared<FW::DD4hep::DD4hepGeometryService>(dd4HepDetectorConfig);
-  std::shared_ptr<const Acts::TrackingGeometry> tGeometry =
-      geometrySvc->trackingGeometry(geoContext);
+    auto gdmlFile = vm["g4-gdml-input"].as<std::string>();
+  if (not gdmlFile.empty()) {
+    // --------------------------------------------------------------------------------
+    // Geant4 detector definition
+    g4rConfig.gdmlFile = gdmlFile;
+  } else {
+    // --------------------------------------------------------------------------------
+    // DD4Hep detector definition
+    // read the detector config & dd4hep detector
+    auto dd4HepDetectorConfig
+        = FW::Options::readDD4hepConfig<po::variables_map>(vm);
+    auto geometrySvc = std::make_shared<FW::DD4hep::DD4hepGeometryService>(
+        dd4HepDetectorConfig);
+    std::shared_ptr<const Acts::TrackingGeometry> tGeometry
+        = geometrySvc->trackingGeometry(geoContext);
 
-  // DD4Hep to Geant4 conversion
-  //
-  FW::DD4hepG4::DD4hepToG4Svc::Config dgConfig("DD4hepToG4",
-                                               Acts::Logging::INFO);
-  dgConfig.dd4hepService = geometrySvc;
-  auto dd4hepToG4Svc = std::make_shared<FW::DD4hepG4::DD4hepToG4Svc>(dgConfig);
+    // DD4Hep to Geant4 conversion
+    //
+    FW::DD4hepG4::DD4hepToG4Svc::Config dgConfig("DD4hepToG4",
+                                                 Acts::Logging::INFO);
+    dgConfig.dd4hepService = geometrySvc;
+    auto dd4hepToG4Svc
+        = std::make_shared<FW::DD4hepG4::DD4hepToG4Svc>(dgConfig);
+
+    g4rConfig.geant4Service = dd4hepToG4Svc;
+  }
 
   // --------------------------------------------------------------------------------
   // Geant4 JOB:
@@ -69,12 +95,6 @@ int main(int argc, char* argv[]) {
   // set up the writer for
   // ---------------------------------------------------------------------------------
 
-  // set up the algorithm writing out the material map
-  FW::GeantinoRecording::Config g4rConfig;
-  g4rConfig.geant4Service = dd4hepToG4Svc;
-  g4rConfig.tracksPerEvent = nTracks;
-  g4rConfig.seed1 = randomSeed1;
-  g4rConfig.seed2 = randomSeed2;
   // create the geant4 algorithm
   auto g4rAlgorithm =
       std::make_shared<FW::GeantinoRecording>(g4rConfig, Acts::Logging::INFO);
