@@ -1,5 +1,6 @@
 #include "ACTFW/Fitting/TrkrClusterFindingAlgorithm.hpp"
 
+
 #include "Acts/Fitter/GainMatrixSmoother.hpp"
 #include "Acts/Fitter/GainMatrixUpdater.hpp"
 #include "Acts/Geometry/GeometryID.hpp"
@@ -12,6 +13,7 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/ParameterDefinitions.hpp"
+
 
 /**
  * Struct that calls the finding algorithm to get the result of the track
@@ -30,6 +32,7 @@ namespace {
        const std::vector<SourceLink>& sourceLinks,
        const FW::TrackParameters&                          initialParameters,
        const Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>&       options) const
+
     {
       /// Call CombinatorialKalmanFilter findTracks
       return finder.findTracks(sourceLinks, initialParameters, options);

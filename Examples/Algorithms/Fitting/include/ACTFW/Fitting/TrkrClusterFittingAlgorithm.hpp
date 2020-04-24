@@ -48,7 +48,6 @@ public:
   /// Create fitter function
   static FitterFunction
     makeFitterFunction(
-
       std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
       FW::Options::BFieldVariant                    magneticField,
       Acts::Logging::Level                          lvl);

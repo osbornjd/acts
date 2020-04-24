@@ -21,6 +21,7 @@
 #include "Acts/TrackFinder/CombinatorialKalmanFilter.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 
+
 #include "ACTFW/Plugins/BField/ScalableBField.hpp"
 #include "ACTFW/EventData/Track.hpp"
 #include "ACTFW/Framework/BareAlgorithm.hpp"
@@ -42,6 +43,7 @@ namespace FW{
       = std::function<FinderResult(const std::vector<SourceLink>&,
 				   const FW::TrackParameters&,
 				   const Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>&)>;
+
 
     static FinderFunction
       makeFinderFunction(
