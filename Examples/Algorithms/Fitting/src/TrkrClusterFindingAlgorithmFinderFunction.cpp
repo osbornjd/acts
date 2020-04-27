@@ -29,7 +29,7 @@ namespace {
     operator()(
        const std::vector<SourceLink>& sourceLinks,
        const FW::TrackParameters&                          initialParameters,
-       const Acts::CombinatorialKalmanFilterOptions<Acts::VoidBranchStopper>&       options) const
+       const Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>&       options) const
     {
       /// Call CombinatorialKalmanFilter findTracks
       return finder.findTracks(sourceLinks, initialParameters, options);
