@@ -21,7 +21,6 @@
 #include "Acts/TrackFinder/CombinatorialKalmanFilter.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 
-
 #include "ACTFW/Plugins/BField/ScalableBField.hpp"
 #include "ACTFW/EventData/Track.hpp"
 #include "ACTFW/Framework/BareAlgorithm.hpp"

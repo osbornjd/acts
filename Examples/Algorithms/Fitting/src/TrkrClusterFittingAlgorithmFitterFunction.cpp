@@ -19,7 +19,6 @@
 #include "Acts/Utilities/ParameterDefinitions.hpp"
 #include "boost/program_options.hpp"
 
-
 #include "ACTFW/Plugins/BField/ScalableBField.hpp"
 
 

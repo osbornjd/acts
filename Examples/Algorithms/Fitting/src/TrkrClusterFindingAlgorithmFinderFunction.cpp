@@ -14,7 +14,6 @@
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/ParameterDefinitions.hpp"
 
-
 /**
  * Struct that calls the finding algorithm to get the result of the track
  * propagation/finding
