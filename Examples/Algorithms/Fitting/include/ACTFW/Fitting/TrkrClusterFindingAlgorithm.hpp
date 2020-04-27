@@ -41,7 +41,7 @@ namespace FW{
     using FinderFunction 
       = std::function<FinderResult(const std::vector<SourceLink>&,
 				   const FW::TrackParameters&,
-				   const Acts::CombinatorialKalmanFilterOptions<Acts::VoidBranchStopper>&)>;
+				   const Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>&)>;
 
     static FinderFunction
       makeFinderFunction(
