@@ -44,7 +44,6 @@ namespace FW{
 				   const FW::TrackParameters&,
 				   const Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>&)>;
 
-
     static FinderFunction
       makeFinderFunction(
 	 std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
