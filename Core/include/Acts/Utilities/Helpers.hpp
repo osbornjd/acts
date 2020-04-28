@@ -187,6 +187,21 @@ static double cast(const Vector3D& position, BinningValue bval) {
     case binMag:
       return position.norm();
       break;
+    case binX:
+      return 0.;
+      break;
+    case binY:
+      return 0.;
+      break;
+    case binZ:
+      return 0.;
+      break;
+    case binRPhi:
+      return 0.;
+      break;
+    case binValues:
+      return 0.;
+      break;
   }
   return 0.;
 }
