@@ -63,8 +63,8 @@ class GainMatrixUpdater {
     static_assert(std::is_same_v<track_state_t, TrackStateProxy>,
                   "Given track state type is not a track state proxy");
 
-    //using CovMatrix_t = typename parameters_t::CovMatrix_t;
-    //using ParVector_t = typename parameters_t::ParVector_t;
+    using CovMatrix_t = typename parameters_t::CovMatrix_t;
+    using ParVector_t = typename parameters_t::ParVector_t;
 
     // we should definitely have an uncalibrated measurement here
     assert(trackState.hasUncalibrated());
