@@ -33,7 +33,7 @@ namespace FW {
  * This class contains the information required to run the Kalman fitter
  * with the TrkrClusterSourceLinks. Based on FW::FittingAlgorithm
  */
-class TrkrClusterFittingAlgorithm final : public FW::BareAlgorithm
+class TrkrClusterFittingAlgorithm : public FW::BareAlgorithm
 {
 public:
   /// Construct some aliases to be used for the fitting results
