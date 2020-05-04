@@ -31,7 +31,7 @@ using SourceLink = FW::Data::TrkrClusterSourceLink;
 
 namespace FW{
 
-  class TrkrClusterFindingAlgorithm final : public FW::BareAlgorithm
+  class TrkrClusterFindingAlgorithm : public FW::BareAlgorithm
   {
 
   public:
