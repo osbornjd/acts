@@ -90,6 +90,7 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
 
   std::string rootFileName = vm["geo-tgeo-filename"].template as<std::string>();
 
+
   // Create a beam pipe if configured to do so
   auto beamPipeParameters =
       vm["geo-tgeo-bp-parameters"].template as<read_range>();
@@ -115,13 +116,14 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     auto beamPipeVolumeBuilder =
         std::make_shared<const Acts::CylinderVolumeBuilder>(
 
+
             bpvConfig,
             Acts::getDefaultLogger("BeamPipeVolumeBuilder", volumeLogLevel));
     // add to the list of builders
     volumeBuilders.push_back(beamPipeVolumeBuilder);
 
-
   }
+
 
 
 

@@ -15,11 +15,6 @@ target_link_libraries(
     ActsExamplesIoCsv
     ActsExamplesIoPerformance)
 
-install(
-  TARGETS ActsRecTruthTracks
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-
 add_executable(
     ActsRecCKFTracks
     RecCKFTracks.cpp)
@@ -39,6 +34,7 @@ install(
   TARGETS
   ActsRecCKFTracks
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 
 install(
    TARGETS 
