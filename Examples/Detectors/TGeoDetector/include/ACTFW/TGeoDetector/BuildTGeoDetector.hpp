@@ -89,36 +89,42 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
   std::list<std::shared_ptr<const Acts::ITrackingVolumeBuilder>> volumeBuilders;
 
   std::string rootFileName = vm["geo-tgeo-filename"].template as<std::string>();
-  
-  // Create a beam pipe if configured to do so
-    auto beamPipeParameters 
-        = vm["geo-tgeo-bp-parameters"].template as<read_range>();
-    if (beamPipeParameters.size() > 2){
 
+
+  // Create a beam pipe if configured to do so
+  auto beamPipeParameters =
+      vm["geo-tgeo-bp-parameters"].template as<read_range>();
+  if (beamPipeParameters.size() > 2) {
     /// configure the beam pipe layer builder
     Acts::PassiveLayerBuilder::Config bplConfig;
-    bplConfig.layerIdentification     = "BeamPipe";
-    bplConfig.centralLayerRadii       = std::vector<double>(1, beamPipeParameters[0]);
-    bplConfig.centralLayerHalflengthZ = std::vector<double>(1, beamPipeParameters[1]);
-    bplConfig.centralLayerThickness   = std::vector<double>(1, beamPipeParameters[2]);
+    bplConfig.layerIdentification = "BeamPipe";
+    bplConfig.centralLayerRadii = std::vector<double>(1, beamPipeParameters[0]);
+    bplConfig.centralLayerHalflengthZ =
+        std::vector<double>(1, beamPipeParameters[1]);
+    bplConfig.centralLayerThickness =
+        std::vector<double>(1, beamPipeParameters[2]);
     auto beamPipeBuilder = std::make_shared<const Acts::PassiveLayerBuilder>(
-        bplConfig, Acts::getDefaultLogger("BeamPipeLayerBuilder", layerLogLevel));
+        bplConfig,
+        Acts::getDefaultLogger("BeamPipeLayerBuilder", layerLogLevel));
     // create the volume for the beam pipe
     Acts::CylinderVolumeBuilder::Config bpvConfig;
     bpvConfig.trackingVolumeHelper = cylinderVolumeHelper;
-    bpvConfig.volumeName           = "BeamPipe";
-    bpvConfig.layerBuilder         = beamPipeBuilder;
+    bpvConfig.volumeName = "BeamPipe";
+    bpvConfig.layerBuilder = beamPipeBuilder;
     bpvConfig.layerEnvelopeR = {1. * Acts::units::_mm, 1. * Acts::units::_mm};
     bpvConfig.buildToRadiusZero = true;
-    auto beamPipeVolumeBuilder
-        = std::make_shared<const Acts::CylinderVolumeBuilder>(
+    auto beamPipeVolumeBuilder =
+        std::make_shared<const Acts::CylinderVolumeBuilder>(
+
 
             bpvConfig,
             Acts::getDefaultLogger("BeamPipeVolumeBuilder", volumeLogLevel));
     // add to the list of builders
     volumeBuilders.push_back(beamPipeVolumeBuilder);
 
-    }
+  }
+
+
 
 
   // import the file from
@@ -141,9 +147,12 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     Acts::CylinderVolumeBuilder::Config volumeConfig;
     volumeConfig.trackingVolumeHelper = cylinderVolumeHelper;
     volumeConfig.volumeName = lbc.configurationName;
-    volumeConfig.checkRingLayout      = lbc.checkRingLayout;
-    volumeConfig.ringTolerance        = lbc.ringTolerance;
-    volumeConfig.buildToRadiusZero    = (volumeBuilders.size() == 0);
+
+
+    volumeConfig.checkRingLayout = lbc.checkRingLayout;
+    volumeConfig.ringTolerance = lbc.ringTolerance;
+    volumeConfig.buildToRadiusZero = (volumeBuilders.size() == 0);
+
 
     volumeConfig.layerEnvelopeR = {1. * Acts::units::_mm,
                                    5. * Acts::units::_mm};
