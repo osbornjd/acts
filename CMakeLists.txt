@@ -17,15 +17,19 @@ project(Acts VERSION ${_acts_version} LANGUAGES CXX)
 
 # all options and compile-time parameters must be defined here for clear
 # visibility and make them available everywhere
+option(ACTS_BUILD_EVERYTHING "Build with most options enabled (except HepMC3 and documentation)" OFF)
 # core related options
 set(ACTS_PARAMETER_DEFINITIONS_HEADER "" CACHE FILEPATH "Use a different (track) parameter definitions header")
-option(ACTS_BUILD_DD4HEP_PLUGIN "Build DD4HEP plugin" OFF)
+# plugins related options
+option(ACTS_BUILD_CUDA_PLUGIN "Build CUDA plugin" OFF)
+option(ACTS_BUILD_DD4HEP_PLUGIN "Build DD4hep plugin" OFF)
 option(ACTS_BUILD_DIGITIZATION_PLUGIN "Build Digitization plugin" OFF)
 option(ACTS_BUILD_IDENTIFICATION_PLUGIN "Build Identification plugin" OFF)
-option(ACTS_BUILD_JSON_PLUGIN "Build Json plugin" OFF)
-option(ACTS_USE_BUNDLED_NLOHMANN_JSON "Use external nlohmann::json" ON)
+option(ACTS_BUILD_JSON_PLUGIN "Build json plugin" OFF)
+option(ACTS_USE_BUNDLED_NLOHMANN_JSON "Use external nlohmann::json installation" ON)
 option(ACTS_BUILD_TGEO_PLUGIN "Build TGeo plugin" OFF)
 option(ACTS_BUILD_LEGACY "Build legacy plugin" OFF)
+# fatras related options
 option(ACTS_BUILD_FATRAS "Build FAst TRAcking Simulation package" OFF)
 # examples related options
 option(ACTS_BUILD_EXAMPLES "Build standalone examples" OFF)
@@ -38,19 +42,19 @@ option(ACTS_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ACTS_BUILD_UNITTESTS "Build unit tests" OFF)
 option(ACTS_BUILD_INTEGRATIONTESTS "Build integration tests" OFF)
 # other options
-option(ACTS_BUILD_EVERYTHING "Build with most options enabled (except documentation)" OFF)
-option(ACTS_BUILD_DOC "Build documentation" OFF)
+option(ACTS_BUILD_DOCS "Build documentation" OFF)
 
 # handle option inter-dependencies and the everything flag
-# DD4hep and HepMC3 are excluded from the EVERYTHING option for now since
-# they are not yet available in every CI build.
 include(ActsOptionHelpers)
 # options without inter-dependencies
 set_option_if(ACTS_BUILD_BENCHMARKS ACTS_BUILD_EVERYTHING)
 set_option_if(ACTS_BUILD_UNITTESTS ACTS_BUILD_EVERYTHING)
 set_option_if(ACTS_BUILD_INTEGRATIONTESTS ACTS_BUILD_EVERYTHING)
-#set_option_if(ACTS_BUILD_EXAMPLES_DD4HEP ACTS_BUILD_EVERYTHING)
+set_option_if(ACTS_BUILD_EXAMPLES_DD4HEP ACTS_BUILD_EVERYTHING)
 set_option_if(ACTS_BUILD_EXAMPLES_GEANT4 ACTS_BUILD_EVERYTHING)
+# HepMC3 is not available in an appropriate version on LCG95apython3 and
+# can thus not be used on all CI builds yet.
+# TODO include in EVERYTHING once LCG95apython3 support is dropped
 # set_option_if(ACTS_BUILD_EXAMPLES_HEPMC3 ACTS_BUILD_EVERYTHING)
 set_option_if(ACTS_BUILD_EXAMPLES_PYTHIA8 ACTS_BUILD_EVERYTHING)
 # any examples component activates the general option
@@ -103,7 +107,7 @@ find_package(Eigen 3.2.9 REQUIRED)
 # trees to sort of when a particular package is actually needed.
 #
 # version variables for external dependencies that are required more than once
-set(acts_dd4hep_version 1.2)
+set(acts_dd4hep_version 1.10)
 set(acts_root_version 6.10)
 if(ACTS_BUILD_DD4HEP_PLUGIN)
   find_package(DD4hep ${acts_dd4hep_version} REQUIRED COMPONENTS DDCore)
@@ -159,14 +163,20 @@ endif()
 if(ACTS_BUILD_EXAMPLES_PYTHIA8)
   find_package(Pythia8 REQUIRED)
 endif()
-if(ACTS_BUILD_DOC)
+if(ACTS_BUILD_DOCS)
   find_package(Doxygen 1.8.11 REQUIRED)
+  find_package(Sphinx REQUIRED)
+endif()
+if(ACTS_BUILD_CUDA_PLUGIN)
+  enable_language(CUDA)
+  set(CMAKE_CUDA_STANDARD 14)
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 endif()
 
 # core library, core plugins, and other components
 add_component(Core Core)
 add_subdirectory(Plugins)
-add_component(Fatras Fatras)
+add_component_if(Fatras Fatras ACTS_BUILD_FATRAS)
 
 # manual examples
 add_subdirectory_if(Examples ACTS_BUILD_EXAMPLES)
@@ -178,7 +188,7 @@ endif()
 add_subdirectory(Tests)
 
 # documentation
-add_subdirectory_if(doc ACTS_BUILD_DOC)
+add_subdirectory_if(docs ACTS_BUILD_DOCS)
 
 # create cmake configuration files and environment setup script
 include(ActsCreateCMakeConfig)

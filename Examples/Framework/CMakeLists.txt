@@ -1,5 +1,6 @@
 add_library(
   ActsExamplesFramework SHARED
+  src/EventData/SimMultiTrajectory.cpp
   src/Framework/BareAlgorithm.cpp
   src/Framework/BareService.cpp
   src/Framework/RandomNumbers.cpp
@@ -9,6 +10,7 @@ add_library(
   src/Utilities/Helpers.cpp
   src/Validation/EffPlotTool.cpp
   src/Validation/FakeRatePlotTool.cpp
+  src/Validation/DuplicationPlotTool.cpp
   src/Validation/TrackSummaryPlotTool.cpp
   src/Validation/ProtoTrackClassification.cpp
   src/Validation/ResPlotTool.cpp)

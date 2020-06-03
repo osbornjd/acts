@@ -112,6 +112,7 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     bpvConfig.buildToRadiusZero = true;
     auto beamPipeVolumeBuilder
         = std::make_shared<const Acts::CylinderVolumeBuilder>(
+
             bpvConfig,
             Acts::getDefaultLogger("BeamPipeVolumeBuilder", volumeLogLevel));
     // add to the list of builders
@@ -143,6 +144,7 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     volumeConfig.checkRingLayout      = lbc.checkRingLayout;
     volumeConfig.ringTolerance        = lbc.ringTolerance;
     volumeConfig.buildToRadiusZero    = (volumeBuilders.size() == 0);
+
     volumeConfig.layerEnvelopeR = {1. * Acts::units::_mm,
                                    5. * Acts::units::_mm};
     volumeConfig.layerBuilder = layerBuilder;
@@ -161,8 +163,8 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
   // Add the builders
   for (auto& vb : volumeBuilders) {
     tgConfig.trackingVolumeBuilders.push_back(
-        [=](const auto& c, const auto& inner, const auto&) {
-          return vb->trackingVolume(c, inner);
+        [=](const auto& gcontext, const auto& inner, const auto&) {
+          return vb->trackingVolume(gcontext, inner);
         });
   }
   // Add the helper

@@ -8,9 +8,10 @@
 
 #pragma once
 #include <iostream>
+#include "Acts/Geometry/Extent.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
+#include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Definitions.hpp"
 
 namespace Acts {
@@ -23,26 +24,12 @@ namespace Acts {
 
 struct ProtoLayer {
  public:
-  double maxX;
-  double minX;
+  /// The extent of the ProtoLayer
+  Extent extent;
 
-  double maxY;
-  double minY;
-
-  double maxZ;
-  double minZ;
-
-  double maxR;
-  double minR;
-
-  double maxPhi;
-  double minPhi;
-
-  std::pair<double, double> envX = {0, 0};
-  std::pair<double, double> envY = {0, 0};
-  std::pair<double, double> envZ = {0, 0};
-  std::pair<double, double> envR = {0, 0};
-  std::pair<double, double> envPhi = {0, 0};
+  /// The envelope parameters
+  using Range = std::pair<double, double>;
+  std::vector<Range> envelope = std::vector<Range>((int)binValues, {0., 0.});
 
   /// Constructor
   ///
@@ -66,18 +53,39 @@ struct ProtoLayer {
   ProtoLayer(const GeometryContext& gctx,
              const std::vector<std::shared_ptr<const Surface>>& surfaces);
 
-  // normal empty constructor
   ProtoLayer() = default;
 
+  /// Get the parameters : min
+  /// @param bval The accessed binning value
+  /// @param addenv The steering if enevlope is added or not
+  double min(BinningValue bval, bool addenv = true);
+
+  // Get the  parameters : max
+  /// @param bval The accessed binning value
+  /// @param addenv The steering if enevlope is added or not
+  double max(BinningValue bval, bool addenv = true);
+
+  // Get the  parameters : max
+  /// @param bval The accessed binning value
+  /// @param addenv The steering if enevlope is added or not
+  double medium(BinningValue bval, bool addenv = true);
+
+  // Get the  parameters : max
+  /// @param bval The accessed binning value
+  /// @param addenv The steering if enevlope is added or not
+  double range(BinningValue bval, bool addenv = true);
+
+  /// Output to ostream
+  /// @param sl the input ostream
   std::ostream& toStream(std::ostream& sl) const;
 
-  /// Calculates the closest radial distance of a line
-  ///
-  /// @param pos1 is the first position on the line
-  /// @param pos2 is the second position on the line
-  ///
-  /// @return is the closest distance
-  double radialDistance(const Vector3D& pos1, const Vector3D& pos2) const;
+  /// Give access to the surfaces used/assigned to the ProtoLayer
+  const std::vector<const Surface*>& surfaces() const;
+
+  /// Add a surface, this will also increase the extent
+  /// @param gctx The current geometry context object, e.g. alignment
+  /// @param surface The surface which is added to the ProtoLayer
+  void add(const GeometryContext& gctx, const Surface& surface);
 
  private:
   /// Helper method which performs the actual min/max calculation
@@ -86,5 +94,13 @@ struct ProtoLayer {
   /// @param surfaces The surfaces to build this protolayer out of
   void measure(const GeometryContext& gctx,
                const std::vector<const Surface*>& surfaces);
+
+  /// Store the list of surfaces used for this proto layer
+  std::vector<const Surface*> m_surfaces = {};
 };
+
+inline const std::vector<const Surface*>& ProtoLayer::surfaces() const {
+  return m_surfaces;
+}
+
 }  // namespace Acts

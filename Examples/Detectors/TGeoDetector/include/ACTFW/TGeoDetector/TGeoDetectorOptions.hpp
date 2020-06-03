@@ -37,10 +37,14 @@ void addTGeoGeometryOptions(options_t& opt) {
                     "Root file name.")(
       "geo-tgeo-worldvolume", po::value<std::string>()->default_value(""),
       "Root world volume to start search from.")(
+      "geo-tgeo-nodesearch-debug", po::value<bool>()->default_value(false),
+      "Run ultra-verbose screen output to check node search.")(
       "geo-tgeo-unitScalor", po::value<double>()->default_value(10.),
       "Unit scalor from ROOT to Acts.")(
       "geo-tgeo-bp-parameters",
+
        po::value<read_range>()->multitoken()->default_value({}),
+
       "Potential beam pipe parameters {r, z, t} in [mm].")(
       "geo-tgeo-nlayers",
       po::value<read_series>()->multitoken()->default_value({}),
@@ -155,12 +159,14 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
   read_strings subdetectors =
       vm["geo-subdetectors"].template as<read_strings>();
   double unitScalor = vm["geo-tgeo-unitScalor"].template as<double>();
-  // these define a series, such as 1, 3, 4
+
+  // The number of layers, can be set 1 with splitting detection
   read_series nlayers = vm["geo-tgeo-nlayers"].template as<read_series>();
   read_series clayers = vm["geo-tgeo-clayers"].template as<read_series>();
   read_series players = vm["geo-tgeo-players"].template as<read_series>();
 
   std::array<read_series, 3> layers = {nlayers, clayers, players};
+
 
   std::array<size_t, 3> series_size
     = {nlayers.size(), clayers.size(), players.size()};
@@ -179,8 +185,10 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
   read_strings playernames =
       vm["geo-tgeo-playernames"].template as<read_strings>();
 
+
   std::array<read_strings, 3> layernames
     = {nlayernames, clayernames, playernames};
+
 
   read_strings nsensitivenames =
       vm["geo-tgeo-nmodulenames"].template as<read_strings>();
@@ -298,5 +306,6 @@ std::vector<Acts::TGeoLayerBuilder::Config> readTGeoLayerBuilderConfigs(
     }
     return detLayerConfigs;
 }
+
 }  // namespace Options
 }  // namespace FW
