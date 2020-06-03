@@ -13,6 +13,7 @@
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/EventData/TrackState.hpp"
+#include "Acts/EventData/TrackStatePropMask.hpp"
 #include "Acts/EventData/TrackStateSorters.hpp"
 #include "Acts/Fitter/detail/VoidKalmanComponents.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
@@ -412,7 +413,7 @@ class CombinatorialKalmanFilter {
       }
 
       // Post-processing after forward filtering
-      if (result.forwardFiltered) {
+      if (result.forwardFiltered and not result.finished) {
         // Return error if forward filtering finds no tracks
         if (result.trackTips.empty()) {
           result.result =
@@ -421,6 +422,8 @@ class CombinatorialKalmanFilter {
           if (not smoothing) {
             // Manually set the targetReached to abort the propagation
             ACTS_VERBOSE("Finish forward Kalman filtering");
+            // Remember that track finding is done
+            result.finished = true;
             state.navigation.targetReached = true;
           } else {
             // Iterate over the found tracks for smoothing and getting the
@@ -445,8 +448,7 @@ class CombinatorialKalmanFilter {
             // -> then progress to target/reference surface and built the final
             // track parameters for found track indexed with iSmoothed
             if (result.smoothed and
-                targetReached(state, stepper, *targetSurface) and
-                not result.finished) {
+                targetReached(state, stepper, *targetSurface)) {
               ACTS_VERBOSE("Completing the track with entry index = "
                            << result.trackTips.at(result.iSmoothed));
               // Transport & bind the parameter to the final surface
@@ -773,7 +775,7 @@ class CombinatorialKalmanFilter {
     ///
     /// @return The tip of added state and its state
     Result<std::pair<size_t, TipState>> addSourcelinkState(
-        const TrackStatePropMask::Type& stateMask, const BoundState& boundState,
+        const TrackStatePropMask& stateMask, const BoundState& boundState,
         const source_link_t& sourcelink, bool isOutlier, result_type& result,
         std::reference_wrapper<const GeometryContext> geoContext,
         const size_t& prevTip, const TipState& prevTipState,
@@ -865,7 +867,7 @@ class CombinatorialKalmanFilter {
     /// @param prevTip The index of the previous state
     ///
     /// @return The tip of added state
-    size_t addHoleState(const TrackStatePropMask::Type& stateMask,
+    size_t addHoleState(const TrackStatePropMask& stateMask,
                         const BoundState& boundState, result_type& result,
                         size_t prevTip = SIZE_MAX) const {
       // Add a track state
@@ -908,7 +910,7 @@ class CombinatorialKalmanFilter {
     /// @param prevTip The index of the previous state
     ///
     /// @return The tip of added state
-    size_t addPassiveState(const TrackStatePropMask::Type& stateMask,
+    size_t addPassiveState(const TrackStatePropMask& stateMask,
                            const CurvilinearState& curvilinearState,
                            result_type& result,
                            size_t prevTip = SIZE_MAX) const {
@@ -1115,8 +1117,7 @@ class CombinatorialKalmanFilter {
   /// Fit implementation of the foward filter, calls the
   /// the forward filter and backward smoother
   ///
-  /// @tparam source_link_t Source link type identifying uncalibrated input
-  /// measurements.
+  /// @tparam source_link_container_t Source link container type
   /// @tparam start_parameters_t Type of the initial parameters
   /// @tparam comb_kalman_filter_options_t Type of the CombinatorialKalmanFilter
   /// options
@@ -1132,14 +1133,16 @@ class CombinatorialKalmanFilter {
   /// the track finding.
   ///
   /// @return the output as an output track
-  template <typename source_link_t, typename start_parameters_t,
+  template <typename source_link_container_t, typename start_parameters_t,
             typename comb_kalman_filter_options_t,
             typename parameters_t = BoundParameters>
-  Result<CombinatorialKalmanFilterResult<source_link_t>> findTracks(
-      const std::vector<source_link_t>& sourcelinks,
-      const start_parameters_t& sParameters,
-      const comb_kalman_filter_options_t& tfOptions) const {
-    static_assert(SourceLinkConcept<source_link_t>,
+  Result<CombinatorialKalmanFilterResult<
+      typename source_link_container_t::value_type>>
+  findTracks(const source_link_container_t& sourcelinks,
+             const start_parameters_t& sParameters,
+             const comb_kalman_filter_options_t& tfOptions) const {
+    using SourceLink = typename source_link_container_t::value_type;
+    static_assert(SourceLinkConcept<SourceLink>,
                   "Source link does not fulfill SourceLinkConcept");
 
     static_assert(
@@ -1153,7 +1156,7 @@ class CombinatorialKalmanFilter {
     // To be able to find measurements later, we put them into a map
     // We need to copy input SourceLinks anyways, so the map can own them.
     ACTS_VERBOSE("Preparing " << sourcelinks.size() << " input measurements");
-    std::unordered_map<const Surface*, std::vector<source_link_t>>
+    std::unordered_map<const Surface*, std::vector<SourceLink>>
         inputMeasurements;
     for (const auto& sl : sourcelinks) {
       const Surface* srf = &sl.referenceSurface();
@@ -1161,9 +1164,8 @@ class CombinatorialKalmanFilter {
     }
 
     // Create the ActionList and AbortList
-    using CombinatorialKalmanFilterAborter =
-        Aborter<source_link_t, parameters_t>;
-    using CombinatorialKalmanFilterActor = Actor<source_link_t, parameters_t>;
+    using CombinatorialKalmanFilterAborter = Aborter<SourceLink, parameters_t>;
+    using CombinatorialKalmanFilterActor = Actor<SourceLink, parameters_t>;
     using CombinatorialKalmanFilterResult =
         typename CombinatorialKalmanFilterActor::result_type;
     using Actors = ActionList<CombinatorialKalmanFilterActor>;
@@ -1208,9 +1210,12 @@ class CombinatorialKalmanFilter {
     auto combKalmanResult =
         propRes.template get<CombinatorialKalmanFilterResult>();
 
-    /// It could happen that propagation reaches max step size
-    /// before the track finding is finished.
-    if (combKalmanResult.result.ok() and not combKalmanResult.forwardFiltered) {
+    /// The propagation could already reach max step size
+    /// before the track finding is finished during two phases:
+    // -> forward filtering for track finding
+    // -> surface targeting to get fitted parameters at target surface
+    // @TODO: Implement distinguishment between the above two cases if necessary
+    if (combKalmanResult.result.ok() and not combKalmanResult.finished) {
       combKalmanResult.result = Result<void>(
           CombinatorialKalmanFilterError::PropagationReachesMaxSteps);
     }
