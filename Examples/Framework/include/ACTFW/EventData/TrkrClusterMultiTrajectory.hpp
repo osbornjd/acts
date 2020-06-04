@@ -18,7 +18,7 @@
 
 namespace FW {
   using IndexedParams = std::unordered_map<size_t, Acts::BoundParameters>;
-  using SourceLink = TrkrClusterSourceLink;
+  using SourceLink = FW::Data::TrkrClusterSourceLink;
   
 /// @brief Struct for truth track fitting/finding result with
 /// Acts::KalmanFitter/Acts::CombinatorialKalmanFilter
