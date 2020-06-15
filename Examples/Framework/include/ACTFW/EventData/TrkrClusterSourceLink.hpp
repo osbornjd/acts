@@ -44,6 +44,15 @@ public:
   TrkrClusterSourceLink& operator=(TrkrClusterSourceLink&&)      = default;
   TrkrClusterSourceLink& operator=(const TrkrClusterSourceLink&) = default;
 
+  const Acts::BoundVector location() const
+  {
+    return m_loc;
+  }
+  const Acts::BoundMatrix covariance() const
+  {
+    return m_cov;
+  }
+
   const Acts::GeometryID geoId() const 
   {
     return m_geoId;
