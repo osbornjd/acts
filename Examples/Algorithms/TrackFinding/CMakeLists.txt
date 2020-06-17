@@ -2,6 +2,7 @@ add_library(
   ActsExamplesTrackFinding SHARED
   src/TrackFindingAlgorithm.cpp
   src/TrackFindingAlgorithmTrackFinderFunction.cpp
+  src/TrkrClusterFindingAlgorithmFinderFunction.cpp
   src/TrackFindingOptions.cpp)
 target_include_directories(
   ActsExamplesTrackFinding
