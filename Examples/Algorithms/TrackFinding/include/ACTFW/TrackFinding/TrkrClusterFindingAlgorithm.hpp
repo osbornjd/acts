@@ -37,11 +37,11 @@ namespace FW{
   public:
     using FinderResult = 
       Acts::Result<Acts::CombinatorialKalmanFilterResult<SourceLink>>;
-
+    using CKFOptions = Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>;
     using FinderFunction 
       = std::function<FinderResult(const std::vector<SourceLink>&,
 				   const FW::TrackParameters&,
-				   const Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>&)>;
+				   const CKFOptions&)>;
 
     static FinderFunction
       makeFinderFunction(

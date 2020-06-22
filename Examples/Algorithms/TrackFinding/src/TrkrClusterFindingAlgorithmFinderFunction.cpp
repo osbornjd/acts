@@ -1,4 +1,4 @@
-#include "ACTFW/Fitting/TrkrClusterFindingAlgorithm.hpp"
+#include "ACTFW/TrackFinding/TrkrClusterFindingAlgorithm.hpp"
 
 
 #include "Acts/Fitter/GainMatrixSmoother.hpp"
@@ -32,7 +32,6 @@ namespace {
        const FW::TrackParameters&                          initialParameters,
        const Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>&       options) const
   {
-
       /// Call CombinatorialKalmanFilter findTracks
       return finder.findTracks(sourceLinks, initialParameters, options);
     };
@@ -61,8 +60,9 @@ FW::TrkrClusterFindingAlgorithm::makeFinderFunction(
         using Stepper            = Acts::EigenStepper<MagneticField>;
         using Navigator          = Acts::Navigator;
         using Propagator         = Acts::Propagator<Stepper, Navigator>;
+	using SourceLinkSelector = Acts::CKFSourceLinkSelector;
         using Finder             = Acts::CombinatorialKalmanFilter
-	                           <Propagator, Updater, Smoother>;
+	  <Propagator, Updater, Smoother, SourceLinkSelector>;
 
         /// Make the components for the fitter
         MagneticField field(std::move(inputField));

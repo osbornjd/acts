@@ -2,6 +2,7 @@ add_library(
   ActsExamplesTrackFinding SHARED
   src/TrackFindingAlgorithm.cpp
   src/TrackFindingAlgorithmTrackFinderFunction.cpp
+  src/TrkrClusterFindingAlgorithmFinderFunction.cpp
   src/TrackFindingOptions.cpp)
 target_include_directories(
   ActsExamplesTrackFinding
@@ -16,3 +17,5 @@ target_link_libraries(
 install(
   TARGETS ActsExamplesTrackFinding
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+install(DIRECTORY include/ACTFW DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
