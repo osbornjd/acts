@@ -1011,6 +1011,8 @@ class KalmanFitter {
     for (const auto& sl : sourcelinks) {
       const Surface* srf = &sl.referenceSurface();
       inputMeasurements.emplace(srf, sl);
+      ACTS_VERBOSE("Added sl with surface " << srf->geoID());
+      
     }
 
     // Create the ActionList and AbortList

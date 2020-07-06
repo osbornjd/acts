@@ -39,12 +39,15 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
     for (; result.steps < state.options.maxSteps; ++result.steps) {
       // Perform a propagation step - it takes the propagation state
       std::cout<<"Joe: Step the state"<<std::endl;
+      std::cout<<"Joe: Stepping state : "<<std::endl;
+      std::cout<<"Joe : "<<state.stepping.pos<<std::endl;
       Result<double> res = m_stepper.step(state);
       std::cout<<"Joe: state stepped"<<std::endl;
       if (res.ok()) {
         // Accumulate the path length
         double s = *res;
         result.pathLength += s;
+	std::cout<<"State path length accumulated: " << s << std::endl;
         debugLog(state, [&] {
           std::stringstream dstream;
           dstream << "Step with size = ";

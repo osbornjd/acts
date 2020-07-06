@@ -75,6 +75,7 @@ class AtlasStepper {
       // this is a nasty but working solution for the stepper state without
       // functions
 
+ 
       const ActsVectorD<3> pos = pars.position();
       const auto Vp = pars.parameters();
 
@@ -268,7 +269,7 @@ class AtlasStepper {
     Covariance cov = Covariance::Zero();
     bool covTransport = false;
     double jacobian[eBoundParametersSize * eBoundParametersSize];
-
+    Vector3D pos = Vector3D(0,0,0);
     // accummulated path length cache
     double pathAccumulated = 0.;
 
