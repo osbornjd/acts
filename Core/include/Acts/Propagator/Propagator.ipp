@@ -70,13 +70,17 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
             
       std::cout<<"Joe: post state stepping"<<std::endl;
       m_navigator.status(state, m_stepper);
+      std::cout<<"Joe: navigator status"<<std::endl;
       state.options.actionList(state, m_stepper, result);
+      std::cout<<"Joe: Perform next Actor action"<<std::endl;
       if (state.options.abortList(result, state, m_stepper)) {
+      std::cout<<"Joe: Terminated aborter normally"<<std::endl;
         terminatedNormally = true;
         break;
       }
      std::cout<<"Joe: navigator target"<<std::endl;   
      m_navigator.target(state, m_stepper);
+     std::cout<<"Joe: set navigator new target"<<std::endl;
     }
   }
   std::cout<<"Joe: check if normal termination for state stepper"<<std::endl;

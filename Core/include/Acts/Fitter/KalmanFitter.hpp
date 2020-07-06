@@ -316,7 +316,9 @@ class KalmanFitter {
       // Update:
       // - Waiting for a current surface
       auto surface = state.navigation.currentSurface;
+         
       if (surface != nullptr) {
+	ACTS_VERBOSE("Actor acting on surface : " << surface->geoID());
         // Check if the surface is in the measurement map
         // -> Get the measurement / calibrate
         // -> Create the predicted state
@@ -508,6 +510,9 @@ class KalmanFitter {
                         const stepper_t& stepper, result_type& result) const {
       // Try to find the surface in the measurement surfaces
       auto sourcelink_it = inputMeasurements.find(surface);
+      if(sourcelink_it == inputMeasurements.end())
+	ACTS_VERBOSE("Joe: surface couldn't be found in inputMeasurements!");
+      
       if (sourcelink_it != inputMeasurements.end()) {
         // Screen output message
         ACTS_VERBOSE("Measurement surface " << surface->geoID()
@@ -667,7 +672,7 @@ class KalmanFitter {
         // Update state and stepper with material effects
         materialInteractor(surface, state, stepper, fullUpdate);
       }
-      ACTS_VERBOSE("Joe: Return result");
+      ACTS_VERBOSE("Joe: Return result from filter(...)");
       return Result<void>::success();
     }
 
