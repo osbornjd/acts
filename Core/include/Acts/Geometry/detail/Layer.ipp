@@ -222,6 +222,8 @@ const SurfaceIntersection Layer::surfaceOnApproach(
                    (m_ssSensitiveSurfaces > 1 || m_ssApproachSurfaces > 1 ||
                     surfaceRepresentation().surfaceMaterial());
 
+  std::cout<<"Joe: resolvePS and resolveMS " <<resolvePS<<"  "<<resolveMS<<std::endl;
+
   // The signed direction: solution (except overstepping) is positive
   auto sDirection = options.navDir * direction;
 
@@ -234,6 +236,7 @@ const SurfaceIntersection Layer::surfaceOnApproach(
       [&](SurfaceIntersection& sIntersection) -> SurfaceIntersection {
     // Avoid doing anything if that's a rotten apple already
     if (!sIntersection) {
+    std::cout<<"Joe: returning sIntersection immediately"<<std::endl;
       return sIntersection;
     }
     double cLimit = sIntersection.intersection.pathLength;
@@ -242,11 +245,13 @@ const SurfaceIntersection Layer::surfaceOnApproach(
         (cLimit > oLimit and
          cLimit * cLimit <= pLimit * pLimit + s_onSurfaceTolerance);
 	 std::cout<<"Joe: surfaceOnApproach withinLimit == "<<withinLimit<<std::endl;
+	 std::cout<<"Joe: surfaceTolerance "<<s_onSurfaceTolerance<<std::endl;
 	 std::cout<<"Joe:surfaceOnApproach cLimit == "<<cLimit<<std::endl;
     if (withinLimit) {
       // Set the right sign to the path length
       sIntersection.intersection.pathLength *=
           std::copysign(1., options.navDir);
+	  std::cout<<"Joe: set right sign and pathlength " <<sIntersection.intersection.pathLength<<std::endl;
       return sIntersection;
     } else if (sIntersection.alternative.status >=
                Intersection::Status::reachable) {
@@ -254,6 +259,7 @@ const SurfaceIntersection Layer::surfaceOnApproach(
       cLimit = sIntersection.alternative.pathLength;
       withinLimit = (cLimit > oLimit and
                      cLimit * cLimit <= pLimit * pLimit + s_onSurfaceTolerance);
+      std::cout<<"Joe: Testing alternative "<<cLimit<<", "<<withinLimit<<", "<<s_onSurfaceTolerance<<std::endl;		     
       if (sIntersection.alternative and withinLimit) {
         // Set the right sign for the path length
         sIntersection.alternative.pathLength *=
@@ -264,6 +270,7 @@ const SurfaceIntersection Layer::surfaceOnApproach(
       }
     }
     // Return an invalid one
+    std::cout<<"Joe: returning invalid SurfaceIntersection"<<std::endl;
     return SurfaceIntersection();
   };
 
@@ -272,6 +279,7 @@ const SurfaceIntersection Layer::surfaceOnApproach(
   std::cout<<"Joe: call approachSurface"<<std::endl;
     SurfaceIntersection aSurface = m_approachDescriptor->approachSurface(
         gctx, position, sDirection, options.boundaryCheck);
+	std::cout<<"Joe: returning checkIntersection(aSurface)"<<std::endl;
     return checkIntersection(aSurface);
   }
   std::cout<<"Joe: intersect and check representing surface"<<std::endl;
@@ -279,6 +287,7 @@ const SurfaceIntersection Layer::surfaceOnApproach(
   const Surface& rSurface = surfaceRepresentation();
   auto sIntersection =
       rSurface.intersect(gctx, position, sDirection, options.boundaryCheck);
+ std::cout<<"Joe: returning checkIntersection(sIntersection)"<<std::endl;
   return checkIntersection(sIntersection);
 }
 

@@ -27,11 +27,13 @@ Acts::GenericApproachDescriptor::approachSurface(
   sIntersections.reserve(m_surfaceCache.size());
   for (auto& sf : m_surfaceCache) {
     // intersect
+    std::cout<<"Joe: check surface intersection in approachSurface for surf "<<sf->geoID()<<std::endl;
     auto intersection =
         sf->intersectionEstimate(gctx, position, direction, bcheck);
     sIntersections.push_back(ObjectIntersection<Surface>(intersection, sf));
   }
   // Sort them & return the closest
+  std::cout<<"Joe: sorting surface intersection vector of size "<<sIntersections.size()<<std::endl;
   std::sort(sIntersections.begin(), sIntersections.end());
   return (*sIntersections.begin());
 }
