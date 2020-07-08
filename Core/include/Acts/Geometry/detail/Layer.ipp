@@ -228,7 +228,7 @@ const SurfaceIntersection Layer::surfaceOnApproach(
   // The Limits: current path & overstepping
   double pLimit = options.pathLimit;
   double oLimit = options.overstepLimit;
-
+  std::cout<<"Joe: surfaceOnApproach plimit and olimit: " <<pLimit<<", "<<oLimit<<std::endl;
   // Helper function to test intersection
   auto checkIntersection =
       [&](SurfaceIntersection& sIntersection) -> SurfaceIntersection {
@@ -241,6 +241,8 @@ const SurfaceIntersection Layer::surfaceOnApproach(
     bool withinLimit =
         (cLimit > oLimit and
          cLimit * cLimit <= pLimit * pLimit + s_onSurfaceTolerance);
+	 std::cout<<"Joe: surfaceOnApproach withinLimit == "<<withinLimit<<std::endl;
+	 std::cout<<"Joe:surfaceOnApproach cLimit == "<<cLimit<<std::endl;
     if (withinLimit) {
       // Set the right sign to the path length
       sIntersection.intersection.pathLength *=
@@ -256,6 +258,7 @@ const SurfaceIntersection Layer::surfaceOnApproach(
         // Set the right sign for the path length
         sIntersection.alternative.pathLength *=
             std::copysign(1., options.navDir);
+	    std::cout<<"Joe: returning new SurfaceIntersection"<<std::endl;
         return SurfaceIntersection(sIntersection.alternative,
                                    sIntersection.object);
       }
@@ -266,11 +269,12 @@ const SurfaceIntersection Layer::surfaceOnApproach(
 
   // Approach descriptor present and resolving is necessary
   if (m_approachDescriptor && (resolvePS || resolveMS)) {
+  std::cout<<"Joe: call approachSurface"<<std::endl;
     SurfaceIntersection aSurface = m_approachDescriptor->approachSurface(
         gctx, position, sDirection, options.boundaryCheck);
     return checkIntersection(aSurface);
   }
-
+  std::cout<<"Joe: intersect and check representing surface"<<std::endl;
   // Intersect and check the representing surface
   const Surface& rSurface = surfaceRepresentation();
   auto sIntersection =

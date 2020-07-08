@@ -30,10 +30,12 @@ std::vector<LayerIntersection> TrackingVolume::compatibleLayers(
 
   // the confinedLayers
   if (m_confinedLayers != nullptr) {
+    std::cout<<"Joe: Confined layers !null"<<std::endl;
     // start layer given or not - test layer
     const Layer* tLayer = options.startObject != nullptr
                               ? options.startObject
                               : associatedLayer(gctx, position);
+    std::cout<<"Joe: check tLayer !null"<<std::endl;			      
     while (tLayer != nullptr) {
       // check if the layer needs resolving
       // - resolveSensitive -> always take layer if it has a surface array
@@ -43,25 +45,31 @@ std::vector<LayerIntersection> TrackingVolume::compatibleLayers(
       if (tLayer != options.startObject && tLayer->resolve(options)) {
         // if it's a resolveable start layer, you are by definition on it
         // layer on approach intersection
+	std::cout<<"Joe: Resolveable layer"<<std::endl;
         auto atIntersection =
             tLayer->surfaceOnApproach(gctx, position, direction, options);
         auto path = atIntersection.intersection.pathLength;
+	std::cout<<"Joe: get layer intersection path length "<<path<<std::endl;
         bool withinLimit =
             (path * path <= options.pathLimit * options.pathLimit);
+	std::cout<<"Joe: withinLimit == "<<withinLimit<<": pathLimit == "<<options.pathLimit<<std::endl;
         // Intersection is ok - take it (move to surface on appraoch)
         if (atIntersection &&
             (atIntersection.object != options.targetSurface) && withinLimit) {
           // create a layer intersection
+	  std::cout<<"Joe: adding layer intersection"<<std::endl;
           lIntersections.push_back(LayerIntersection(
               atIntersection.intersection, tLayer, atIntersection.object));
         }
       }
+      std::cout<<"Joe: move to next layer"<<std::endl;
       // move to next one or break because you reached the end layer
       tLayer =
           (tLayer == options.endObject)
               ? nullptr
               : tLayer->nextLayer(gctx, position, options.navDir * direction);
     }
+    std::cout<<"Joe: sort and return compatible layers"<<std::endl;
     // sort them accordingly to the navigation direction
     if (options.navDir == forward) {
       std::sort(lIntersections.begin(), lIntersections.end());
