@@ -16,7 +16,7 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
   std::cout<<"Joe: entering propagate_impl"<<std::endl;
   // Pre-stepping call to the navigator and action list
   debugLog(state, [&] { return std::string("Entering propagation."); });
-
+ 
   // Navigator initialize state call
   m_navigator.status(state, m_stepper);
   std::cout<<"Joe: pre-stepping call to action list"<<std::endl;
@@ -47,7 +47,7 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
         // Accumulate the path length
         double s = *res;
         result.pathLength += s;
-	std::cout<<"State path length accumulated: " << s << std::endl;
+	std::cout<<"Joe: State path length accumulated: " << s << std::endl;
         debugLog(state, [&] {
           std::stringstream dstream;
           dstream << "Step with size = ";

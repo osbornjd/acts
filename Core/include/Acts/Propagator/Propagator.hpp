@@ -150,7 +150,7 @@ struct PropagatorOptions {
   //  -> @todo: move to a debug struct
   // - the string where debug messages are stored (optionally)
   // - it also has some formatting options
-  bool debug = false;            ///< switch debug on
+  bool debug = true;            ///< switch debug on
   std::string debugString = "";  ///< the string to collect msgs
   size_t debugPfxWidth = 30;     ///< the prefix width
   size_t debugMsgWidth = 50;     ///< the mesage width

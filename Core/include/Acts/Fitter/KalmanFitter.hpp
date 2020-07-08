@@ -1031,6 +1031,7 @@ class KalmanFitter {
     PropagatorOptions<Actors, Aborters> kalmanOptions(
         kfOptions.geoContext, kfOptions.magFieldContext);
 
+    kalmanOptions.debug = true;
     // Catch the actor and set the measurements
     auto& kalmanActor = kalmanOptions.actionList.template get<KalmanActor>();
     kalmanActor.m_logger = m_logger.get();
