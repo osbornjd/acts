@@ -35,6 +35,8 @@ Acts::GenericApproachDescriptor::approachSurface(
   // Sort them & return the closest
   std::cout<<"Joe: sorting surface intersection vector of size "<<sIntersections.size()<<std::endl;
   std::sort(sIntersections.begin(), sIntersections.end());
+  std::cout<<"Joe: GenericApproachDescriptor - returning surface with geoID " 
+	   << (*sIntersections.begin()).object->geoID()<<std::endl;
   return (*sIntersections.begin());
 }
 
