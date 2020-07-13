@@ -25,11 +25,13 @@ static Intersection intersectionEstimate(const Transform3D& transform,
                                          const Vector3D& position,
                                          const Vector3D& direction) {
   // Get the matrix from the transform (faster access)
+  std::cout<<"Joe - starting PlanarHelper"<<std::endl;
   const auto& tMatrix = transform.matrix();
   const Vector3D pnormal = tMatrix.block<3, 1>(0, 2).transpose();
   const Vector3D pcenter = tMatrix.block<3, 1>(0, 3).transpose();
   // It is solvable, so go on
   double denom = direction.dot(pnormal);
+  std::cout<<"Joe - denom is "<<denom<<std::endl;
   if (denom != 0.0) {
     // Translate that into a path
     double path = (pnormal.dot((pcenter - position))) / (denom);
@@ -38,9 +40,17 @@ static Intersection intersectionEstimate(const Transform3D& transform,
         (path * path < s_onSurfaceTolerance * s_onSurfaceTolerance)
             ? Intersection::Status::onSurface
             : Intersection::Status::reachable;
+    std::cout<<"Joe - returning intersection with status ";
+    if(status == Intersection::Status::onSurface)
+      std::cout<<"onSurface"<<std::endl;
+    else if (status == Intersection::Status::reachable)
+      std::cout<<"reachable"<<std::endl;
+    else
+      std::cout<<"some unknown intersection status!"<<std::endl;
     // Return the intersection
     return Intersection{(position + path * direction), path, status};
   }
+  std::cout<<"Joe - returning default intersection"<<std::endl;
   return Intersection();
 }
 
