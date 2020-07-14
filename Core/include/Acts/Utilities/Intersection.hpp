@@ -13,7 +13,7 @@
 #pragma once
 #include <limits>
 #include "Definitions.hpp"
-
+#include <iostream>
 namespace Acts {
 
 ///  @struct Intersection
@@ -54,12 +54,15 @@ struct Intersection {
   /// @param si is the intersection for testing
   bool operator<(const Intersection& si) const {
     if (status == Status::unreachable) {
+      std::cout<<"Joe - intersection comparison unreachable, returning false"<<std::endl;
       return false;
     }
     // Now check the pathLength
     if (si.status != Status::unreachable) {
+      std::cout<<"Joe - returning "<<pathLength << " <? " << si.pathLength << std::endl;
       return (pathLength < si.pathLength);
     }
+    std::cout<<"Joe - returning current one"<<std::endl;
     // The current one wins, no re-ordering
     return true;
   }
