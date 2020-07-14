@@ -37,12 +37,15 @@ inline detail::RealQuadraticEquation CylinderSurface::intersectionSolver(
 inline Intersection CylinderSurface::intersectionEstimate(
     const GeometryContext& gctx, const Vector3D& position,
     const Vector3D& direction, const BoundaryCheck& bcheck) const {
+
+    std::cout<<"Joe - begin cylinder surface intersection estimate"<<std::endl;
   const auto& gctxTransform = transform(gctx);
   // Solve the quadratic equation
   auto qe = intersectionSolver(gctxTransform, position, direction);
 
   // If no valid solution return a non-valid intersection
   if (qe.solutions == 0) {
+  std::cout<<"Joe - returning non-valid intersection in cylinder surface"<<std::endl;
     return Intersection();
   }
 
@@ -54,13 +57,20 @@ inline Intersection CylinderSurface::intersectionEstimate(
       path * path < s_onSurfaceTolerance * s_onSurfaceTolerance
           ? Intersection::Status::onSurface
           : Intersection::Status::reachable;
-
+  if(status == Intersection::Status::onSurface)
+  std::cout<<"Joe - cylinder intersection on surface"<<std::endl;
+  else if(status == Intersection::Status::reachable)
+  std::cout<<"Joe - cylinder intersection reachable"<<std::endl;
+  else
+  std::cout<<"Joe - some other cylinder intersection status"<<std::endl;
   // Boundary check necessary
   if (bcheck and not isOnSurface(gctx, solution, direction, bcheck)) {
+  std::cout<<"Joe - intersection status is missed cylinder surface"<<std::endl;
     status = Intersection::Status::missed;
   }
 
   // Now return the solution
+  std::cout<<"Joe - return normal cylinder surface intersection"<<std::endl;
   return Intersection(solution, path, status);
 }
 
