@@ -1,21 +1,10 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2017-2019 CERN for the benefit of the Acts project
+// Copyright (C) 2017-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-#include <Acts/Geometry/GeometryContext.hpp>
-#include <Acts/Geometry/TrackingGeometry.hpp>
-#include <Acts/MagneticField/MagneticFieldContext.hpp>
-#include <Acts/Material/SurfaceMaterialMapper.hpp>
-#include <Acts/Plugins/Json/JsonGeometryConverter.hpp>
-#include <Acts/Propagator/Navigator.hpp>
-#include <Acts/Propagator/Propagator.hpp>
-#include <Acts/Propagator/StraightLineStepper.hpp>
-#include <boost/program_options.hpp>
-#include <memory>
 
 #include "ACTFW/Detector/IBaseDetector.hpp"
 #include "ACTFW/Framework/Sequencer.hpp"
@@ -29,6 +18,18 @@
 #include "ACTFW/Plugins/Json/JsonMaterialWriter.hpp"
 #include "ACTFW/Propagation/PropagationOptions.hpp"
 #include "ACTFW/Utilities/Paths.hpp"
+#include <Acts/Geometry/GeometryContext.hpp>
+#include <Acts/Geometry/TrackingGeometry.hpp>
+#include <Acts/MagneticField/MagneticFieldContext.hpp>
+#include <Acts/Material/SurfaceMaterialMapper.hpp>
+#include <Acts/Plugins/Json/JsonGeometryConverter.hpp>
+#include <Acts/Propagator/Navigator.hpp>
+#include <Acts/Propagator/Propagator.hpp>
+#include <Acts/Propagator/StraightLineStepper.hpp>
+
+#include <memory>
+
+#include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
 
@@ -64,19 +65,15 @@ int materialMappingExample(int argc, char* argv[],
   Acts::GeometryContext geoContext;
   Acts::MagneticFieldContext mfContext;
 
-  // Get a Navigator
-  Acts::Navigator navigator(tGeometry);
-
   // Straight line stepper
   using SlStepper = Acts::StraightLineStepper;
   using Propagator = Acts::Propagator<SlStepper, Acts::Navigator>;
-  // Make stepper and propagator
-  SlStepper stepper;
-  Propagator propagator(std::move(stepper), std::move(navigator));
 
   auto matCollection = vm["mat-mapping-collection"].template as<std::string>();
-  auto mappingtype = vm["mat-mapping-type"].template as<std::string>();
-  if (mappingtype != "surface" && mappingtype != "volume") {
+  auto mapSurface = vm["mat-mapping-surfaces"].template as<bool>();
+  auto mapVolume = vm["mat-mapping-volumes"].template as<bool>();
+  auto volumeStep = vm["mat-mapping-volume-stepsize"].template as<float>();
+  if (!mapSurface && !mapVolume) {
     return EXIT_FAILURE;
   }
   // ---------------------------------------------------------------------------------
@@ -98,16 +95,28 @@ int materialMappingExample(int argc, char* argv[],
 
   /// The material mapping algorithm
   FW::MaterialMapping::Config mmAlgConfig(geoContext, mfContext);
-  if (mappingtype == "surface") {
-    /// The material mapper
+  if (mapSurface) {
+    // Get a Navigator
+    Acts::Navigator navigator(tGeometry);
+    // Make stepper and propagator
+    SlStepper stepper;
+    Propagator propagator(std::move(stepper), std::move(navigator));
+    /// The material surface mapper
     Acts::SurfaceMaterialMapper::Config smmConfig;
     auto smm = std::make_shared<Acts::SurfaceMaterialMapper>(
         smmConfig, std::move(propagator),
         Acts::getDefaultLogger("SurfaceMaterialMapper", logLevel));
     mmAlgConfig.materialSurfaceMapper = smm;
-  } else if (mappingtype == "volume") {
-    /// The material mapper
+  }
+  if (mapVolume) {
+    // Get a Navigator
+    Acts::Navigator navigator(tGeometry);
+    // Make stepper and propagator
+    SlStepper stepper;
+    Propagator propagator(std::move(stepper), std::move(navigator));
+    /// The material volume mapper
     Acts::VolumeMaterialMapper::Config vmmConfig;
+    vmmConfig.mappingStep = volumeStep;
     auto vmm = std::make_shared<Acts::VolumeMaterialMapper>(
         vmmConfig, std::move(propagator),
         Acts::getDefaultLogger("VolumeMaterialMapper", logLevel));
@@ -128,7 +137,7 @@ int materialMappingExample(int argc, char* argv[],
     mmAlgConfig.materialWriters.push_back(
         std::make_shared<RootWriter>(std::move(rmwImpl)));
 
-    if (mappingtype == "surface") {
+    if (mapSurface) {
       // Write the propagation steps as ROOT TTree
       FW::RootMaterialTrackWriter::Config matTrackWriterRootConfig;
       matTrackWriterRootConfig.filePath = materialFileName + "_tracks.root";

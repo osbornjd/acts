@@ -6,12 +6,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include <boost/format.hpp>
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
-
-#include <fstream>
-#include <random>
 
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/SurfaceArrayCreator.hpp"
@@ -20,6 +16,13 @@
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Visualization/GeometryView.hpp"
+#include "Acts/Visualization/ObjVisualization.hpp"
+
+#include <fstream>
+#include <random>
+
+#include <boost/format.hpp>
 
 using Acts::VectorHelpers::perp;
 using Acts::VectorHelpers::phi;
@@ -545,6 +548,11 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_dependentBinCounts,
   auto axes = sArray->getAxes();
   BOOST_CHECK_EQUAL(axes.at(0)->getNBins(), 3u);
   BOOST_CHECK_EQUAL(axes.at(1)->getNBins(), 10u);
+
+  // Write the surrace array with grid
+  ObjVisualization objVis;
+  GeometryView::drawSurfaceArray(objVis, *sArray, tgContext);
+  objVis.write("SurfaceArrayCreator_EndcapGrid");
 }
 
 BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_completeBinning,
@@ -573,6 +581,11 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_completeBinning,
       std::make_tuple(std::move(phiAxis), std::move(zAxis)));
   sl->fill(tgContext, brlRaw);
   SurfaceArray sa(std::move(sl), brl);
+
+  // Write the surrace array with grid
+  ObjVisualization objVis;
+  GeometryView::drawSurfaceArray(objVis, sa, tgContext);
+  objVis.write("SurfaceArrayCreator_BarrelGrid");
 
   // actually filled SA
   for (const auto& srf : brl) {

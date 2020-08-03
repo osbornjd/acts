@@ -1,15 +1,12 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
-
-#include <list>
-#include <vector>
 
 #include "ACTFW/TGeoDetector/BuildTGeoDetector.hpp"
 #include "ACTFW/TGeoDetector/TGeoDetectorOptions.hpp"
@@ -20,6 +17,7 @@
 #include "Acts/Geometry/LayerCreator.hpp"
 #include "Acts/Geometry/PassiveLayerBuilder.hpp"
 #include "Acts/Geometry/SurfaceArrayCreator.hpp"
+#include "Acts/Geometry/SurfaceBinningMatcher.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Geometry/TrackingGeometryBuilder.hpp"
 #include "Acts/Geometry/TrackingVolumeArrayCreator.hpp"
@@ -27,6 +25,12 @@
 #include "Acts/Material/MaterialProperties.hpp"
 #include "Acts/Plugins/TGeo/TGeoDetectorElement.hpp"
 #include "Acts/Utilities/Units.hpp"
+
+#include "Acts/Utilities/BinningType.hpp"
+
+#include <list>
+#include <vector>
+
 #include "TGeoManager.h"
 
 using namespace Acts::UnitLiterals;
@@ -60,6 +64,10 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
   auto surfaceArrayCreator = std::make_shared<const Acts::SurfaceArrayCreator>(
       sacConfig,
       Acts::getDefaultLogger("SurfaceArrayCreator", surfaceLogLevel));
+  // configure the proto layer helper
+  Acts::ProtoLayerHelper::Config plhConfig;
+  auto protoLayerHelper = std::make_shared<const Acts::ProtoLayerHelper>(
+      plhConfig, Acts::getDefaultLogger("ProtoLayerHelper", layerLogLevel));
   // configure the layer creator that uses the surface array creator
   Acts::LayerCreator::Config lcConfig;
   lcConfig.surfaceArrayCreator = surfaceArrayCreator;
@@ -83,8 +91,8 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
       std::make_shared<const Acts::CylinderVolumeHelper>(
           cvhConfig,
           Acts::getDefaultLogger("CylinderVolumeHelper", volumeLogLevel));
-  //-------------------------------------------------------------------------------------
 
+  //-------------------------------------------------------------------------------------
   // list the volume builders
   std::list<std::shared_ptr<const Acts::ITrackingVolumeBuilder>> volumeBuilders;
 
@@ -131,23 +139,56 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
   TGeoManager::Import(rootFileName.c_str());
 
   auto layerBuilderConfigs =
-      FW::Options::readTGeoLayerBuilderConfigs<variable_maps_t>(vm,
-                                                                layerCreator);
+      FW::Options::readTGeoLayerBuilderConfigs<variable_maps_t>(vm);
 
   // remember the layer builders to collect the detector elements
   std::vector<std::shared_ptr<const Acts::TGeoLayerBuilder>> tgLayerBuilders;
 
   for (auto& lbc : layerBuilderConfigs) {
+    std::shared_ptr<const Acts::LayerCreator> layerCreatorLB = nullptr;
+
+    if (lbc.autoSurfaceBinning) {
+      // Configure surface array creator (optionally) per layer builder
+      // (in order to configure them to work appropriately)
+      Acts::SurfaceArrayCreator::Config sacConfigLB;
+      sacConfigLB.surfaceMatcher = lbc.surfaceBinMatcher;
+      auto surfaceArrayCreatorLB =
+          std::make_shared<const Acts::SurfaceArrayCreator>(
+              sacConfigLB, Acts::getDefaultLogger(
+                               lbc.configurationName + "SurfaceArrayCreator",
+                               surfaceLogLevel));
+      // configure the layer creator that uses the surface array creator
+      Acts::LayerCreator::Config lcConfigLB;
+      lcConfigLB.surfaceArrayCreator = surfaceArrayCreatorLB;
+      layerCreatorLB = std::make_shared<const Acts::LayerCreator>(
+          lcConfigLB,
+          Acts::getDefaultLogger(lbc.configurationName + "LayerCreator",
+                                 layerLogLevel));
+    }
+
+    // Configure the proto layer helper
+    Acts::ProtoLayerHelper::Config plhConfigLB;
+    auto protoLayerHelperLB = std::make_shared<const Acts::ProtoLayerHelper>(
+        plhConfigLB,
+        Acts::getDefaultLogger(lbc.configurationName + "ProtoLayerHelper",
+                               layerLogLevel));
+
+    //-------------------------------------------------------------------------------------
+    lbc.layerCreator =
+        (layerCreatorLB != nullptr) ? layerCreatorLB : layerCreator;
+    lbc.protoLayerHelper =
+        (protoLayerHelperLB != nullptr) ? protoLayerHelperLB : protoLayerHelper;
+
     auto layerBuilder = std::make_shared<const Acts::TGeoLayerBuilder>(
         lbc, Acts::getDefaultLogger(lbc.configurationName + "LayerBuilder",
                                     layerLogLevel));
     // remember the layer builder
     tgLayerBuilders.push_back(layerBuilder);
+
     // build the pixel volume
     Acts::CylinderVolumeBuilder::Config volumeConfig;
     volumeConfig.trackingVolumeHelper = cylinderVolumeHelper;
     volumeConfig.volumeName = lbc.configurationName;
-
 
     volumeConfig.checkRingLayout = lbc.checkRingLayout;
     volumeConfig.ringTolerance = lbc.ringTolerance;
@@ -156,6 +197,21 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
 
     volumeConfig.layerEnvelopeR = {1. * Acts::units::_mm,
                                    5. * Acts::units::_mm};
+    auto ringLayoutConfiguration =
+        [&](const std::vector<Acts::TGeoLayerBuilder::LayerConfig>& lConfigs)
+        -> void {
+      for (const auto& lcfg : lConfigs) {
+        for (const auto& scfg : lcfg.splitConfigs) {
+          if (scfg.first == Acts::binR and scfg.second > 0.) {
+            volumeConfig.ringTolerance =
+                std::max(volumeConfig.ringTolerance, scfg.second);
+            volumeConfig.checkRingLayout = true;
+          }
+        }
+      }
+    };
+    ringLayoutConfiguration(lbc.layerConfigurations[0]);
+    ringLayoutConfiguration(lbc.layerConfigurations[2]);
     volumeConfig.layerBuilder = layerBuilder;
     volumeConfig.volumeSignature = 0;
     auto volumeBuilder = std::make_shared<const Acts::CylinderVolumeBuilder>(

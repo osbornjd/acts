@@ -7,14 +7,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
-#include <cmath>
-
 #include "Acts/Surfaces/DiscBounds.hpp"
 #include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/ParameterDefinitions.hpp"
 #include "Acts/Utilities/detail/periodic.hpp"
 
 #include <array>
+#include <cmath>
 #include <vector>
 
 namespace Acts {
@@ -130,7 +129,7 @@ class DiscTrapezoidBounds : public DiscBounds {
   /// @note that the number of segments are ignored for this surface
   ///
   /// @return vector for vertices in 2D
-  std::vector<Vector2D> vertices(unsigned int lseg) const;
+  std::vector<Vector2D> vertices(unsigned int lseg) const final;
 
  private:
   std::array<double, eSize> m_values;

@@ -15,6 +15,8 @@
 #include "Acts/Geometry/Polyhedron.hpp"
 #include "Acts/Surfaces/BoundaryCheck.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
+#include "Acts/Surfaces/detail/AlignmentHelper.hpp"
+#include "Acts/Utilities/AlignmentDefinitions.hpp"
 #include "Acts/Utilities/BinnedArray.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Definitions.hpp"
@@ -258,6 +260,24 @@ class Surface : public virtual GeometryObject,
                    const Vector3D& momentum,
                    const BoundaryCheck& bcheck = true) const;
 
+  /// The derivative of bound track parameters w.r.t. alignment
+  /// parameters of its reference surface (i.e. local frame origin in
+  /// global 3D Cartesian coordinates and its rotation represented with
+  /// extrinsic Euler angles)
+  ///
+  /// @param gctx The current geometry context object, e.g. alignment
+  /// @param derivatives Path length derivatives of the free, nominal
+  /// parameters to help evaluate change of free track parameters caused by
+  /// change of alignment parameters
+  /// @param position The position of the paramters in global
+  /// @param direction The direction of the track
+  ///
+  /// @return Derivative of bound track parameters w.r.t. local frame
+  /// alignment parameters
+  const AlignmentToBoundMatrix alignmentToBoundDerivative(
+      const GeometryContext& gctx, const FreeVector& derivatives,
+      const Vector3D& position, const Vector3D& direction) const;
+
   /// The insideBounds method for local positions
   ///
   /// @param lposition The local position to check
@@ -397,29 +417,7 @@ class Surface : public virtual GeometryObject,
   virtual SurfaceIntersection intersect(const GeometryContext& gctx,
                                         const Vector3D& position,
                                         const Vector3D& direction,
-                                        const BoundaryCheck& bcheck) const
-
-  {
-    // Get the intersection with the surface
-    auto sIntersection =
-        intersectionEstimate(gctx, position, direction, bcheck);
-    // return a surface intersection with result direction
-    return SurfaceIntersection(sIntersection, this);
-  }
-
-  /// Straight line intersection from position and momentum
-  ///
-  /// @param gctx The current geometry context object, e.g. alignment
-  /// @param position global 3D position - considered to be on surface but not
-  ///        inside bounds (check is done)
-  /// @param direction 3D direction representation - expected to be normalized
-  ///        (no check done)
-  /// @param bcheck boundary check directive for this operation
-  ///
-  /// @return Intersection object
-  virtual Intersection intersectionEstimate(
-      const GeometryContext& gctx, const Vector3D& position,
-      const Vector3D& direction, const BoundaryCheck& bcheck) const = 0;
+                                        const BoundaryCheck& bcheck) const = 0;
 
   /// Output Method for std::ostream, to be overloaded by child classes
   ///
@@ -445,6 +443,36 @@ class Surface : public virtual GeometryObject,
   /// @return A list of vertices and a face/facett description of it
   virtual Polyhedron polyhedronRepresentation(const GeometryContext& gctx,
                                               size_t lseg) const = 0;
+
+  /// Calculate the derivative of path length w.r.t. alignment parameters of the
+  /// surface (i.e. local frame origin in global 3D Cartesian coordinates and
+  /// its rotation represented with extrinsic Euler angles)
+  ///
+  /// Re-implementation is needed for surface whose intersection with track is
+  /// not its local xy plane, e.g. LineSurface, CylinderSurface and ConeSurface
+  ///
+  /// @param gctx The current geometry context object, e.g. alignment
+  /// @param rotToLocalZAxis The derivative of local frame z axis vector w.r.t.
+  /// its rotation
+  /// @param position The position of the paramters in global
+  /// @param direction The direction of the track
+  ///
+  /// @return Derivative of path length w.r.t. the alignment parameters
+  virtual const AlignmentRowVector alignmentToPathDerivative(
+      const GeometryContext& gctx, const RotationMatrix3D& rotToLocalZAxis,
+      const Vector3D& position, const Vector3D& direction) const;
+
+  /// Calculate the derivative of bound track parameters local position w.r.t.
+  /// position in local 3D Cartesian coordinates
+  ///
+  /// @param gctx The current geometry context object, e.g. alignment
+  /// @param position The position of the paramters in global
+  ///
+  /// @return Derivative of bound local position w.r.t. position in local 3D
+  /// cartesian coordinates
+  virtual const LocalCartesianToBoundLocalMatrix
+  localCartesianToBoundLocalDerivative(const GeometryContext& gctx,
+                                       const Vector3D& position) const = 0;
 
  protected:
   /// Transform3D definition that positions

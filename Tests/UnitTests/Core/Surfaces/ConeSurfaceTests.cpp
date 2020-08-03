@@ -10,12 +10,12 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include <limits>
-
 #include "Acts/Surfaces/ConeSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Definitions.hpp"
+
+#include <limits>
 
 namespace tt = boost::test_tools;
 using boost::test_tools::output_test_stream;
@@ -236,6 +236,36 @@ BOOST_AUTO_TEST_CASE(ConeSurfaceExtent) {
   CHECK_CLOSE_ABS(zMax, pConeExtent.max(binZ), s_onSurfaceTolerance);
   CHECK_CLOSE_ABS(0., pConeExtent.min(binR), s_onSurfaceTolerance);
   CHECK_CLOSE_ABS(rMax, pConeExtent.max(binR), s_onSurfaceTolerance);
+}
+
+/// Unit test for testing ConeSurface alignment derivatives
+BOOST_AUTO_TEST_CASE(ConeSurfaceAlignment) {
+  double alpha{M_PI / 8.};
+  bool symmetric(false);
+  Translation3D translation{0., 1., 2.};
+  auto pTransform = std::make_shared<const Transform3D>(translation);
+  auto coneSurfaceObject =
+      Surface::makeShared<ConeSurface>(pTransform, alpha, symmetric);
+
+  const auto& rotation = pTransform->rotation();
+  // The local frame z axis
+  const Vector3D localZAxis = rotation.col(2);
+  // Check the local z axis is aligned to global z axis
+  CHECK_CLOSE_ABS(localZAxis, Vector3D(0., 0., 1.), 1e-15);
+
+  /// Define the track (global) position and direction
+  Vector3D globalPosition{0, 1. + std::tan(alpha), 3};
+
+  // Test the derivative of bound track parameters local position w.r.t.
+  // position in local 3D Cartesian coordinates
+  const auto& loc3DToLocBound =
+      coneSurfaceObject->localCartesianToBoundLocalDerivative(tgContext,
+                                                              globalPosition);
+  // Check if the result is as expected
+  LocalCartesianToBoundLocalMatrix expLoc3DToLocBound =
+      LocalCartesianToBoundLocalMatrix::Zero();
+  expLoc3DToLocBound << -1, 0, M_PI / 2. * std::tan(alpha), 0, 0, 1;
+  CHECK_CLOSE_ABS(loc3DToLocBound, expLoc3DToLocBound, 1e-10);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

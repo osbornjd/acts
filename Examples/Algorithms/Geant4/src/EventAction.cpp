@@ -8,9 +8,10 @@
 
 #include "EventAction.hpp"
 
+#include <stdexcept>
+
 #include <G4Event.hh>
 #include <G4RunManager.hh>
-#include <stdexcept>
 
 #include "PrimaryGeneratorAction.hpp"
 #include "SteppingAction.hpp"
@@ -58,7 +59,7 @@ void EventAction::EndOfEventAction(const G4Event* event) {
 
 /// Clear the recorded data.
 void EventAction::clear() {
-  //
+  m_materialTracks.clear();
 }
 
 /// Access the recorded material tracks.

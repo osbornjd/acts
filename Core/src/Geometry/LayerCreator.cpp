@@ -7,8 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Acts/Geometry/LayerCreator.hpp"
-#include <cmath>
-#include <set>
+
 #include "Acts/Geometry/CylinderLayer.hpp"
 #include "Acts/Geometry/DiscLayer.hpp"
 #include "Acts/Geometry/PlaneLayer.hpp"
@@ -19,6 +18,9 @@
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Units.hpp"
+
+#include <cmath>
+#include <set>
 
 using Acts::VectorHelpers::perp;
 using Acts::VectorHelpers::phi;
@@ -55,17 +57,17 @@ Acts::MutableLayerPtr Acts::LayerCreator::cylinderLayer(
 
   ACTS_VERBOSE("Creating a cylindrical Layer:");
   ACTS_VERBOSE(" - with layer R     = " << layerR);
-  ACTS_VERBOSE(" - from R min/max   = " << protoLayer.min(binR) << " / "
-                                        << protoLayer.max(binR));
+  ACTS_VERBOSE(" - from R min/max   = " << protoLayer.min(binR, false) << " / "
+                                        << protoLayer.max(binR, false));
   ACTS_VERBOSE(" - with R thickness = " << layerThickness);
   ACTS_VERBOSE("   - incl envelope  = " << protoLayer.envelope[binR].first
                                         << " / "
                                         << protoLayer.envelope[binR].second);
 
   ACTS_VERBOSE(" - with z min/max   = "
-               << protoLayer.min(binZ) << " (-"
+               << protoLayer.min(binZ, false) << " (-"
                << protoLayer.envelope[binZ].first << ") / "
-               << protoLayer.max(binZ) << " (+"
+               << protoLayer.max(binZ, false) << " (+"
                << protoLayer.envelope[binZ].second << ")");
 
   ACTS_VERBOSE(" - z center         = " << layerZ);
@@ -81,8 +83,9 @@ Acts::MutableLayerPtr Acts::LayerCreator::cylinderLayer(
     ACTS_VERBOSE(" - layer z shift  = " << -layerZ);
   }
 
-  ACTS_VERBOSE(" - with phi min/max = " << protoLayer.min(binPhi) << " / "
-                                        << protoLayer.max(binPhi));
+  ACTS_VERBOSE(" - with phi min/max = " << protoLayer.min(binPhi, false)
+                                        << " / "
+                                        << protoLayer.max(binPhi, false));
   ACTS_VERBOSE(" - # of modules     = " << surfaces.size() << " ordered in ( "
                                         << binsPhi << " x " << binsZ << ")");
   std::unique_ptr<SurfaceArray> sArray;
@@ -128,16 +131,16 @@ Acts::MutableLayerPtr Acts::LayerCreator::cylinderLayer(
   // adjust the layer radius
   ACTS_VERBOSE("Creating a cylindrical Layer:");
   ACTS_VERBOSE(" - with layer R     = " << layerR);
-  ACTS_VERBOSE(" - from R min/max   = " << protoLayer.min(binR) << " / "
-                                        << protoLayer.max(binR));
+  ACTS_VERBOSE(" - from R min/max   = " << protoLayer.min(binR, false) << " / "
+                                        << protoLayer.max(binR, false));
   ACTS_VERBOSE(" - with R thickness = " << layerThickness);
   ACTS_VERBOSE("   - incl envelope  = " << protoLayer.envelope[binR].first
                                         << " / "
                                         << protoLayer.envelope[binR].second);
   ACTS_VERBOSE(" - with z min/max   = "
-               << protoLayer.min(binZ) << " (-"
+               << protoLayer.min(binZ, false) << " (-"
                << protoLayer.envelope[binZ].first << ") / "
-               << protoLayer.max(binZ) << " (+"
+               << protoLayer.max(binZ, false) << " (+"
                << protoLayer.envelope[binZ].second << ")");
   ACTS_VERBOSE(" - z center         = " << layerZ);
   ACTS_VERBOSE(" - halflength z     = " << layerHalfZ);
@@ -151,8 +154,9 @@ Acts::MutableLayerPtr Acts::LayerCreator::cylinderLayer(
     ACTS_VERBOSE(" - layer z shift    = " << -layerZ);
   }
 
-  ACTS_VERBOSE(" - with phi min/max = " << protoLayer.min(binPhi) << " / "
-                                        << protoLayer.max(binPhi));
+  ACTS_VERBOSE(" - with phi min/max = " << protoLayer.min(binPhi, false)
+                                        << " / "
+                                        << protoLayer.max(binPhi, false));
   ACTS_VERBOSE(" - # of modules     = " << surfaces.size() << "");
 
   // create the surface array
@@ -196,19 +200,20 @@ Acts::MutableLayerPtr Acts::LayerCreator::discLayer(
   // adjust the layer radius
   ACTS_VERBOSE("Creating a disk Layer:");
   ACTS_VERBOSE(" - at Z position    = " << layerZ);
-  ACTS_VERBOSE(" - from Z min/max   = " << protoLayer.min(binZ) << " / "
-                                        << protoLayer.max(binZ));
+  ACTS_VERBOSE(" - from Z min/max   = " << protoLayer.min(binZ, false) << " / "
+                                        << protoLayer.max(binZ, false));
   ACTS_VERBOSE(" - with Z thickness = " << layerThickness);
   ACTS_VERBOSE("   - incl envelope  = " << protoLayer.envelope[binZ].first
                                         << " / "
                                         << protoLayer.envelope[binZ].second);
   ACTS_VERBOSE(" - with R min/max   = "
-               << protoLayer.min(binR) << " (-"
+               << protoLayer.min(binR, false) << " (-"
                << protoLayer.envelope[binR].first << ") / "
-               << protoLayer.max(binR) << " (+"
+               << protoLayer.max(binR, false) << " (+"
                << protoLayer.envelope[binR].second << ")");
-  ACTS_VERBOSE(" - with phi min/max = " << protoLayer.min(binPhi) << " / "
-                                        << protoLayer.max(binPhi));
+  ACTS_VERBOSE(" - with phi min/max = " << protoLayer.min(binPhi, false)
+                                        << " / "
+                                        << protoLayer.max(binPhi, false));
   ACTS_VERBOSE(" - # of modules    = " << surfaces.size() << " ordered in ( "
                                        << binsR << " x " << binsPhi << ")");
 
@@ -259,19 +264,20 @@ Acts::MutableLayerPtr Acts::LayerCreator::discLayer(
   // adjust the layer radius
   ACTS_VERBOSE("Creating a disk Layer:");
   ACTS_VERBOSE(" - at Z position    = " << layerZ);
-  ACTS_VERBOSE(" - from Z min/max   = " << protoLayer.min(binZ) << " / "
-                                        << protoLayer.max(binZ));
+  ACTS_VERBOSE(" - from Z min/max   = " << protoLayer.min(binZ, false) << " / "
+                                        << protoLayer.max(binZ, false));
   ACTS_VERBOSE(" - with Z thickness = " << layerThickness);
   ACTS_VERBOSE("   - incl envelope  = " << protoLayer.envelope[binZ].first
                                         << " / "
                                         << protoLayer.envelope[binZ].second);
   ACTS_VERBOSE(" - with R min/max   = "
-               << protoLayer.min(binR) << " (-"
+               << protoLayer.min(binR, false) << " (-"
                << protoLayer.envelope[binR].first << ") / "
-               << protoLayer.max(binR) << " (+"
+               << protoLayer.max(binR, false) << " (+"
                << protoLayer.envelope[binR].second << ")");
-  ACTS_VERBOSE(" - with phi min/max = " << protoLayer.min(binPhi) << " / "
-                                        << protoLayer.max(binPhi));
+  ACTS_VERBOSE(" - with phi min/max = " << protoLayer.min(binPhi, false)
+                                        << " / "
+                                        << protoLayer.max(binPhi, false));
   ACTS_VERBOSE(" - # of modules     = " << surfaces.size());
 
   // create the layer transforms if not given

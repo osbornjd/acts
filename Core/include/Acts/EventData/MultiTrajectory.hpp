@@ -8,6 +8,12 @@
 
 #pragma once
 
+#include "Acts/EventData/Measurement.hpp"
+#include "Acts/EventData/TrackStatePropMask.hpp"
+#include "Acts/Geometry/GeometryContext.hpp"
+#include "Acts/Utilities/ParameterDefinitions.hpp"
+#include "Acts/Utilities/TypeTraits.hpp"
+
 #include <bitset>
 #include <cstdint>
 #include <type_traits>
@@ -15,13 +21,21 @@
 
 #include <Eigen/Core>
 
-#include "Acts/EventData/TrackState.hpp"
-#include "Acts/EventData/TrackStatePropMask.hpp"
-#include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Utilities/ParameterDefinitions.hpp"
-#include "Acts/Utilities/TypeTraits.hpp"
-
 namespace Acts {
+
+/// @enum TrackStateFlag
+///
+/// This enum describes the type of TrackState
+enum TrackStateFlag {
+  MeasurementFlag = 0,
+  ParameterFlag = 1,
+  OutlierFlag = 2,
+  HoleFlag = 3,
+  MaterialFlag = 4,
+  NumTrackStateFlags = 5
+};
+
+using TrackStateType = std::bitset<TrackStateFlag::NumTrackStateFlags>;
 
 // forward declarations
 template <typename source_link_t>
@@ -120,15 +134,16 @@ struct IndexData {
 /// Proxy object to access a single point on the trajectory.
 ///
 /// @tparam source_link_t Type to link back to an original measurement
-/// @tparam N         Number of track parameters
 /// @tparam M         Maximum number of measurement dimensions
 /// @tparam ReadOnly  true for read-only access to underlying storage
-template <typename source_link_t, size_t N, size_t M, bool ReadOnly = true>
+template <typename source_link_t, size_t M, bool ReadOnly = true>
 class TrackStateProxy {
  public:
   using SourceLink = source_link_t;
-  using Parameters = typename Types<N, ReadOnly>::CoefficientsMap;
-  using Covariance = typename Types<N, ReadOnly>::CovarianceMap;
+  using Parameters =
+      typename Types<eBoundParametersSize, ReadOnly>::CoefficientsMap;
+  using Covariance =
+      typename Types<eBoundParametersSize, ReadOnly>::CovarianceMap;
   using Measurement = typename Types<M, ReadOnly>::CoefficientsMap;
   using MeasurementCovariance = typename Types<M, ReadOnly>::CovarianceMap;
 
@@ -137,11 +152,11 @@ class TrackStateProxy {
   // @TODO: Does not copy flags, because this fails: can't have col major row
   // vector, but that's required for 1xN projection matrices below.
   constexpr static auto ProjectorFlags = Eigen::RowMajor | Eigen::AutoAlign;
-  using Projector =
-      Eigen::Matrix<typename Covariance::Scalar, M, N, ProjectorFlags>;
+  using Projector = Eigen::Matrix<typename Covariance::Scalar, M,
+                                  eBoundParametersSize, ProjectorFlags>;
   using EffectiveProjector =
       Eigen::Matrix<typename Projector::Scalar, Eigen::Dynamic, Eigen::Dynamic,
-                    ProjectorFlags, M, N>;
+                    ProjectorFlags, M, eBoundParametersSize>;
 
   /// Index within the trajectory.
   /// @return the index
@@ -173,9 +188,8 @@ class TrackStateProxy {
   ///       not allocated in the source track state proxy.
   template <bool RO = ReadOnly, bool ReadOnlyOther,
             typename = std::enable_if<!RO>>
-  void copyFrom(
-      const TrackStateProxy<source_link_t, N, M, ReadOnlyOther>& other,
-      TrackStatePropMask mask = TrackStatePropMask::All) {
+  void copyFrom(const TrackStateProxy<source_link_t, M, ReadOnlyOther>& other,
+                TrackStatePropMask mask = TrackStatePropMask::All) {
     using PM = TrackStatePropMask;
     auto dest = getMask();
     auto src = other.getMask() &
@@ -262,10 +276,6 @@ class TrackStateProxy {
   /// @return The predicted parameters
   Parameters predicted() const;
 
-  /// Predicted parameters in the form of BoundParameters
-  /// @return BoundParameters instance of the predicted parameters
-  BoundParameters predictedParameters(const Acts::GeometryContext& gctx) const;
-
   /// Predicted track parameters covariance matrix.
   /// @return The predicted track parameter covariance
   Covariance predictedCovariance() const;
@@ -282,25 +292,17 @@ class TrackStateProxy {
   /// @return The filtered parameters covariance
   Covariance filteredCovariance() const;
 
-  /// Filtered parameters in the form of BoundParameters
-  /// @return BoundParameters instance of the filtered parameters
-  BoundParameters filteredParameters(const Acts::GeometryContext& gctx) const;
-
   /// Return whether filtered parameters+covariance is set
   /// @return Whether it is set
   bool hasFiltered() const { return data().ifiltered != IndexData::kInvalid; }
 
   /// Smoothed track parameters vector
-  /// @return the parameter vector
+  /// @return The smoothed parameters
   Parameters smoothed() const;
 
   /// Smoothed track parameters covariance matrix
   /// @return the parameter covariance matrix
   Covariance smoothedCovariance() const;
-
-  /// Smoothed parameters in the form of BoundParameters
-  /// @return BoundParameters instance of the smoothed parameters
-  BoundParameters smoothedParameters(const Acts::GeometryContext& gctx) const;
 
   /// Return whether smoothed parameters+covariance is set
   /// @return Whether it is set
@@ -354,10 +356,9 @@ class TrackStateProxy {
     IndexData& dataref = data();
     assert(dataref.iprojector != IndexData::kInvalid);
 
-    constexpr int max_measdim = MultiTrajectory<SourceLink>::MeasurementSizeMax;
-
-    static_assert(rows <= max_measdim, "Given projector has too many rows");
-    static_assert(cols <= max_measdim, "Given projector has too many columns");
+    static_assert(rows <= M, "Given projector has too many rows");
+    static_assert(cols <= eBoundParametersSize,
+                  "Given projector has too many columns");
 
     // set up full size projector with only zeros
     typename TrackStateProxy::Projector fullProjector =
@@ -365,7 +366,7 @@ class TrackStateProxy {
 
     // assign (potentially) smaller actual projector to matrix, preserving
     // zeroes outside of smaller matrix block.
-    fullProjector.template topLeftCorner<rows, max_measdim>() = projector;
+    fullProjector.template topLeftCorner<rows, cols>() = projector;
 
     // convert to bitset before storing
     m_traj->m_projectors[dataref.iprojector] = matrixToBitset(fullProjector);
@@ -446,9 +447,12 @@ class TrackStateProxy {
   /// @param meas The measurement object to set
   template <bool RO = ReadOnly, typename = std::enable_if_t<!RO>,
             ParID_t... params>
-  void setCalibrated(const Acts::Measurement<SourceLink, params...>& meas) {
+  void setCalibrated(const Acts::Measurement<SourceLink, BoundParametersIndices,
+                                             params...>& meas) {
     IndexData& dataref = data();
-    constexpr size_t measdim = Acts::Measurement<SourceLink, params...>::size();
+    constexpr size_t measdim =
+        Acts::Measurement<SourceLink, BoundParametersIndices,
+                          params...>::size();
 
     dataref.measdim = measdim;
 
@@ -467,10 +471,10 @@ class TrackStateProxy {
     std::shared_ptr<const Surface>& refSrf =
         m_traj->m_referenceSurfaces[dataref.irefsurface];
     // either unset, or the same, otherwise this is inconsistent assignment
-    assert(!refSrf || refSrf.get() == &meas.referenceSurface());
+    assert(!refSrf || refSrf.get() == &meas.referenceObject());
     if (!refSrf) {
       // ref surface is not set, set it now
-      refSrf = meas.referenceSurface().getSharedPtr();
+      refSrf = meas.referenceObject().getSharedPtr();
     }
 
     assert(dataref.icalibratedsourcelink != IndexData::kInvalid);
@@ -485,7 +489,9 @@ class TrackStateProxy {
   /// @param meas The measurement object to set
   template <bool RO = ReadOnly, typename = std::enable_if_t<!RO>,
             ParID_t... params>
-  void resetCalibrated(const Acts::Measurement<SourceLink, params...>& meas) {
+  void resetCalibrated(
+      const Acts::Measurement<SourceLink, BoundParametersIndices, params...>&
+          meas) {
     IndexData& dataref = data();
     auto& traj = *m_traj;
     // force reallocate, whether currently invalid or shared index
@@ -600,35 +606,19 @@ template <typename source_link_t>
 class MultiTrajectory {
  public:
   enum {
-    ParametersSize = eBoundParametersSize,
     MeasurementSizeMax = eBoundParametersSize,
   };
   using SourceLink = source_link_t;
   using ConstTrackStateProxy =
-      detail_lt::TrackStateProxy<SourceLink, ParametersSize, MeasurementSizeMax,
-                                 true>;
-  using TrackStateProxy = detail_lt::TrackStateProxy<SourceLink, ParametersSize,
-                                                     MeasurementSizeMax, false>;
+      detail_lt::TrackStateProxy<SourceLink, MeasurementSizeMax, true>;
+  using TrackStateProxy =
+      detail_lt::TrackStateProxy<SourceLink, MeasurementSizeMax, false>;
 
-  using ProjectorBitset = std::bitset<ParametersSize * MeasurementSizeMax>;
+  using ProjectorBitset =
+      std::bitset<eBoundParametersSize * MeasurementSizeMax>;
 
   /// Create an empty trajectory.
   MultiTrajectory() = default;
-
-  /// Add a track state using information from a separate track state object.
-  ///
-  /// @tparam parameters_t The parameter type used for the trackstate
-  /// @param trackParameters  at the local point
-  /// @param mask The bitmask that instructs which components to allocate and
-  /// which to leave invalid
-  /// @param iprevious        index of the previous state, SIZE_MAX if first
-  /// @note The parameter type from @p parameters_t is not currently stored in
-  /// MultiTrajectory.
-  /// @return Index of the newly added track state
-  template <typename parameters_t>
-  size_t addTrackState(const TrackState<SourceLink, parameters_t>& ts,
-                       TrackStatePropMask mask = TrackStatePropMask::All,
-                       size_t iprevious = SIZE_MAX);
 
   /// Add a track state without providing explicit information. Which components
   /// of the track state are initialized/allocated can be controlled via @p mask
@@ -671,11 +661,11 @@ class MultiTrajectory {
  private:
   /// index to map track states to the corresponding
   std::vector<detail_lt::IndexData> m_index;
-  typename detail_lt::Types<ParametersSize>::StorageCoefficients m_params;
-  typename detail_lt::Types<ParametersSize>::StorageCovariance m_cov;
+  typename detail_lt::Types<eBoundParametersSize>::StorageCoefficients m_params;
+  typename detail_lt::Types<eBoundParametersSize>::StorageCovariance m_cov;
   typename detail_lt::Types<MeasurementSizeMax>::StorageCoefficients m_meas;
   typename detail_lt::Types<MeasurementSizeMax>::StorageCovariance m_measCov;
-  typename detail_lt::Types<ParametersSize>::StorageCovariance m_jac;
+  typename detail_lt::Types<eBoundParametersSize>::StorageCovariance m_jac;
   std::vector<SourceLink> m_sourceLinks;
   std::vector<ProjectorBitset> m_projectors;
 
@@ -685,10 +675,9 @@ class MultiTrajectory {
   // be handled in a smart way by moving but not sure.
   std::vector<std::shared_ptr<const Surface>> m_referenceSurfaces;
 
-  friend class detail_lt::TrackStateProxy<SourceLink, ParametersSize,
-                                          MeasurementSizeMax, true>;
-  friend class detail_lt::TrackStateProxy<SourceLink, ParametersSize,
-                                          MeasurementSizeMax, false>;
+  friend class detail_lt::TrackStateProxy<SourceLink, MeasurementSizeMax, true>;
+  friend class detail_lt::TrackStateProxy<SourceLink, MeasurementSizeMax,
+                                          false>;
 };
 
 }  // namespace Acts

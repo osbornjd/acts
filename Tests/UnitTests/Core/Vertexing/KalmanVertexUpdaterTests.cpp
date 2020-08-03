@@ -84,6 +84,7 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_Updater) {
   // Linearizer for BoundParameters type test
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
+  Linearizer::State state(magFieldContext);
 
   // Create perigee surface at origin
   std::shared_ptr<PerigeeSurface> perigeeSurface =
@@ -100,7 +101,7 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_Updater) {
     double q = qDist(gen) < 0 ? -1. : 1.;
 
     // Construct random track parameters around origin
-    BoundParameters::ParVector_t paramVec;
+    BoundParameters::ParametersVector paramVec;
 
     paramVec << d0Dist(gen), z0Dist(gen), phiDist(gen), thetaDist(gen),
         q / pTDist(gen), 0.;
@@ -129,8 +130,8 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_Updater) {
     // Linearized state of the track
     LinearizedTrack linTrack =
         linearizer
-            .linearizeTrack(params, SpacePointVector::Zero(), geoContext,
-                            magFieldContext)
+            .linearizeTrack(params, Vector4D::Zero(), geoContext,
+                            magFieldContext, state)
             .value();
 
     // Create TrackAtVertex
@@ -142,7 +143,7 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_Updater) {
     // Create a vertex
     Vector3D vtxPos(vXYDist(gen), vXYDist(gen), vZDist(gen));
     Vertex<BoundParameters> vtx(vtxPos);
-    vtx.setFullCovariance(SpacePointSymMatrix::Identity() * 0.01);
+    vtx.setFullCovariance(SymMatrix4D::Identity() * 0.01);
 
     // Update trkAtVertex with assumption of originating from vtx
     KalmanVertexUpdater::updateVertexWithTrack<BoundParameters>(vtx, trkAtVtx);

@@ -9,6 +9,7 @@
 #pragma once
 
 #include <optional>
+#include <sstream>
 #include <system_error>
 #include <type_traits>
 #include <utility>
@@ -28,7 +29,7 @@ class Result {
    * This is used by the factory static methods to set up
    * the variant unambiguously in all cases.
    */
-  Result(std::variant<T, E>&& var) : m_var(var) {}
+  Result(std::variant<T, E>&& var) : m_var(std::move(var)) {}
 
  public:
   /**

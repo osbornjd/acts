@@ -107,14 +107,14 @@ inline const RotationMatrix3D DiscSurface::initJacobianToLocal(
   return rframeT;
 }
 
-inline Intersection DiscSurface::intersectionEstimate(
+inline SurfaceIntersection DiscSurface::intersect(
     const GeometryContext& gctx, const Vector3D& position,
     const Vector3D& direction, const BoundaryCheck& bcheck) const {
   // Get the contextual transform
   auto gctxTransform = transform(gctx);
   // Use the intersection helper for planar surfaces
   auto intersection =
-      PlanarHelper::intersectionEstimate(gctxTransform, position, direction);
+      PlanarHelper::intersect(gctxTransform, position, direction);
   // Evaluate boundary check if requested (and reachable)
   if (intersection.status != Intersection::Status::unreachable and bcheck and
       m_bounds != nullptr) {
@@ -134,7 +134,27 @@ inline Intersection DiscSurface::intersectionEstimate(
       intersection.status = Intersection::Status::missed;
     }
   }
-  return intersection;
+  return {intersection, this};
+}
+
+inline const LocalCartesianToBoundLocalMatrix
+DiscSurface::localCartesianToBoundLocalDerivative(
+    const GeometryContext& gctx, const Vector3D& position) const {
+  using VectorHelpers::perp;
+  using VectorHelpers::phi;
+  // The local frame transform
+  const auto& sTransform = transform(gctx);
+  // calculate the transformation to local coorinates
+  const Vector3D localPos = sTransform.inverse() * position;
+  const double lr = perp(localPos);
+  const double lphi = phi(localPos);
+  const double lcphi = std::cos(lphi);
+  const double lsphi = std::sin(lphi);
+  LocalCartesianToBoundLocalMatrix loc3DToLocBound =
+      LocalCartesianToBoundLocalMatrix::Zero();
+  loc3DToLocBound << lcphi, lsphi, 0, -lsphi / lr, lcphi / lr, 0;
+
+  return loc3DToLocBound;
 }
 
 inline const Vector3D DiscSurface::normal(const GeometryContext& gctx,

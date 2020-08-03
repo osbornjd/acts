@@ -21,7 +21,8 @@ GeometryContext tgContext = GeometryContext();
 using SourceLink = MinimalSourceLink;
 
 template <ParID_t... params>
-using MeasurementType = Measurement<SourceLink, params...>;
+using MeasurementType =
+    Measurement<SourceLink, BoundParametersIndices, params...>;
 using FittableMeasurement = FittableMeasurement<SourceLink>;
 
 BOOST_AUTO_TEST_CASE(getSurface_test) {
@@ -31,7 +32,7 @@ BOOST_AUTO_TEST_CASE(getSurface_test) {
   auto cylinder2 =
       Surface::makeShared<CylinderSurface>(nullptr, cylinderBounds);
 
-  ActsSymMatrixD<2> cov;
+  SymMatrix2D cov;
   cov << 0.04, 0, 0, 0.1;
   MeasurementType<ParDef::eLOC_0, ParDef::eLOC_1> m(cylinder, {},
                                                     std::move(cov), -0.1, 0.45);
@@ -49,7 +50,7 @@ BOOST_AUTO_TEST_CASE(getSurface_test) {
 BOOST_AUTO_TEST_CASE(getSize_test) {
   auto cylinder = Surface::makeShared<CylinderSurface>(nullptr, 3, 10);
 
-  ActsSymMatrixD<2> cov;
+  SymMatrix2D cov;
   cov << 0.04, 0, 0, 0.1;
   MeasurementType<ParDef::eLOC_0, ParDef::eLOC_1> m(cylinder, {},
                                                     std::move(cov), -0.1, 0.45);
@@ -69,7 +70,7 @@ BOOST_AUTO_TEST_CASE(getSize_test) {
 BOOST_AUTO_TEST_CASE(MinimalSourceLinkTest) {
   auto cylinder = Surface::makeShared<CylinderSurface>(nullptr, 3, 10);
 
-  ActsSymMatrixD<2> cov;
+  SymMatrix2D cov;
   cov << 0.04, 0, 0, 0.1;
   MeasurementType<ParDef::eLOC_0, ParDef::eLOC_1> m(cylinder, {},
                                                     std::move(cov), -0.1, 0.45);

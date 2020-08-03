@@ -7,6 +7,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Acts/Propagator/StraightLineStepper.hpp"
+
+#include "Acts/EventData/detail/coordinate_transformations.hpp"
 #include "Acts/Propagator/detail/CovarianceEngine.hpp"
 
 namespace Acts {
@@ -32,17 +34,14 @@ StraightLineStepper::curvilinearState(State& state) const {
       state.jacToGlobal, parameters, state.covTransport, state.pathAccumulated);
 }
 
-void StraightLineStepper::update(State& state,
-                                 const BoundParameters& pars) const {
-  const auto& mom = pars.momentum();
-  state.pos = pars.position();
-  state.dir = mom.normalized();
-  state.p = mom.norm();
-  state.t = pars.time();
+void StraightLineStepper::update(State& state, const FreeVector& parameters,
+                                 const Covariance& covariance) const {
+  state.pos = parameters.template segment<3>(eFreePos0);
+  state.dir = parameters.template segment<3>(eFreeDir0).normalized();
+  state.p = std::abs(1. / parameters[eFreeQOverP]);
+  state.t = parameters[eFreeTime];
 
-  if (pars.covariance()) {
-    state.cov = (*(pars.covariance()));
-  }
+  state.cov = covariance;
 }
 
 void StraightLineStepper::update(State& state, const Vector3D& uposition,
@@ -67,5 +66,29 @@ void StraightLineStepper::covarianceTransport(State& state,
   detail::covarianceTransport(state.geoContext, state.cov, state.jacobian,
                               state.jacTransport, state.derivative,
                               state.jacToGlobal, parameters, surface);
+}
+
+void StraightLineStepper::resetState(State& state,
+                                     const BoundVector& boundParams,
+                                     const BoundSymMatrix& cov,
+                                     const Surface& surface,
+                                     const NavigationDirection navDir,
+                                     const double stepSize) const {
+  using transformation = detail::coordinate_transformation;
+  // Update the stepping state
+  update(state,
+         transformation::boundParameters2freeParameters(state.geoContext,
+                                                        boundParams, surface),
+         cov);
+  state.navDir = navDir;
+  state.stepSize = ConstrainedStep(stepSize);
+  state.pathAccumulated = 0.;
+
+  // Reinitialize the stepping jacobian
+  surface.initJacobianToGlobal(state.geoContext, state.jacToGlobal,
+                               position(state), direction(state), boundParams);
+  state.jacobian = BoundMatrix::Identity();
+  state.jacTransport = FreeMatrix::Identity();
+  state.derivative = FreeVector::Zero();
 }
 }  // namespace Acts

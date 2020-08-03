@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include <type_traits>
-
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
@@ -18,6 +16,8 @@
 #include "Acts/Vertexing/AMVFInfo.hpp"
 #include "Acts/Vertexing/ImpactPointEstimator.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
+
+#include <type_traits>
 
 namespace Acts {
 /// @class AdaptiveMultiVertexFinder
@@ -151,13 +151,6 @@ class AdaptiveMultiVertexFinder {
     // constraint is provided
     std::pair<double, double> defaultConstrFitQuality{0., -3.};
 
-    // Do an adaptive multi vertex fit after
-    // a bad vertex was removed.
-    // If false, the old fitter state is just copied,
-    // this should give the same results with better
-    // performance. To be further investigated.
-    bool refitAfterBadVertex = true;
-
     // Use the full available vertex covariance information after
     // seeding for the IP estimation. In original implementation
     // this is not (!) done, however, this is probably not correct.
@@ -251,15 +244,6 @@ class AdaptiveMultiVertexFinder {
   /// @param seedVertex Seed vertex
   void setConstraintAfterSeeding(Vertex<InputTrack_t>& currentConstraint,
                                  const Vertex<InputTrack_t>& seedVertex) const;
-
-  /// @brief Estimates delta Z between a track and a vertex position
-  ///
-  /// @param track The track
-  /// @param vtxPos The vertex position
-  ///
-  /// @return The delta Z estimate
-  double estimateDeltaZ(const BoundParameters& track,
-                        const Vector3D& vtxPos) const;
 
   /// @brief Calculates the IP significance of a track to a given vertex
   ///
@@ -385,21 +369,18 @@ class AdaptiveMultiVertexFinder {
       const std::vector<Vertex<InputTrack_t>*>& allVertices) const;
 
   /// @brief Method that deletes last vertex from list of all vertices
-  /// and either refits all vertices afterwards (if refitAfterBadVertex)
-  /// of reverts to the old state of the vertex fitter before the bad
-  /// vertex was added to the fit (if not refitAfterBadVertex).
+  /// and refits all vertices afterwards
   ///
   /// @param vtx The last added vertex which will be removed
   /// @param allVertices Vector containing the unique_ptr to vertices
   /// @param allVerticesPtr Vector containing the actual addresses
   /// @param fitterState The current vertex fitter state
-  /// @param oldFitterState The old vertex fitter state
   /// @param vertexingOptions Vertexing options
   Result<void> deleteLastVertex(
       Vertex<InputTrack_t>& vtx,
       std::vector<std::unique_ptr<Vertex<InputTrack_t>>>& allVertices,
       std::vector<Vertex<InputTrack_t>*>& allVerticesPtr,
-      FitterState_t& fitterState, FitterState_t& oldFitterState,
+      FitterState_t& fitterState,
       const VertexingOptions<InputTrack_t>& vertexingOptions) const;
 
   /// @brief Prepares the output vector of vertices
@@ -408,7 +389,7 @@ class AdaptiveMultiVertexFinder {
   /// @param fitterState The vertex fitter state
   ///
   /// @return The output vertex collection
-  std::vector<Vertex<InputTrack_t>> getVertexOutputList(
+  Result<std::vector<Vertex<InputTrack_t>>> getVertexOutputList(
       const std::vector<Vertex<InputTrack_t>*>& allVerticesPtr,
       FitterState_t& fitterState) const;
 };

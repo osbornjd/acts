@@ -8,13 +8,15 @@
 
 #include "ActsExamples/Geant4/GeantinoRecording.hpp"
 
-#include <FTFP_BERT.hh>
-#include <G4RunManager.hh>
-#include <G4VUserDetectorConstruction.hh>
+#include "ACTFW/Framework/WhiteBoard.hpp"
+
 #include <iostream>
 #include <stdexcept>
 
-#include "ACTFW/Framework/WhiteBoard.hpp"
+#include <FTFP_BERT.hh>
+#include <G4RunManager.hh>
+#include <G4VUserDetectorConstruction.hh>
+
 #include "EventAction.hpp"
 #include "PrimaryGeneratorAction.hpp"
 #include "RunAction.hpp"
@@ -58,9 +60,9 @@ FW::ProcessCode GeantinoRecording::execute(
   // start simulation. each track is simulated as a separate Geant4 event.
   m_runManager->BeamOn(m_cfg.tracksPerEvent);
 
+  auto materialTracks = EventAction::instance()->materialTracks();
   // Write the recorded material to the event store
-  ctx.eventStore.add(m_cfg.outputMaterialTracks,
-                     EventAction::instance()->materialTracks());
+  ctx.eventStore.add(m_cfg.outputMaterialTracks, move(materialTracks));
 
   return FW::ProcessCode::SUCCESS;
 }

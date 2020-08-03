@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Acts/Plugins/DD4hep/DD4hepLayerBuilder.hpp"
+
 #include "Acts/Geometry/CylinderLayer.hpp"
 #include "Acts/Geometry/DiscLayer.hpp"
 #include "Acts/Geometry/GenericApproachDescriptor.hpp"
@@ -17,7 +18,7 @@
 #include "Acts/Plugins/DD4hep/ActsExtension.hpp"
 #include "Acts/Plugins/DD4hep/ConvertDD4hepMaterial.hpp"
 #include "Acts/Plugins/DD4hep/DD4hepDetectorElement.hpp"
-#include "Acts/Plugins/TGeo/TGeoPrimitivesHelpers.hpp"
+#include "Acts/Plugins/TGeo/TGeoPrimitivesHelper.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
@@ -25,11 +26,12 @@
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinnedArrayXD.hpp"
 #include "Acts/Utilities/Units.hpp"
+
+#include <boost/algorithm/string.hpp>
+
 #include "DD4hep/Detector.h"
 #include "TGeoManager.h"
 #include "TGeoMatrix.h"
-
-#include <boost/algorithm/string.hpp>
 
 Acts::DD4hepLayerBuilder::DD4hepLayerBuilder(
     const Acts::DD4hepLayerBuilder::Config& config,
@@ -327,7 +329,7 @@ Acts::DD4hepLayerBuilder::convertTransform(const TGeoMatrix* tGeoTrans) const {
   const Double_t* rotation = tGeoTrans->GetRotationMatrix();
   const Double_t* translation = tGeoTrans->GetTranslation();
   auto transform =
-      std::make_shared<const Transform3D>(TGeoPrimitivesHelpers::makeTransform(
+      std::make_shared<const Transform3D>(TGeoPrimitivesHelper::makeTransform(
           Acts::Vector3D(rotation[0], rotation[3], rotation[6]),
           Acts::Vector3D(rotation[1], rotation[4], rotation[7]),
           Acts::Vector3D(rotation[2], rotation[5], rotation[8]),

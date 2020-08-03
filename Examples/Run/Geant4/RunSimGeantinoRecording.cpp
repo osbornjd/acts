@@ -6,8 +6,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include <boost/program_options.hpp>
-
 #include "ACTFW/DD4hepDetector/DD4hepDetectorOptions.hpp"
 #include "ACTFW/DD4hepDetector/DD4hepGeometryService.hpp"
 #include "ACTFW/Framework/RandomNumbers.hpp"
@@ -18,6 +16,8 @@
 #include "ACTFW/Utilities/Paths.hpp"
 #include "ActsExamples/Geant4/GeantinoRecording.hpp"
 #include "ActsExamples/Geant4DD4hep/DD4hepDetectorConstruction.hpp"
+
+#include <boost/program_options.hpp>
 
 using namespace ActsExamples;
 using namespace FW;
@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
 
   // setup the Geant4 algorithm
   GeantinoRecording::Config g4;
+  std::string materialTrackCollection = g4.outputMaterialTracks;
   g4.detectorConstruction =
       std::make_unique<DD4hepDetectorConstruction>(*geometrySvc->lcdd());
   g4.tracksPerEvent = 100;
@@ -57,12 +58,11 @@ int main(int argc, char* argv[]) {
     RootMaterialTrackWriter::Config materialTrackWriter;
     materialTrackWriter.prePostStep = true;
     materialTrackWriter.recalculateTotals = true;
-    materialTrackWriter.collection = g4.outputMaterialTracks;
+    materialTrackWriter.collection = materialTrackCollection;
     materialTrackWriter.filePath =
-        joinPaths(outputDir, g4.outputMaterialTracks + ".root");
+        joinPaths(outputDir, materialTrackCollection + ".root");
     sequencer.addWriter(std::make_shared<RootMaterialTrackWriter>(
         materialTrackWriter, logLevel));
   }
-
   return sequencer.run();
 }

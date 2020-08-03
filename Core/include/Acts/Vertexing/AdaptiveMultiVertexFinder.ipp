@@ -22,7 +22,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
   // Seed tracks
   std::vector<const InputTrack_t*> seedTracks = allTracks;
 
-  FitterState_t fitterState;
+  FitterState_t fitterState(vertexingOptions.magFieldContext);
   SeedFinderState_t seedFinderState;
 
   std::vector<std::unique_ptr<Vertex<InputTrack_t>>> allVertices;
@@ -34,16 +34,13 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
   while (((m_cfg.addSingleTrackVertices && seedTracks.size() > 0) ||
           ((!m_cfg.addSingleTrackVertices) && seedTracks.size() > 1)) &&
          iteration < m_cfg.maxIterations) {
-    // Cache old fitte state in case new vertex is bad vertex
-    FitterState_t oldFitterState = fitterState;
-
     // Tracks that are used for searching compatible tracks
     // near a vertex candidate
-    std::vector<const InputTrack_t*> allTracks;
+    std::vector<const InputTrack_t*> searchTracks;
     if (m_cfg.doRealMultiVertex) {
-      allTracks = origTracks;
+      searchTracks = origTracks;
     } else {
-      allTracks = seedTracks;
+      searchTracks = seedTracks;
     }
     Vertex<InputTrack_t> currentConstraint = vertexingOptions.vertexConstraint;
     // Retrieve seed vertex from all remaining seedTracks
@@ -59,7 +56,8 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
 
     ACTS_DEBUG("Position of current vertex candidate after seeding: "
                << vtxCandidate.fullPosition());
-    if (vtxCandidate.position().z() == 0.) {
+    if (vtxCandidate.position().z() ==
+        vertexingOptions.vertexConstraint.position().z()) {
       ACTS_DEBUG(
           "No seed found anymore. Break and stop primary vertex finding.");
       allVertices.pop_back();
@@ -71,7 +69,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
     // now after seed finding is done
     removedSeedTracks.clear();
 
-    auto prepResult = canPrepareVertexForFit(allTracks, seedTracks,
+    auto prepResult = canPrepareVertexForFit(searchTracks, seedTracks,
                                              vtxCandidate, currentConstraint,
                                              fitterState, vertexingOptions);
 
@@ -122,7 +120,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
     if (not keepVertex) {
       auto deleteVertexResult =
           deleteLastVertex(vtxCandidate, allVertices, allVerticesPtr,
-                           fitterState, oldFitterState, vertexingOptions);
+                           fitterState, vertexingOptions);
       if (not deleteVertexResult.ok()) {
         return deleteVertexResult.error();
       }
@@ -169,7 +167,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::
                               const Vertex<InputTrack_t>& seedVertex) const
     -> void {
   if (m_cfg.useBeamSpotConstraint) {
-    if (currentConstraint.fullCovariance() == SpacePointSymMatrix::Zero()) {
+    if (currentConstraint.fullCovariance() == SymMatrix4D::Zero()) {
       ACTS_WARNING(
           "No constraint provided, but useBeamSpotConstraint set to true.");
     }
@@ -179,27 +177,10 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::
     }
   } else {
     currentConstraint.setFullPosition(seedVertex.fullPosition());
-    currentConstraint.setFullCovariance(SpacePointSymMatrix::Identity() *
+    currentConstraint.setFullCovariance(SymMatrix4D::Identity() *
                                         m_cfg.looseConstrValue);
     currentConstraint.setFitQuality(m_cfg.defaultConstrFitQuality);
   }
-}
-
-template <typename vfitter_t, typename sfinder_t>
-auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::estimateDeltaZ(
-    const BoundParameters& track, const Vector3D& vtxPos) const -> double {
-  Vector3D trackPos = track.position();
-
-  double phi = track.parameters()[ParID_t::ePHI];
-  double th = track.parameters()[ParID_t::eTHETA];
-
-  double X = trackPos[eX] - vtxPos.x();
-  double Y = trackPos[eY] - vtxPos.y();
-
-  double deltaZ = trackPos[eZ] - vtxPos.z() -
-                  1. / std::tan(th) * (X * std::cos(phi) + Y * std::sin(phi));
-
-  return deltaZ;
 }
 
 template <typename vfitter_t, typename sfinder_t>
@@ -214,7 +195,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::getIPSignificance(
   // it probably should be used.
   Vertex<InputTrack_t> newVtx = vtx;
   if (not m_cfg.useVertexCovForIPEstimation) {
-    newVtx.setFullCovariance(SpacePointSymMatrix::Zero());
+    newVtx.setFullCovariance(SymMatrix4D::Zero());
   }
 
   auto estRes = m_cfg.ipEstimator.estimateImpactParameters(
@@ -243,17 +224,20 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::
         const VertexingOptions<InputTrack_t>& vertexingOptions) const
     -> Result<void> {
   for (const auto& trk : tracks) {
+    auto params = m_extractParameters(*trk);
+    // If track is too far away from vertex, do not consider checking the IP
+    // significance
+    if (std::abs(params.position()[eZ] - vtx.position()[eZ]) >
+        m_cfg.tracksMaxZinterval) {
+      continue;
+    }
     auto sigRes = getIPSignificance(trk, vtx, vertexingOptions);
     if (!sigRes.ok()) {
       return sigRes.error();
     }
     double ipSig = *sigRes;
-    auto params = m_extractParameters(*trk);
-    if ((std::abs(estimateDeltaZ(params, vtx.position())) <
-         m_cfg.tracksMaxZinterval) &&
-        (ipSig < m_cfg.tracksMaxSignificance)) {
+    if (ipSig < m_cfg.tracksMaxSignificance) {
       // Create TrackAtVertex objects, unique for each (track, vertex) pair
-      // fitterState.tracksAtVerticesMap.clear();
       fitterState.tracksAtVerticesMap.emplace(std::make_pair(trk, &vtx),
                                               TrackAtVertex(params, trk));
 
@@ -294,7 +278,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::
       }
     }
     if (nearTrackFound) {
-      vtx.setFullPosition(SpacePointVector(0., 0., newZ, 0.));
+      vtx.setFullPosition(Vector4D(0., 0., newZ, 0.));
 
       // Update vertex info for current vertex
       fitterState.vtxInfoMap[&vtx] =
@@ -375,7 +359,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::
       // and not also in all tracks
       auto foundIter =
           std::find_if(seedTracks.begin(), seedTracks.end(),
-                       [&trk, this](auto seedTrk) { return trk == seedTrk; });
+                       [&trk](auto seedTrk) { return trk == seedTrk; });
       if (foundIter != seedTracks.end()) {
         nCompatibleTracks++;
         ACTS_DEBUG("Compatible track found.");
@@ -412,7 +396,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::
       // Find and remove track from seedTracks
       auto foundSeedIter =
           std::find_if(seedTracks.begin(), seedTracks.end(),
-                       [&trk, this](auto seedTrk) { return trk == seedTrk; });
+                       [&trk](auto seedTrk) { return trk == seedTrk; });
       if (foundSeedIter != seedTracks.end()) {
         seedTracks.erase(foundSeedIter);
         removedSeedTracks.push_back(trk);
@@ -440,7 +424,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::
       // Try to find track in seed tracks
       auto foundSeedIter =
           std::find_if(seedTracks.begin(), seedTracks.end(),
-                       [&trk, this](auto seedTrk) { return trk == seedTrk; });
+                       [&trk](auto seedTrk) { return trk == seedTrk; });
       if (foundSeedIter != seedTracks.end()) {
         maxCompatibility = compatibility;
         maxCompSeedIt = foundSeedIter;
@@ -512,8 +496,8 @@ template <typename vfitter_t, typename sfinder_t>
 auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::isMergedVertex(
     const Vertex<InputTrack_t>& vtx,
     const std::vector<Vertex<InputTrack_t>*>& allVertices) const -> bool {
-  const SpacePointVector& candidatePos = vtx.fullPosition();
-  const SpacePointSymMatrix& candidateCov = vtx.fullCovariance();
+  const Vector4D& candidatePos = vtx.fullPosition();
+  const SymMatrix4D& candidateCov = vtx.fullCovariance();
   const double candidateZPos = candidatePos[eZ];
   const double candidateZCov = candidateCov(eZ, eZ);
 
@@ -521,14 +505,14 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::isMergedVertex(
     if (&vtx == otherVtx) {
       continue;
     }
-    const SpacePointVector& otherPos = otherVtx->fullPosition();
-    const SpacePointSymMatrix& otherCov = otherVtx->fullCovariance();
+    const Vector4D& otherPos = otherVtx->fullPosition();
+    const SymMatrix4D& otherCov = otherVtx->fullCovariance();
     const double otherZPos = otherPos[eZ];
     const double otherZCov = otherCov(eZ, eZ);
 
-    const auto deltaPos = otherPos - candidatePos;
-    const auto deltaZPos = otherZPos - candidateZPos;
-    const auto sumCovZ = otherZCov + candidateZCov;
+    const Vector4D deltaPos = otherPos - candidatePos;
+    const double deltaZPos = otherZPos - candidateZPos;
+    const double sumCovZ = otherZCov + candidateZCov;
 
     double significance;
     if (not m_cfg.do3dSplitting) {
@@ -540,7 +524,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::isMergedVertex(
       }
     } else {
       // Use full 3d information for significance
-      auto sumCov = candidateCov + otherCov;
+      SymMatrix4D sumCov = candidateCov + otherCov;
       significance =
           std::sqrt(deltaPos.dot((sumCov.inverse().eval()) * deltaPos));
     }
@@ -556,44 +540,30 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::deleteLastVertex(
     Vertex<InputTrack_t>& vtx,
     std::vector<std::unique_ptr<Vertex<InputTrack_t>>>& allVertices,
     std::vector<Vertex<InputTrack_t>*>& allVerticesPtr,
-    FitterState_t& fitterState, FitterState_t& oldFitterState,
+    FitterState_t& fitterState,
     const VertexingOptions<InputTrack_t>& vertexingOptions) const
     -> Result<void> {
   allVertices.pop_back();
   allVerticesPtr.pop_back();
 
-  if (!m_cfg.refitAfterBadVertex) {
-    fitterState.vertexCollection = oldFitterState.vertexCollection;
-    fitterState.annealingState = oldFitterState.annealingState;
-    fitterState.vtxInfoMap.clear();
-    for (const auto& vtx : allVerticesPtr) {
-      fitterState.vtxInfoMap.emplace(vtx, oldFitterState.vtxInfoMap[vtx]);
-    }
-    fitterState.trackToVerticesMultiMap =
-        oldFitterState.trackToVerticesMultiMap;
-    fitterState.tracksAtVerticesMap = oldFitterState.tracksAtVerticesMap;
+  // Update fitter state with removed vertex candidate
+  fitterState.removeVertexFromMultiMap(vtx);
 
-  } else {
-    // Update fitter state with removed vertex candidate
-    fitterState.removeVertexFromMultiMap(vtx);
-
-    // TODO: clean tracksAtVerticesMap maybe here? i.e. remove all entries
-    // with old vertex?
-
-    // Do the fit with removed vertex
-    auto fitResult = m_cfg.vertexFitter.fit(fitterState, allVerticesPtr,
-                                            m_cfg.linearizer, vertexingOptions);
-    if (!fitResult.ok()) {
-      return fitResult.error();
-    }
+  // Do the fit with removed vertex
+  auto fitResult = m_cfg.vertexFitter.addVtxToFit(
+      fitterState, vtx, m_cfg.linearizer, vertexingOptions);
+  if (!fitResult.ok()) {
+    return fitResult.error();
   }
+
   return {};
 }
 
 template <typename vfitter_t, typename sfinder_t>
 auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::getVertexOutputList(
     const std::vector<Vertex<InputTrack_t>*>& allVerticesPtr,
-    FitterState_t& fitterState) const -> std::vector<Vertex<InputTrack_t>> {
+    FitterState_t& fitterState) const
+    -> Acts::Result<std::vector<Vertex<InputTrack_t>>> {
   std::vector<Vertex<InputTrack_t>> outputVec;
   for (auto vtx : allVerticesPtr) {
     auto& outVtx = *vtx;
@@ -605,5 +575,5 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::getVertexOutputList(
     outVtx.setTracksAtVertex(tracksAtVtx);
     outputVec.push_back(outVtx);
   }
-  return outputVec;
+  return Result<std::vector<Vertex<InputTrack_t>>>(outputVec);
 }

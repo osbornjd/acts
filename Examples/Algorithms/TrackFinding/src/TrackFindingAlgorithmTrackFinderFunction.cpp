@@ -6,12 +6,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/TrackFinding/TrackFindingAlgorithm.hpp"
-
-#include <random>
-#include <stdexcept>
-
 #include "ACTFW/Plugins/BField/ScalableBField.hpp"
+#include "ACTFW/TrackFinding/TrackFindingAlgorithm.hpp"
 #include "Acts/Fitter/GainMatrixSmoother.hpp"
 #include "Acts/Fitter/GainMatrixUpdater.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
@@ -20,6 +16,9 @@
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
+
+#include <random>
+#include <stdexcept>
 
 namespace {
 template <typename TrackFinder>
@@ -42,8 +41,8 @@ FW::TrackFindingAlgorithm::TrackFinderFunction
 FW::TrackFindingAlgorithm::makeTrackFinderFunction(
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
     Options::BFieldVariant magneticField, Acts::Logging::Level lvl) {
-  using Updater = Acts::GainMatrixUpdater<Acts::BoundParameters>;
-  using Smoother = Acts::GainMatrixSmoother<Acts::BoundParameters>;
+  using Updater = Acts::GainMatrixUpdater;
+  using Smoother = Acts::GainMatrixSmoother;
 
   // unpack the magnetic field variant and instantiate the corresponding track
   // finder.

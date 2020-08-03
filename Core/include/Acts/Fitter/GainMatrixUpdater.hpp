@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include <memory>
-#include <variant>
 #include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/MeasurementHelpers.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
@@ -20,14 +18,12 @@
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
 
+#include <memory>
+#include <variant>
+
 namespace Acts {
 
 /// @brief Update step of Kalman Filter using gain matrix formalism
-///
-/// @tparam parameters_t Type of the parameters to be filtered
-/// @tparam jacobian_t Type of the Transport jacobian
-///
-template <typename parameters_t>
 class GainMatrixUpdater {
  public:
   /// Explicit constructor
@@ -37,8 +33,7 @@ class GainMatrixUpdater {
   /// @param logger a logger instance
   GainMatrixUpdater(
       std::shared_ptr<const Logger> logger = std::shared_ptr<const Logger>(
-          getDefaultLogger("GainMatrixUpdater", Logging::INFO).release()))
-      : m_logger(std::move(logger)) {}
+          getDefaultLogger("GainMatrixUpdater", Logging::INFO).release()));
 
   /// @brief Public call operator for the boost visitor pattern
   ///
@@ -62,9 +57,6 @@ class GainMatrixUpdater {
         typename MultiTrajectory<SourceLink>::TrackStateProxy;
     static_assert(std::is_same_v<track_state_t, TrackStateProxy>,
                   "Given track state type is not a track state proxy");
-
-    using CovMatrix_t = typename parameters_t::CovMatrix_t;
-    using ParVector_t = typename parameters_t::ParVector_t;
 
     // we should definitely have an uncalibrated measurement here
     assert(trackState.hasUncalibrated());
@@ -124,10 +116,7 @@ class GainMatrixUpdater {
 
           filtered = predicted + K * (calibrated - H * predicted);
           filtered_covariance =
-              (ActsSymMatrixD<
-                   MultiTrajectory<SourceLink>::ParametersSize>::Identity() -
-               K * H) *
-              predicted_covariance;
+              (BoundSymMatrix::Identity() - K * H) * predicted_covariance;
           ACTS_VERBOSE("Filtered parameters: " << filtered.transpose());
           ACTS_VERBOSE("Filtered covariance:\n" << filtered_covariance);
 
@@ -159,10 +148,7 @@ class GainMatrixUpdater {
   std::shared_ptr<const Logger> m_logger{nullptr};
 
   /// Getter for the logger, to support logging macros
-  const Logger& logger() const {
-    assert(m_logger);
-    return *m_logger;
-  }
+  const Logger& logger() const;
 };
 
 }  // namespace Acts

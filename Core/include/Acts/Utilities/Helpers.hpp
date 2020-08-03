@@ -12,7 +12,13 @@
 
 #pragma once
 
+#include "Acts/Utilities/BinningType.hpp"
+#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Utilities/ParameterDefinitions.hpp"
+#include "Acts/Utilities/TypeTraits.hpp"
+
 #include <bitset>
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
@@ -21,31 +27,9 @@
 #include <string>
 #include <vector>
 
-#include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/ParameterDefinitions.hpp"
-#include "Acts/Utilities/TypeTraits.hpp"
-
 #define ACTS_CHECK_BIT(value, mask) ((value & mask) == mask)
 
-/** Geometry primitives helper functions
- */
-
 namespace Acts {
-
-/** EventPrimitvesToStringConverter
-
-    inline methods for conversion of EventPrimitives (Matrix)
-    to std::string.
-
-    This is to enhance formatted screen ouput and for ASCII based
-    testing.
-
-    The offset can be used to offset the lines (starting from line 2) wrt to the
-    zero position for formatting reasons.
-
-
- */
 
 namespace VectorHelpers {
 namespace detail {
@@ -163,32 +147,34 @@ double eta(const Eigen::MatrixBase<Derived>& v) noexcept {
   return std::atanh(v[2] / v.norm());
 }
 
-/// Helper method to cast out the binning value from a 3D Vector
+/// Helper method to extract the binning value from a 3D vector.
 ///
 /// For this method a 3D vector is required to guarantee all potential
-/// binning values
-///
-static double cast(const Vector3D& position, BinningValue bval) {
-  if (bval < 3)
-    return position[bval];
+/// binning values.
+inline double cast(const Vector3D& position, BinningValue bval) {
   switch (bval) {
+    case binX:
+      return position[0];
+    case binY:
+      return position[1];
+    case binZ:
+      return position[2];
     case binR:
       return perp(position);
-      break;
     case binPhi:
       return phi(position);
-      break;
+    case binRPhi:
+      return perp(position) * phi(position);
     case binH:
       return theta(position);
-      break;
     case binEta:
       return eta(position);
-      break;
     case binMag:
       return position.norm();
-      break;
+    default:
+      assert(false and "Invalid BinningValue enum value");
+      return std::numeric_limits<double>::quiet_NaN();
   }
-  return 0.;
 }
 
 /// @brief Calculates column-wise cross products of a matrix and a vector and
@@ -206,90 +192,14 @@ inline ActsMatrixD<3, 3> cross(const ActsMatrixD<3, 3>& m, const Vector3D& v) {
   return r;
 }
 
-/// @brief Access to the time component of input parameter
-///
-/// @param spacePointVec The SpacePointVector
-/// @return Reference to the time component
-inline ParValue_t& time(SpacePointVector& spacePointVec) {
-  return spacePointVec[3];
+/// Access the three-position components in a four-position vector.
+inline auto position(const Vector4D& pos4) {
+  return pos4.segment<3>(ePos0);
 }
 
-/// @brief Const overload access to the
-/// time component of input parameter
-///
-/// @param spacePointVec The SpacePointVector
-/// @return Reference to the time component
-inline const ParValue_t& time(const SpacePointVector& spacePointVec) {
-  return spacePointVec[3];
-}
-
-/// @brief Access to the time component of input parameter
-///
-/// @param boundVec The BoundVector
-/// @return Reference to the time component
-inline ParValue_t& time(BoundVector& boundVec) {
-  return boundVec[eT];
-}
-
-/// @brief Const overload access to the
-/// time component of input parameter
-///
-/// @param boundVec The BoundVector
-/// @return Reference to the time component
-inline const ParValue_t& time(const BoundVector& boundVec) {
-  return boundVec[eT];
-}
-
-/// @brief Access to the time component of input parameter
-///
-/// @param freeVec The FreeVector
-/// @return Reference to the time component
-inline ParValue_t& time(FreeVector& freeVec) {
-  return freeVec[7];
-}
-
-/// @brief Const overload access to the
-/// time component of input parameter
-///
-/// @param freeVec The FreeVector
-/// @return Reference to the time component
-inline const ParValue_t& time(const FreeVector& freeVec) {
-  return freeVec[7];
-}
-
-/// @brief Access to the position components of input parameter
-///
-/// @param spacePointVec The SpacePointVector
-/// @return Reference to the position components
-inline auto position(SpacePointVector& spacePointVec) {
-  return spacePointVec.head<3>();
-}
-
-/// @brief Const overload access to the
-/// position components of input parameter
-///
-/// @param spacePointVec The SpacePointVector
-/// @return Reference to the position components
-inline auto position(const SpacePointVector& spacePointVec) {
-  return spacePointVec.head<3>();
-}
-
-/// @brief Access to the
-/// position components of input parameter
-///
-/// @param freeVec The SpacePointVector
-/// @return Reference to the position components
-inline auto position(FreeVector& freeVec) {
-  return freeVec.head<3>();
-}
-
-/// @brief Const overload access to the
-/// position components of input parameter
-///
-/// @param freeVec The SpacePointVector
-/// @return Reference to the position components
-inline auto position(const FreeVector& freeVec) {
-  return freeVec.head<3>();
+/// Access the three-position components in a free parameters vector.
+inline auto position(const FreeVector& params) {
+  return params.segment<3>(eFreePos0);
 }
 
 }  // namespace VectorHelpers

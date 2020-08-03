@@ -12,7 +12,6 @@
 
 // Helper
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Tests/CommonHelpers/ObjTestWriter.hpp"
 
 // The class to test
 #include "Acts/Geometry/Extent.hpp"
@@ -43,7 +42,6 @@
 // Straw Surface
 #include "Acts/Surfaces/LineBounds.hpp"
 #include "Acts/Surfaces/StrawSurface.hpp"
-
 #include "Acts/Utilities/Units.hpp"
 #include "Acts/Visualization/ObjVisualization.hpp"
 
@@ -72,15 +70,11 @@ BOOST_AUTO_TEST_SUITE(Surfaces)
 
 /// Unit tests for Cone Surfaces
 BOOST_AUTO_TEST_CASE(ConeSurfacePolyhedrons) {
-  std::vector<IdentifiedPolyhedron> testTypes;
-
   double hzpmin = 10_mm;
   double hzpos = 35_mm;
   double hzneg = -20_mm;
   double alpha = 0.234;
   double phiSector = 0.358;
-  ObjTestWriter::writeSectorPlanesObj("ConeSectorPlanes", phiSector, 0., hzpos,
-                                      hzpos);
 
   for (const auto& mode : testModes) {
     unsigned int segments = std::get<unsigned int>(mode);
@@ -105,7 +99,6 @@ BOOST_AUTO_TEST_CASE(ConeSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, r, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0_mm, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, hzpos, 1e-6);
-    testTypes.push_back({"ConeOneFull" + modename, modetrg, oneConePh});
 
     /// The full cone on one side
     auto conePiece = std::make_shared<ConeBounds>(alpha, hzpmin, hzpos);
@@ -124,8 +117,6 @@ BOOST_AUTO_TEST_CASE(ConeSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, r, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, hzpmin, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, hzpos, 1e-6);
-    testTypes.push_back(
-        {"ConeOnePieceFull" + modename, modetrg, oneConePiecePh});
 
     // The full cone on both sides
     auto coneBoth = std::make_shared<ConeBounds>(alpha, hzneg, hzpos);
@@ -143,7 +134,6 @@ BOOST_AUTO_TEST_CASE(ConeSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, r, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, hzneg, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, hzpos, 1e-6);
-    testTypes.push_back({"ConesTwoFull" + modename, modetrg, twoConesPh});
 
     // A centered sectoral cone on both sides
     auto sectoralBoth =
@@ -158,9 +148,7 @@ BOOST_AUTO_TEST_CASE(ConeSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, r, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, hzneg, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, hzpos, 1e-6);
-    testTypes.push_back({"ConesSectoral" + modename, modetrg, sectoralConesPh});
   }
-  ObjTestWriter::writeObj(testTypes);
 }
 
 /// Unit tests for Cylinder Surfaces
@@ -170,12 +158,6 @@ BOOST_AUTO_TEST_CASE(CylinderSurfacePolyhedrons) {
 
   double phiSector = 0.458;
   double averagePhi = -1.345;
-  ObjTestWriter::writeSectorPlanesObj("CylinderCentralSectorPlanes", phiSector,
-                                      0., 1.5 * r, 1.5 * hZ);
-  ObjTestWriter::writeSectorPlanesObj("CylinderShiftedSectorPlanes", phiSector,
-                                      averagePhi, 1.5 * r, 1.5 * hZ);
-
-  std::vector<IdentifiedPolyhedron> testTypes;
 
   for (const auto& mode : testModes) {
     unsigned int segments = std::get<unsigned int>(mode);
@@ -204,7 +186,6 @@ BOOST_AUTO_TEST_CASE(CylinderSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, r, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, -hZ, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, hZ, 1e-6);
-    testTypes.push_back({"CylinderFull" + modename, modetrg, fullCylinderPh});
 
     /// The full cone on one side
     auto sectorCentered = std::make_shared<CylinderBounds>(r, phiSector, hZ);
@@ -223,8 +204,6 @@ BOOST_AUTO_TEST_CASE(CylinderSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, r, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, -hZ, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, hZ, 1e-6);
-    testTypes.push_back({"CylinderSectorCentered" + modename, modetrg,
-                         centerSectoredCylinderPh});
 
     /// The full cone on one side
     auto sectorShifted =
@@ -240,17 +219,11 @@ BOOST_AUTO_TEST_CASE(CylinderSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, r, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, -hZ, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, hZ, 1e-6);
-    testTypes.push_back({"CylinderSectorShifted" + modename, modetrg,
-                         shiftedSectoredCylinderPh});
   }
-
-  ObjTestWriter::writeObj(testTypes);
 }
 
 /// Unit tests for Disc Surfaces
 BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
-  std::vector<IdentifiedPolyhedron> testTypes;
-
   double innerR = 10_mm;
   double outerR = 25_mm;
 
@@ -264,7 +237,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
       Vector3D(0., 0., 0.), Vector3D(outerR * cphi, outerR * sphi, 0.)};
   std::pair<Vector3D, Vector3D> lineB = {
       Vector3D(0., 0., 0.), Vector3D(outerR * cphi, -outerR * sphi, 0.)};
-  ObjTestWriter::writeSectorLinesObj("DiscSectorLines", lineA, lineB);
 
   double minPhi = averagePhi - phiSector;
   double maxPhi = averagePhi + phiSector;
@@ -272,7 +244,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
            Vector3D(outerR * std::cos(minPhi), outerR * std::sin(minPhi), 0.)};
   lineB = {Vector3D(0., 0., 0.),
            Vector3D(outerR * std::cos(maxPhi), outerR * std::sin(maxPhi), 0.)};
-  ObjTestWriter::writeSectorLinesObj("DiscSectorLinesShifted", lineA, lineB);
 
   for (const auto& mode : testModes) {
     unsigned int segments = std::get<unsigned int>(mode);
@@ -300,8 +271,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
 
-    testTypes.push_back({"DiscFull" + modename, modetrg, fullDiscPh});
-
     // Ring disc
     auto radial = std::make_shared<RadialBounds>(innerR, outerR);
     auto radialDisc = Surface::makeShared<DiscSurface>(transform, radial);
@@ -315,7 +284,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, outerR, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
-    testTypes.push_back({"DiscRing" + modename, modetrg, radialPh});
 
     // Sectoral disc - around 0.
     auto sector = std::make_shared<RadialBounds>(0., outerR, phiSector);
@@ -332,7 +300,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, outerR, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
-    testTypes.push_back({"DiscSectorCentered" + modename, modetrg, sectorPh});
 
     // Sectoral ring - around 0.
     auto sectorRing = std::make_shared<RadialBounds>(innerR, outerR, phiSector);
@@ -352,8 +319,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, outerR, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
-    testTypes.push_back(
-        {"DiscRingSectorCentered" + modename, modetrg, sectorRingDiscPh});
 
     // Sectoral disc - shifted
     auto sectorRingShifted =
@@ -367,8 +332,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, outerR, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
-    testTypes.push_back(
-        {"DiscRingSectorShifted" + modename, modetrg, sectorRingDiscShiftedPh});
 
     // Trapezoid for a disc
     double halfXmin = 10_mm;
@@ -384,8 +347,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, outerR, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
-    testTypes.push_back(
-        {"DiscTrapezoidCentered" + modename, modetrg, trapezoidDiscSfPh});
 
     auto trapezoidDiscShifted = std::make_shared<DiscTrapezoidBounds>(
         halfXmin, halfXmax, innerR, outerR, averagePhi);
@@ -398,8 +359,6 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, outerR, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
-    testTypes.push_back(
-        {"DiscTrapezoidShifted" + modename, modetrg, trapezoidDiscShiftedSfPh});
 
     double minRadius = 7.;
     double maxRadius = 12.;
@@ -413,18 +372,11 @@ BOOST_AUTO_TEST_CASE(DiscSurfacePolyhedrons) {
     auto annulusDisc = Surface::makeShared<DiscSurface>(transform, annulus);
     auto annulusDiscPh =
         annulusDisc->polyhedronRepresentation(tgContext, segments);
-
-    testTypes.push_back(
-        {"DiscAnnulus" + modename, modetrg, trapezoidDiscShiftedSfPh});
   }
-
-  ObjTestWriter::writeObj(testTypes);
 }
 
 /// Unit tests for Plane Surfaces
 BOOST_AUTO_TEST_CASE(PlaneSurfacePolyhedrons) {
-  std::vector<IdentifiedPolyhedron> testTypes;
-
   double rhX = 10_mm;
   double rhY = 25_mm;
   double shiftY = 50_mm;
@@ -469,7 +421,6 @@ BOOST_AUTO_TEST_CASE(PlaneSurfacePolyhedrons) {
     BOOST_CHECK(rectangularPh.faces.size() == 1);
     std::vector<size_t> expectedRect = {0, 1, 2, 3};
     BOOST_CHECK(rectangularPh.faces[0] == expectedRect);
-    testTypes.push_back({"PlaneRectangle" + modename, modetrg, rectangularPh});
 
     /// Trapezoidal Plane
     double thX1 = 10_mm;
@@ -497,7 +448,6 @@ BOOST_AUTO_TEST_CASE(PlaneSurfacePolyhedrons) {
     BOOST_CHECK(trapezoidalPh.faces.size() == 1);
     std::vector<size_t> expectedTra = {0, 1, 2, 3};
     BOOST_CHECK(trapezoidalPh.faces[0] == expectedTra);
-    testTypes.push_back({"PlaneTrapezoid" + modename, modetrg, trapezoidalPh});
 
     /// Ring-like ellispoidal Plane
     double rMaxX = 30_mm;
@@ -515,8 +465,6 @@ BOOST_AUTO_TEST_CASE(PlaneSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binR].second, rMaxY, 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
-
-    testTypes.push_back({"PlaneFullEllipse" + modename, modetrg, ellispoidPh});
 
     double rMinX = 10_mm;
     double rMinY = 20_mm;
@@ -536,10 +484,6 @@ BOOST_AUTO_TEST_CASE(PlaneSurfacePolyhedrons) {
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
 
-    // BOOST_CHECK(ellispoidPh.vertices.size()==72);
-    testTypes.push_back(
-        {"PlaneRingEllipse" + modename, modetrg, ellispoidRingPh});
-
     /// ConvextPolygonBounds test
     std::vector<Vector2D> vtxs = {
         Vector2D(-40_mm, -10_mm), Vector2D(-10_mm, -30_mm),
@@ -550,7 +494,6 @@ BOOST_AUTO_TEST_CASE(PlaneSurfacePolyhedrons) {
     auto sextagonPlane = Surface::makeShared<PlaneSurface>(transform, sextagon);
     auto sextagonPlanePh =
         sextagonPlane->polyhedronRepresentation(tgContext, segments);
-    testTypes.push_back({"PlaneSextagon" + modename, modetrg, sextagonPlanePh});
 
     /// Diamond shaped plane
     double hMinX = 10_mm;
@@ -575,9 +518,7 @@ BOOST_AUTO_TEST_CASE(PlaneSurfacePolyhedrons) {
                     std::sqrt(hMaxX * hMaxX + hMaxY * hMaxY), 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].first, 0., 1e-6);
     CHECK_CLOSE_ABS(extent.ranges[binZ].second, 0., 1e-6);
-    testTypes.push_back({"PlaneDiamond" + modename, modetrg, diamondPh});
   }
-  ObjTestWriter::writeObj(testTypes);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

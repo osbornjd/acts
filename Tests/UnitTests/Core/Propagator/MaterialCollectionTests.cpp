@@ -10,8 +10,6 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include <memory>
-
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
@@ -29,6 +27,8 @@
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Units.hpp"
+
+#include <memory>
 
 namespace bdata = boost::unit_test::data;
 namespace tt = boost::test_tools;
@@ -262,7 +262,7 @@ void runTest(const propagator_t& prop, double pT, double phi, double theta,
   }
 
   // move forward step by step through the surfaces
-  const TrackParameters* sParameters = &start;
+  const SingleTrackParameters<ChargedPolicy>* sParameters = &start;
   std::vector<std::unique_ptr<const BoundParameters>> stepParameters;
   for (auto& fwdSteps : fwdMaterial.materialInteractions) {
     if (debugModeFwdStep) {
@@ -425,8 +425,9 @@ void runTest(const propagator_t& prop, double pT, double phi, double theta,
   // forward material test
   const auto& covfwdResult = prop.propagate(start, fwdOptions).value();
 
-  BOOST_TEST(cov.determinant() <=
-             covfwdResult.endParameters->covariance().value().determinant());
+  BOOST_CHECK_LE(
+      cov.determinant(),
+      covfwdResult.endParameters->covariance().value().determinant());
 }
 
 // This test case checks that no segmentation fault appears

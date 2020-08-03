@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Acts/Geometry/CutoutCylinderVolumeBounds.hpp"
+
 #include "Acts/Geometry/BoundarySurfaceFace.hpp"
 #include "Acts/Geometry/Volume.hpp"
 #include "Acts/Geometry/VolumeBounds.hpp"
@@ -159,7 +160,7 @@ void Acts::CutoutCylinderVolumeBounds::buildSurfaceBounds() {
   m_outerCylinderBounds =
       std::make_shared<CylinderBounds>(get(eMaxR), get(eHalfLengthZ));
 
-  m_innerDiscBounds = std::make_shared<RadialBounds>(get(eMinR), get(eMaxR));
+  m_innerDiscBounds = std::make_shared<RadialBounds>(get(eMinR), get(eMedR));
 
-  m_outerDiscBounds = std::make_shared<RadialBounds>(get(eMedR), get(eMaxR));
+  m_outerDiscBounds = std::make_shared<RadialBounds>(get(eMinR), get(eMaxR));
 }

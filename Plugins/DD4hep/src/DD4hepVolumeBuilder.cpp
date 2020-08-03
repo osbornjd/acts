@@ -7,16 +7,16 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Acts/Plugins/DD4hep/DD4hepVolumeBuilder.hpp"
+
 #include "Acts/Geometry/CylinderVolumeBounds.hpp"
 #include "Acts/Material/HomogeneousVolumeMaterial.hpp"
 #include "Acts/Plugins/DD4hep/DD4hepDetectorElement.hpp"
-#include "Acts/Plugins/TGeo/TGeoPrimitivesHelpers.hpp"
+#include "Acts/Plugins/TGeo/TGeoPrimitivesHelper.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Utilities/Units.hpp"
-#include "DD4hep/Detector.h"
 
-#include <boost/algorithm/string.hpp>
+#include "DD4hep/Detector.h"
 
 Acts::DD4hepVolumeBuilder::DD4hepVolumeBuilder(
     const Acts::DD4hepVolumeBuilder::Config& config,
@@ -76,21 +76,8 @@ Acts::DD4hepVolumeBuilder::centralVolumes() const {
     }
     // Build boundaries
     CylinderVolumeBounds cvBounds(rMin, rMax, dz);
-    // Extract material if available
-    dd4hep::Material ddmaterial = detElement.volume().material();
-    if (!boost::iequals(ddmaterial.name(), "vacuum")) {
-      Material volumeMaterial(ddmaterial.radLength() * Acts::units::_cm,
-                              ddmaterial.intLength() * Acts::units::_cm,
-                              ddmaterial.A(), ddmaterial.Z(),
-                              ddmaterial.density() / pow(Acts::units::_cm, 3));
-
-      volumes.push_back(TrackingVolume::create(
-          transform, std::make_shared<const CylinderVolumeBounds>(cvBounds),
-          std::make_shared<const HomogeneousVolumeMaterial>(volumeMaterial)));
-    } else {
-      volumes.push_back(TrackingVolume::create(
-          transform, std::make_shared<const CylinderVolumeBounds>(cvBounds)));
-    }
+    volumes.push_back(TrackingVolume::create(
+        transform, std::make_shared<const CylinderVolumeBounds>(cvBounds)));
   }
   return volumes;
 }
@@ -101,7 +88,7 @@ Acts::DD4hepVolumeBuilder::convertTransform(const TGeoMatrix* tGeoTrans) const {
   const Double_t* rotation = tGeoTrans->GetRotationMatrix();
   const Double_t* translation = tGeoTrans->GetTranslation();
   auto transform =
-      std::make_shared<const Transform3D>(TGeoPrimitivesHelpers::makeTransform(
+      std::make_shared<const Transform3D>(TGeoPrimitivesHelper::makeTransform(
           Acts::Vector3D(rotation[0], rotation[3], rotation[6]),
           Acts::Vector3D(rotation[1], rotation[4], rotation[7]),
           Acts::Vector3D(rotation[2], rotation[5], rotation[8]),

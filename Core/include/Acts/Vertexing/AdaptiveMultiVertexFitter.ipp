@@ -63,8 +63,7 @@ Acts::AdaptiveMultiVertexFitter<input_track_t, linearizer_t>::fitImpl(
       // in previous iteration afterwards
       currentVtxInfo.oldPosition = currentVtx->fullPosition();
 
-      SpacePointVector dist =
-          currentVtxInfo.oldPosition - currentVtxInfo.linPoint;
+      Vector4D dist = currentVtxInfo.oldPosition - currentVtxInfo.linPoint;
       double perpDist = std::sqrt(dist[0] * dist[0] + dist[1] * dist[1]);
       // Determine if relinearization is needed
       if (perpDist > m_cfg.maxDistToLinPoint) {
@@ -75,7 +74,7 @@ Acts::AdaptiveMultiVertexFitter<input_track_t, linearizer_t>::fitImpl(
       }
       // Determine if constraint vertex exist
       if (state.vtxInfoMap[currentVtx].constraintVertex.fullCovariance() !=
-          SpacePointSymMatrix::Zero()) {
+          SymMatrix4D::Zero()) {
         currentVtx->setFullPosition(
             state.vtxInfoMap[currentVtx].constraintVertex.fullPosition());
         currentVtx->setFitQuality(
@@ -84,7 +83,7 @@ Acts::AdaptiveMultiVertexFitter<input_track_t, linearizer_t>::fitImpl(
             state.vtxInfoMap[currentVtx].constraintVertex.fullCovariance());
       }
 
-      else if (currentVtx->fullCovariance() == SpacePointSymMatrix::Zero()) {
+      else if (currentVtx->fullCovariance() == SymMatrix4D::Zero()) {
         return VertexingError::NoCovariance;
       }
       double weight =
@@ -209,7 +208,7 @@ Acts::Result<void> Acts::
   for (const auto& trk : currentVtxInfo.trackLinks) {
     auto res = m_cfg.ipEst.estimate3DImpactParameters(
         vertexingOptions.geoContext, vertexingOptions.magFieldContext,
-        m_extractParameters(*trk), seedPos);
+        m_extractParameters(*trk), seedPos, state.ipState);
     if (!res.ok()) {
       return res.error();
     }
@@ -239,7 +238,7 @@ Acts::AdaptiveMultiVertexFitter<input_track_t, linearizer_t>::
       auto res = m_cfg.ipEst.estimate3DImpactParameters(
           vertexingOptions.geoContext, vertexingOptions.magFieldContext,
           m_extractParameters(*trk),
-          VectorHelpers::position(currentVtxInfo.linPoint));
+          VectorHelpers::position(currentVtxInfo.linPoint), state.ipState);
       if (!res.ok()) {
         return res.error();
       }
@@ -282,7 +281,8 @@ Acts::Result<void> Acts::
             state.vtxInfoMap[vtx].relinearize) {
           auto result = linearizer.linearizeTrack(
               m_extractParameters(*trk), state.vtxInfoMap[vtx].oldPosition,
-              vertexingOptions.geoContext, vertexingOptions.magFieldContext);
+              vertexingOptions.geoContext, vertexingOptions.magFieldContext,
+              state.linearizerState);
           if (!result.ok()) {
             return result.error();
           }
@@ -325,9 +325,9 @@ template <typename input_track_t, typename linearizer_t>
 bool Acts::AdaptiveMultiVertexFitter<
     input_track_t, linearizer_t>::checkSmallShift(State& state) const {
   for (auto vtx : state.vertexCollection) {
-    auto diff = state.vtxInfoMap[vtx].oldPosition.template head<3>() -
-                vtx->fullPosition().template head<3>();
-    const auto& vtxWgt =
+    Vector3D diff = state.vtxInfoMap[vtx].oldPosition.template head<3>() -
+                    vtx->fullPosition().template head<3>();
+    ActsSymMatrixD<3> vtxWgt =
         (vtx->fullCovariance().template block<3, 3>(0, 0)).inverse();
     double relativeShift = diff.dot(vtxWgt * diff);
     if (relativeShift > m_cfg.maxRelativeShift) {

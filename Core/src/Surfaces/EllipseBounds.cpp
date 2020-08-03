@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Acts/Surfaces/EllipseBounds.hpp"
+
 #include "Acts/Surfaces/detail/VerticesHelper.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 
@@ -117,7 +118,7 @@ double Acts::EllipseBounds::distanceToBoundary(
 
 std::vector<Acts::Vector2D> Acts::EllipseBounds::vertices(
     unsigned int lseg) const {
-  return detail::VerticesHelper::ellispoidVertices(
+  return detail::VerticesHelper::ellipsoidVertices(
       get(eInnerRx), get(eInnerRy), get(eOuterRx), get(eOuterRy),
       get(eAveragePhi), get(eHalfPhiSector), lseg);
 }

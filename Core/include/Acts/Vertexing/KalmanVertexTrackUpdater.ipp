@@ -15,7 +15,7 @@ template <typename input_track_t>
 void Acts::KalmanVertexTrackUpdater::update(const GeometryContext& gctx,
                                             TrackAtVertex<input_track_t>& track,
                                             const Vertex<input_track_t>& vtx) {
-  const auto vtxPos = vtx.fullPosition().template head<3>();
+  const Vector3D vtxPos = vtx.fullPosition().template head<3>();
 
   // Get the linearized track
   const LinearizedTrack& linTrack = track.linearizedState;
@@ -27,16 +27,17 @@ void Acts::KalmanVertexTrackUpdater::update(const GeometryContext& gctx,
   }
 
   // Retrieve linTrack information
-  const auto posJac = linTrack.positionJacobian.block<5, 3>(0, 0);
-  const auto momJac = linTrack.momentumJacobian.block<5, 3>(0, 0);
-  const auto trkParams = linTrack.parametersAtPCA.head<5>();
-  const auto trkParamWeight = linTrack.weightAtPCA.block<5, 5>(0, 0);
+  const ActsMatrixD<5, 3> posJac = linTrack.positionJacobian.block<5, 3>(0, 0);
+  const ActsMatrixD<5, 3> momJac = linTrack.momentumJacobian.block<5, 3>(0, 0);
+  const ActsVectorD<5> trkParams = linTrack.parametersAtPCA.head<5>();
+  const ActsSymMatrixD<5> trkParamWeight =
+      linTrack.weightAtPCA.block<5, 5>(0, 0);
 
   // Calculate S matrix
   ActsSymMatrixD<3> sMat =
       (momJac.transpose() * (trkParamWeight * momJac)).inverse();
 
-  const auto residual = linTrack.constantTerm.head<5>();
+  const ActsVectorD<5> residual = linTrack.constantTerm.head<5>();
 
   // Refit track momentum
   Vector3D newTrkMomentum = sMat * momJac.transpose() * trkParamWeight *
@@ -54,11 +55,12 @@ void Acts::KalmanVertexTrackUpdater::update(const GeometryContext& gctx,
   newTrkParams(ParID_t::eQOP) = newTrkMomentum(2);           // qOverP
 
   // Vertex covariance and weight matrices
-  const auto vtxCov = vtx.fullCovariance().template block<3, 3>(0, 0);
-  const auto vtxWeight = vtxCov.inverse();
+  const ActsSymMatrixD<3> vtxCov =
+      vtx.fullCovariance().template block<3, 3>(0, 0);
+  const ActsSymMatrixD<3> vtxWeight = vtxCov.inverse();
 
   // New track covariance matrix
-  auto newTrkCov =
+  ActsSymMatrixD<3> newTrkCov =
       -vtxCov * posJac.transpose() * trkParamWeight * momJac * sMat;
 
   KalmanVertexUpdater::MatrixCache matrixCache;
@@ -68,13 +70,13 @@ void Acts::KalmanVertexTrackUpdater::update(const GeometryContext& gctx,
       vtx, linTrack, track.trackWeight, -1, matrixCache);
 
   // Corresponding weight matrix
-  const auto& reducedVtxWeight = matrixCache.newVertexWeight;
+  const ActsSymMatrixD<3>& reducedVtxWeight = matrixCache.newVertexWeight;
 
   // Difference in positions
-  auto posDiff = vtx.position() - matrixCache.newVertexPos;
+  Vector3D posDiff = vtx.position() - matrixCache.newVertexPos;
 
   // Get smoothed params
-  auto smParams =
+  ActsVectorD<5> smParams =
       trkParams - (residual + posJac * vtx.fullPosition().template head<3>() +
                    momJac * newTrkMomentum);
 
@@ -84,23 +86,21 @@ void Acts::KalmanVertexTrackUpdater::update(const GeometryContext& gctx,
 
   // Not yet 4d ready. This can be removed together will all head<> statements,
   // once time is consistently introduced to vertexing
-  ActsMatrixD<eSpacePointSize, 3> newFullTrkCov(
-      ActsMatrixD<eSpacePointSize, 3>::Zero());
+  ActsMatrixD<4, 3> newFullTrkCov(ActsMatrixD<4, 3>::Zero());
   newFullTrkCov.block<3, 3>(0, 0) = newTrkCov;
 
-  SpacePointSymMatrix vtxFullWeight(SpacePointSymMatrix::Zero());
+  SymMatrix4D vtxFullWeight(SymMatrix4D::Zero());
   vtxFullWeight.block<3, 3>(0, 0) = vtxWeight;
 
-  SpacePointSymMatrix vtxFullCov(SpacePointSymMatrix::Zero());
+  SymMatrix4D vtxFullCov(SymMatrix4D::Zero());
   vtxFullCov.block<3, 3>(0, 0) = vtxCov;
 
-  const auto fullPerTrackCov = detail::createFullTrackCovariance(
+  const Acts::BoundMatrix fullPerTrackCov = detail::createFullTrackCovariance(
       sMat, newFullTrkCov, vtxFullWeight, vtxFullCov, newTrkParams);
 
   // Create new refitted parameters
   std::shared_ptr<PerigeeSurface> perigeeSurface =
-      Surface::makeShared<PerigeeSurface>(
-          VectorHelpers::position(vtx.fullPosition()));
+      Surface::makeShared<PerigeeSurface>(vtx.position());
 
   BoundParameters refittedPerigee = BoundParameters(
       gctx, std::move(fullPerTrackCov), newTrkParams, perigeeSurface);
@@ -115,9 +115,8 @@ void Acts::KalmanVertexTrackUpdater::update(const GeometryContext& gctx,
 
 inline Acts::BoundMatrix
 Acts::KalmanVertexTrackUpdater::detail::createFullTrackCovariance(
-    const ActsSymMatrixD<3>& sMat,
-    const ActsMatrixD<eSpacePointSize, 3>& newTrkCov,
-    const SpacePointSymMatrix& vtxWeight, const SpacePointSymMatrix& vtxCov,
+    const SymMatrix3D& sMat, const ActsMatrixD<4, 3>& newTrkCov,
+    const SymMatrix4D& vtxWeight, const SymMatrix4D& vtxCov,
     const BoundVector& newTrkParams) {
   // Now new momentum covariance
   ActsSymMatrixD<3> momCov =

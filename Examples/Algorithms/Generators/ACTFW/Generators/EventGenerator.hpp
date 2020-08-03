@@ -12,16 +12,16 @@
 
 #pragma once
 
-#include <functional>
-#include <memory>
-#include <utility>
-#include <vector>
-
 #include "ACTFW/EventData/SimVertex.hpp"
 #include "ACTFW/Framework/IReader.hpp"
 #include "ACTFW/Framework/RandomNumbers.hpp"
 #include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
+
+#include <functional>
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace FW {
 
@@ -45,8 +45,7 @@ class EventGenerator final : public FW::IReader {
   /// particle barcode except the primary vertex. The primary vertex will be
   /// set/overwritten by the event generator.
   using MultiplicityGenerator = std::function<size_t(RandomEngine&)>;
-  using VertexGenerator =
-      std::function<Acts::ActsVector<double, 4>(RandomEngine&)>;
+  using VertexGenerator = std::function<Acts::Vector4D(RandomEngine&)>;
   using ProcessGenerator = std::function<std::vector<SimVertex>(RandomEngine&)>;
   struct Generator {
     MultiplicityGenerator multiplicity = nullptr;

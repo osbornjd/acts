@@ -8,9 +8,6 @@
 
 #include "ACTFW/Io/Csv/CsvPlanarClusterWriter.hpp"
 
-#include <dfe/dfe_io_dsv.hpp>
-#include <stdexcept>
-
 #include "ACTFW/EventData/SimHit.hpp"
 #include "ACTFW/EventData/SimIdentifier.hpp"
 #include "ACTFW/EventData/SimParticle.hpp"
@@ -19,6 +16,11 @@
 #include "ACTFW/Utilities/Paths.hpp"
 #include "Acts/Plugins/Digitization/PlanarModuleCluster.hpp"
 #include "Acts/Utilities/Units.hpp"
+
+#include <stdexcept>
+
+#include <dfe/dfe_io_dsv.hpp>
+
 #include "TrackMlData.hpp"
 
 FW::CsvPlanarClusterWriter::CsvPlanarClusterWriter(
@@ -66,8 +68,8 @@ FW::ProcessCode FW::CsvPlanarClusterWriter::writeT(
     Acts::Vector3D globalFakeMom(1, 1, 1);
     Acts::Vector3D globalPos(0, 0, 0);
     // transform local into global position information
-    cluster.referenceSurface().localToGlobal(ctx.geoContext, localPos,
-                                             globalFakeMom, globalPos);
+    cluster.referenceObject().localToGlobal(ctx.geoContext, localPos,
+                                            globalFakeMom, globalPos);
 
     // encoded geometry identifier
     hit.geometry_id = geoId.value();
