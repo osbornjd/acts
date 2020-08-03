@@ -52,8 +52,8 @@ FW::TrkrClusterFittingAlgorithm::makeFitterFunction(
     FW::Options::BFieldVariant                    magneticField,
     Acts::Logging::Level                          level)
 {
-  using Updater  = Acts::GainMatrixUpdater<Acts::BoundParameters>;
-  using Smoother = Acts::GainMatrixSmoother<Acts::BoundParameters>;
+  using Updater  = Acts::GainMatrixUpdater;
+  using Smoother = Acts::GainMatrixSmoother;
 
   /// Return a new instance of the fitter
   return std::visit(
