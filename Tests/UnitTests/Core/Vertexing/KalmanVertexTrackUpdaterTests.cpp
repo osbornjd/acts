@@ -82,15 +82,16 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_TrackUpdater) {
   auto propagator = std::make_shared<Propagator>(stepper);
 
   // Set up ImpactPointEstimator, used for comparisons later
-  ImpactPointEstimator<BoundParameters, Propagator>::Config ip3dEstConfig(
-      bField, propagator);
-
-  ImpactPointEstimator<BoundParameters, Propagator> ip3dEst(ip3dEstConfig);
+  using IPEstimator = ImpactPointEstimator<BoundParameters, Propagator>;
+  IPEstimator::Config ip3dEstConfig(bField, propagator);
+  IPEstimator ip3dEst(ip3dEstConfig);
+  IPEstimator::State state(magFieldContext);
 
   // Set up HelicalTrackLinearizer, needed for linearizing the tracks
   // Linearizer for BoundParameters type test
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
+  Linearizer::State linState(magFieldContext);
 
   // Create perigee surface at origin
   std::shared_ptr<PerigeeSurface> perigeeSurface =
@@ -105,7 +106,7 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_TrackUpdater) {
     double q = qDist(gen) < 0 ? -1. : 1.;
 
     // Construct random track parameters
-    BoundParameters::ParVector_t paramVec;
+    BoundParameters::ParametersVector paramVec;
 
     paramVec << d0Dist(gen), z0Dist(gen), phiDist(gen), thetaDist(gen),
         q / pTDist(gen), 0.;
@@ -134,8 +135,8 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_TrackUpdater) {
     // Linearized state of the track
     LinearizedTrack linTrack =
         linearizer
-            .linearizeTrack(params, SpacePointVector::Zero(), geoContext,
-                            magFieldContext)
+            .linearizeTrack(params, Vector4D::Zero(), geoContext,
+                            magFieldContext, linState)
             .value();
 
     // Create TrackAtVertex
@@ -157,12 +158,14 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_TrackUpdater) {
 
     // The old distance
     double oldDistance =
-        ip3dEst.calculate3dDistance(geoContext, fittedParamsCopy, vtxPos)
+        ip3dEst.calculate3dDistance(geoContext, fittedParamsCopy, vtxPos, state)
             .value();
 
     // The new distance after update
     double newDistance =
-        ip3dEst.calculate3dDistance(geoContext, trkAtVtx.fittedParams, vtxPos)
+        ip3dEst
+            .calculate3dDistance(geoContext, trkAtVtx.fittedParams, vtxPos,
+                                 state)
             .value();
     if (debug) {
       std::cout << "Old distance: " << oldDistance << std::endl;

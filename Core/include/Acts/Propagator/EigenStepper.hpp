@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,9 +8,8 @@
 
 #pragma once
 
-#include <cmath>
-#include <functional>
-#include <limits>
+// Workaround for building on clang+libstdc++
+#include "Acts/Utilities/detail/ReferenceWrapperAnyCompat.hpp"
 
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Propagator/DefaultExtension.hpp"
@@ -22,6 +21,10 @@
 #include "Acts/Utilities/Intersection.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Utilities/Units.hpp"
+
+#include <cmath>
+#include <functional>
+#include <limits>
 
 namespace Acts {
 
@@ -170,7 +173,20 @@ class EigenStepper {
   };
 
   /// Constructor requires knowledge of the detector's magnetic field
-  EigenStepper(BField bField = BField());
+  EigenStepper(BField bField);
+
+  /// @brief Resets the state
+  ///
+  /// @param [in, out] state State of the stepper
+  /// @param [in] boundParams Parameters in bound parametrisation
+  /// @param [in] freeParams Parameters in free parametrisation
+  /// @param [in] cov Covariance matrix
+  /// @param [in] navDir Navigation direction
+  /// @param [in] stepSize Step size
+  void resetState(
+      State& state, const BoundVector& boundParams, const BoundSymMatrix& cov,
+      const Surface& surface, const NavigationDirection navDir = forward,
+      const double stepSize = std::numeric_limits<double>::max()) const;
 
   /// Get the field for the stepping, it checks first if the access is still
   /// within the Cell, and updates the cell if necessary.
@@ -304,7 +320,8 @@ class EigenStepper {
   ///
   /// @param [in,out] state State object that will be updated
   /// @param [in] pars Parameters that will be written into @p state
-  void update(State& state, const BoundParameters& pars) const;
+  void update(State& state, const FreeVector& parameters,
+              const Covariance& covariance) const;
 
   /// Method to update momentum, direction and p
   ///

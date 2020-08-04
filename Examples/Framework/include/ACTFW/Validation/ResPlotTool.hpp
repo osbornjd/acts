@@ -8,14 +8,14 @@
 
 #pragma once
 
-#include <map>
-#include <memory>
-#include <string>
-
 #include "ACTFW/Utilities/Helpers.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "ActsFatras/EventData/Particle.hpp"
+
+#include <map>
+#include <memory>
+#include <string>
 
 namespace FW {
 
@@ -24,8 +24,6 @@ namespace FW {
 // truth_parameter)/smoothed_paramter_error, of track parameters at perigee
 // surface
 class ResPlotTool {
-  using ParVector_t = typename Acts::BoundParameters::ParVector_t;
-
  public:
   /// @brief Nested configuration struct
   struct Config {

@@ -21,4 +21,6 @@ target_sources_local(
     Surface.cpp
     SurfaceArray.cpp
     TrapezoidBounds.cpp
+    detail/AlignmentHelper.cpp
+    VerticesHelper.cpp
 )

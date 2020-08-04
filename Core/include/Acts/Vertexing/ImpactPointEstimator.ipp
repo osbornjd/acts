@@ -18,11 +18,13 @@ Acts::Result<double> Acts::ImpactPointEstimator<
     input_track_t, propagator_t,
     propagator_options_t>::calculate3dDistance(const GeometryContext& gctx,
                                                const BoundParameters& trkParams,
-                                               const Vector3D& vtxPos) const {
+                                               const Vector3D& vtxPos,
+                                               State& state) const {
   Vector3D deltaR;
   Vector3D momDir;
 
-  auto res = getDistanceAndMomentum(gctx, trkParams, vtxPos, deltaR, momDir);
+  auto res =
+      getDistanceAndMomentum(gctx, trkParams, vtxPos, deltaR, momDir, state);
 
   if (!res.ok()) {
     return res.error();
@@ -39,11 +41,12 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
     estimate3DImpactParameters(const GeometryContext& gctx,
                                const Acts::MagneticFieldContext& mctx,
                                const BoundParameters& trkParams,
-                               const Vector3D& vtxPos) const {
+                               const Vector3D& vtxPos, State& state) const {
   Vector3D deltaR;
   Vector3D momDir;
 
-  auto res = getDistanceAndMomentum(gctx, trkParams, vtxPos, deltaR, momDir);
+  auto res =
+      getDistanceAndMomentum(gctx, trkParams, vtxPos, deltaR, momDir, state);
 
   if (!res.ok()) {
     return res.error();
@@ -114,7 +117,7 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
 
   // track covariance
   auto cov = trkParams->covariance();
-  ActsSymMatrixD<2> myWeightXY = cov->block<2, 2>(0, 0).inverse();
+  SymMatrix2D myWeightXY = cov->block<2, 2>(0, 0).inverse();
 
   // 2-dim residual
   Vector2D myXYpos =
@@ -188,7 +191,7 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
     getDistanceAndMomentum(const GeometryContext& gctx,
                            const BoundParameters& trkParams,
                            const Vector3D& vtxPos, Vector3D& deltaR,
-                           Vector3D& momDir) const {
+                           Vector3D& momDir, State& state) const {
   Vector3D trkSurfaceCenter = trkParams.referenceSurface().center(gctx);
 
   double d0 = trkParams.parameters()[ParID_t::eLOC_D0];
@@ -197,10 +200,12 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
   double theta = trkParams.parameters()[ParID_t::eTHETA];
   double qOvP = trkParams.parameters()[ParID_t::eQOP];
 
+  double sinTheta = std::sin(theta);
+
   double cotTheta = 1. / std::tan(theta);
 
   // get B-field z-component at current position
-  double bZ = m_cfg.bField.getField(trkSurfaceCenter)[eZ];
+  double bZ = m_cfg.bField.getField(trkSurfaceCenter, state.fieldCache)[eZ];
 
   // The radius
   double r;
@@ -209,7 +214,7 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
     r = m_cfg.maxRho;
   } else {
     // signed(!) r
-    r = std::sin(theta) * (1. / qOvP) / bZ;
+    r = sinTheta * (1. / qOvP) / bZ;
   }
 
   Vector3D vec0 = trkSurfaceCenter + Vector3D(-(d0 - r) * std::sin(phi),
@@ -225,13 +230,14 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
   // Set new phi value
   phi = *res;
 
+  double cosPhi = std::cos(phi);
+  double sinPhi = std::sin(phi);
+
   // Set momentum direction
-  momDir = Vector3D(std::sin(theta) * std::cos(phi),
-                    std::sin(phi) * std::sin(theta), std::cos(theta));
+  momDir = Vector3D(sinTheta * cosPhi, sinPhi * sinTheta, std::cos(theta));
 
   // point of closest approach in 3D
-  Vector3D pointCA3d =
-      vec0 + r * Vector3D(-std::sin(phi), std::cos(phi), -cotTheta * phi);
+  Vector3D pointCA3d = vec0 + r * Vector3D(-sinPhi, cosPhi, -cotTheta * phi);
 
   // Set deltaR
   deltaR = pointCA3d - vtxPos;
@@ -272,12 +278,17 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
   const double phi = params[ParID_t::ePHI];
   const double theta = params[ParID_t::eTHETA];
 
-  ActsSymMatrixD<2> vrtXYCov = vtx.covariance().template block<2, 2>(0, 0);
+  const double sinPhi = std::sin(phi);
+  const double sinTheta = std::sin(theta);
+  const double cosPhi = std::cos(phi);
+  const double cosTheta = std::cos(theta);
+
+  SymMatrix2D vrtXYCov = vtx.covariance().template block<2, 2>(0, 0);
 
   // Covariance of perigee parameters after propagation to perigee surface
   const auto& perigeeCov = *(propRes.endParameters->covariance());
 
-  ActsVectorD<2> d0JacXY(-std::sin(phi), std::cos(phi));
+  Vector2D d0JacXY(-sinPhi, cosPhi);
 
   ImpactParametersAndSigma newIPandSigma;
 
@@ -293,7 +304,7 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
     newIPandSigma.PVsigmad0 = 0;
   }
 
-  ActsSymMatrixD<2> covPerigeeZ0Theta;
+  SymMatrix2D covPerigeeZ0Theta;
   covPerigeeZ0Theta(0, 0) = perigeeCov(ParID_t::eLOC_Z0, ParID_t::eLOC_Z0);
   covPerigeeZ0Theta(0, 1) = perigeeCov(ParID_t::eLOC_Z0, ParID_t::eTHETA);
   covPerigeeZ0Theta(1, 0) = perigeeCov(ParID_t::eTHETA, ParID_t::eLOC_Z0);
@@ -301,23 +312,22 @@ Acts::ImpactPointEstimator<input_track_t, propagator_t, propagator_options_t>::
 
   double vtxZZCov = vtx.covariance()(eZ, eZ);
 
-  ActsVectorD<2> z0JacZ0Theta(std::sin(theta), z0 * std::cos(theta));
+  Vector2D z0JacZ0Theta(sinTheta, z0 * cosTheta);
 
   if (vtxZZCov >= 0) {
-    newIPandSigma.IPz0SinTheta = z0 * std::sin(theta);
+    newIPandSigma.IPz0SinTheta = z0 * sinTheta;
     newIPandSigma.sigmaz0SinTheta = std::sqrt(
         z0JacZ0Theta.transpose() * (covPerigeeZ0Theta * z0JacZ0Theta) +
-        std::sin(theta) * vtxZZCov * std::sin(theta));
+        sinTheta * vtxZZCov * sinTheta);
 
-    newIPandSigma.PVsigmaz0SinTheta =
-        std::sqrt(std::sin(theta) * vtxZZCov * std::sin(theta));
+    newIPandSigma.PVsigmaz0SinTheta = std::sqrt(sinTheta * vtxZZCov * sinTheta);
     newIPandSigma.IPz0 = z0;
     newIPandSigma.sigmaz0 =
         std::sqrt(vtxZZCov + perigeeCov(ParID_t::eLOC_Z0, ParID_t::eLOC_Z0));
     newIPandSigma.PVsigmaz0 = std::sqrt(vtxZZCov);
   } else {
     // Remove contribution from PV
-    newIPandSigma.IPz0SinTheta = z0 * std::sin(theta);
+    newIPandSigma.IPz0SinTheta = z0 * sinTheta;
     double sigma2z0sinTheta =
         (z0JacZ0Theta.transpose() * (covPerigeeZ0Theta * z0JacZ0Theta));
     newIPandSigma.sigmaz0SinTheta = std::sqrt(sigma2z0sinTheta);

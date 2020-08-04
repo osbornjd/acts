@@ -8,8 +8,6 @@
 
 #include "ACTFW/Vertexing/VertexFitAlgorithm.hpp"
 
-#include <iostream>
-
 #include "ACTFW/Framework/RandomNumbers.hpp"
 #include "ACTFW/Framework/WhiteBoard.hpp"
 #include "ACTFW/TruthTracking/VertexAndTracks.hpp"
@@ -25,6 +23,8 @@
 #include "Acts/Vertexing/LinearizedTrack.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
+
+#include <iostream>
 
 FWE::VertexFitAlgorithm::VertexFitAlgorithm(const Config& cfg,
                                             Acts::Logging::Level level)
@@ -52,6 +52,7 @@ FW::ProcessCode FWE::VertexFitAlgorithm::execute(
   // Setup the vertex fitter
   VertexFitter::Config vertexFitterCfg;
   VertexFitter vertexFitter(vertexFitterCfg);
+  VertexFitter::State state(ctx.magFieldContext);
   // Setup the linearizer
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
@@ -85,8 +86,8 @@ FW::ProcessCode FWE::VertexFitAlgorithm::execute(
       // Vertex fitter options
       VertexFitterOptions vfOptions(ctx.geoContext, ctx.magFieldContext);
 
-      auto fitRes =
-          vertexFitter.fit(inputTrackPtrCollection, linearizer, vfOptions);
+      auto fitRes = vertexFitter.fit(inputTrackPtrCollection, linearizer,
+                                     vfOptions, state);
       if (fitRes.ok()) {
         fittedVertex = *fitRes;
       } else {
@@ -105,7 +106,7 @@ FW::ProcessCode FWE::VertexFitAlgorithm::execute(
                                           theConstraint);
 
       auto fitRes = vertexFitter.fit(inputTrackPtrCollection, linearizer,
-                                     vfOptionsConstr);
+                                     vfOptionsConstr, state);
       if (fitRes.ok()) {
         fittedVertex = *fitRes;
       } else {

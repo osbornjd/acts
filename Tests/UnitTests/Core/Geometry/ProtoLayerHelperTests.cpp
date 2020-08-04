@@ -15,7 +15,7 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Tests/CommonHelpers/CylindricalTrackingGeometry.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Visualization/GeometryVisualization.hpp"
+#include "Acts/Visualization/GeometryView.hpp"
 #include "Acts/Visualization/IVisualization.hpp"
 #include "Acts/Visualization/ObjVisualization.hpp"
 
@@ -29,7 +29,8 @@ BOOST_AUTO_TEST_SUITE(Geometry)
 
 BOOST_AUTO_TEST_CASE(ProtoLayerHelperTests) {
   ProtoLayerHelper::Config plhConfig;
-  ProtoLayerHelper plHelper(plhConfig);
+  ProtoLayerHelper plHelper(
+      plhConfig, getDefaultLogger("ProtoLayerHelper", Logging::VERBOSE));
 
   GeometryContext tgContext = GeometryContext();
 
@@ -38,19 +39,7 @@ BOOST_AUTO_TEST_CASE(ProtoLayerHelperTests) {
   CylindricalTrackingGeometry ctGeometry(tgContext);
   CylindricalTrackingGeometry::DetectorStore dStore;
 
-  /// Helper method to prepare the streams & helpers
-  /// @param path is the file path
-  /// @param clear ist he indicator to clear the helper
-  auto write = [&](IVisualization& helper, const std::string& path,
-                   bool clear = true) -> void {
-    helper.write(path);
-    if (clear) {
-      helper.clear();
-    }
-  };
-
   /// Cylindrical section ---------------------------------------------------
-
   std::vector<double> layerRadii = {32., 72., 116., 172.};
   std::vector<std::pair<int, int>> layerBinning = {
       {16, 14}, {32, 14}, {52, 14}, {78, 14}};
@@ -68,38 +57,40 @@ BOOST_AUTO_TEST_CASE(ProtoLayerHelperTests) {
                             layerSurfaces.end());
   }
 
-  IVisualization::ColorType unsortedColor = {252, 160, 0};
+  ViewConfig unsorted({252, 160, 0});
   for (auto& sf : cylinderSurfaces) {
-    Visualization::drawSurface(objVis, *sf, tgContext, Transform3D::Identity(),
-                               1, false, unsortedColor);
+    GeometryView::drawSurface(objVis, *sf, tgContext, Transform3D::Identity(),
+                              unsorted);
   }
   // Draw the all surfaces
-  write(objVis, "ProtoLayerHelper_CylinderLayers_unsorted", true);
+  objVis.write("ProtoLayerHelper_CylinderLayers_unsorted");
+  objVis.clear();
 
   // Sort into ProtoLayers
-  auto radialLayers =
-      plHelper.protoLayers(tgContext, cylinderSurfaces, binR, 5.);
+  auto radialLayers = plHelper.protoLayers(
+      tgContext, cylinderSurfaces, ProtoLayerHelper::SortingConfig(binR, 5.));
 
   BOOST_CHECK(radialLayers.size() == 4);
 
-  std::vector<IVisualization::ColorType> sortedColors = {{102, 204, 255},
-                                                         {102, 255, 153},
-                                                         {255, 204, 102},
-                                                         {204, 102, 0},
-                                                         {278, 123, 55}};
+  std::vector<ColorRGB> sortedColors = {{102, 204, 255},
+                                        {102, 255, 153},
+                                        {255, 204, 102},
+                                        {204, 102, 0},
+                                        {278, 123, 55}};
 
   size_t il = 0;
   for (auto& layer : radialLayers) {
     for (auto& sf : layer.surfaces()) {
-      auto color = sortedColors[il];
-      Visualization::drawSurface(objVis, *sf, tgContext,
-                                 Transform3D::Identity(), 1, false, color);
+      ViewConfig sorted(sortedColors[il]);
+      GeometryView::drawSurface(objVis, *sf, tgContext, Transform3D::Identity(),
+                                sorted);
     }
     ++il;
   }
 
   // Draw the sorted surfaces
-  write(objVis, "ProtoLayerHelper_CylinderLayers_radially", true);
+  objVis.write("ProtoLayerHelper_CylinderLayers_radially");
+  objVis.clear();
 
   /// Disc section ---------------------------------------------------
   std::vector<const Surface*> discSurfaces;
@@ -124,29 +115,30 @@ BOOST_AUTO_TEST_CASE(ProtoLayerHelperTests) {
   }
 
   for (auto& sf : discSurfaces) {
-    Visualization::drawSurface(objVis, *sf, tgContext, Transform3D::Identity(),
-                               1, false, unsortedColor);
+    GeometryView::drawSurface(objVis, *sf, tgContext);
   }
   // Draw the all surfaces
-  write(objVis, "ProtoLayerHelper_DiscLayers_unsorted", true);
+  objVis.write("ProtoLayerHelper_DiscLayers_unsorted");
+  objVis.clear();
 
   // Sort into ProtoLayers
-  auto discLayersZ = plHelper.protoLayers(tgContext, discSurfaces, binZ, 5.);
+  auto discLayersZ = plHelper.protoLayers(tgContext, discSurfaces, {binZ, 5.});
 
   BOOST_CHECK(discLayersZ.size() == 4);
 
   il = 0;
   for (auto& layer : discLayersZ) {
     for (auto& sf : layer.surfaces()) {
-      Visualization::drawSurface(objVis, *sf, tgContext,
-                                 Transform3D::Identity(), 1, false,
-                                 sortedColors[il]);
+      ViewConfig ViewConfig(sortedColors[il]);
+      GeometryView::drawSurface(objVis, *sf, tgContext, Transform3D::Identity(),
+                                ViewConfig);
     }
     ++il;
   }
 
   // Draw the sorted surfaces
-  write(objVis, "ProtoLayerHelper_DiscLayers_longitudinally", true);
+  objVis.write("ProtoLayerHelper_DiscLayers_longitudinally");
+  objVis.clear();
 
   /// Ring layout section ---------------------------------------------------
   std::vector<const Surface*> ringSurfaces;
@@ -173,35 +165,51 @@ BOOST_AUTO_TEST_CASE(ProtoLayerHelperTests) {
   }
 
   for (auto& sf : ringSurfaces) {
-    Visualization::drawSurface(objVis, *sf, tgContext, Transform3D::Identity(),
-                               1, false, unsortedColor);
+    GeometryView::drawSurface(objVis, *sf, tgContext);
   }
   // Draw the all surfaces
-  write(objVis, "ProtoLayerHelper_RingLayers_unsorted", true);
+  objVis.write("ProtoLayerHelper_RingLayers_unsorted");
+  objVis.clear();
 
   // First: Sort into ProtoLayers radially
-  auto rSorted = plHelper.protoLayers(tgContext, ringSurfaces, binR, 1.);
+  auto rSorted = plHelper.protoLayers(
+      tgContext, ringSurfaces, ProtoLayerHelper::SortingConfig(binR, 1.));
   BOOST_CHECK(rSorted.size() == 3);
 
-  IVisualization::ColorType dColor = {0, 0, 0};
+  ColorRGB dColor = {0, 0, 0};
 
   int ir = 0;
   for (auto& rBatch : rSorted) {
-    auto lSorted = plHelper.protoLayers(tgContext, rBatch.surfaces(), binZ, 5.);
+    auto lSorted =
+        plHelper.protoLayers(tgContext, rBatch.surfaces(),
+                             ProtoLayerHelper::SortingConfig(binZ, 5.));
     il = 0;
     dColor[ir] = 256;
     for (auto& layer : lSorted) {
       dColor[ir] -= il * 50;
       for (auto& sf : layer.surfaces()) {
-        Visualization::drawSurface(objVis, *sf, tgContext,
-                                   Transform3D::Identity(), 1, false, dColor);
+        GeometryView::drawSurface(objVis, *sf, tgContext);
       }
       ++il;
     }
     ++ir;
   }
   // Draw the all surfaces
-  write(objVis, "ProtoLayerHelper_RingLayers_sorted", true);
+  objVis.write("ProtoLayerHelper_RingLayers_sorted");
+
+  // Perform the split at once
+  auto rzSorted =
+      plHelper.protoLayers(tgContext, ringSurfaces, {{binR, 1.}, {binZ, 5}});
+
+  size_t irz = 0;
+  for (auto& layer : rzSorted) {
+    for (auto& sf : layer.surfaces()) {
+      GeometryView::drawSurface(objVis, *sf, tgContext);
+    }
+    objVis.write("ProtoLayerHelper_RingLayers_rz_sorted" +
+                 std::to_string(irz++));
+    objVis.clear();
+  }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

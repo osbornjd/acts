@@ -10,8 +10,6 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include <limits>
-
 #include "Acts/Material/HomogeneousSurfaceMaterial.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
 #include "Acts/Surfaces/DiscTrapezoidBounds.hpp"
@@ -19,6 +17,8 @@
 #include "Acts/Tests/CommonHelpers/DetectorElementStub.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Definitions.hpp"
+
+#include <limits>
 
 namespace utf = boost::unit_test;
 namespace tt = boost::test_tools;
@@ -174,19 +174,24 @@ BOOST_AUTO_TEST_CASE(DiscSurfaceProperties, *utf::expected_failures(2)) {
                                                     momentum.normalized()),
                   std::sqrt(3), 0.01);
   //
-  /// intersectionEstimate
+  /// intersection test
   Vector3D globalPosition{1.2, 0.0, -10.};
   Vector3D direction{0., 0., 1.};  // must be normalised
   Vector3D expected{1.2, 0.0, 0.0};
+
   // intersect is a struct of (Vector3D) position, pathLength, distance and
-  // (bool) valid
-  auto intersect = discSurfaceObject->intersectionEstimate(
-      tgContext, globalPosition, direction, false);
+  // (bool) valid, it's contained in a Surface intersection
+  auto sfIntersection =
+      discSurfaceObject->intersect(tgContext, globalPosition, direction, false);
   Intersection expectedIntersect{Vector3D{1.2, 0., 0.}, 10.,
                                  Intersection::Status::reachable};
-  BOOST_CHECK(bool(intersect));
-  CHECK_CLOSE_ABS(intersect.position, expectedIntersect.position, 1e-9);
-  CHECK_CLOSE_ABS(intersect.pathLength, expectedIntersect.pathLength, 1e-9);
+  BOOST_CHECK(bool(sfIntersection));
+  CHECK_CLOSE_ABS(sfIntersection.intersection.position,
+                  expectedIntersect.position, 1e-9);
+  CHECK_CLOSE_ABS(sfIntersection.intersection.pathLength,
+                  expectedIntersect.pathLength, 1e-9);
+  BOOST_CHECK_EQUAL(sfIntersection.object, discSurfaceObject.get());
+
   //
   /// Test name
   boost::test_tools::output_test_stream nameOuput;
@@ -236,6 +241,53 @@ BOOST_AUTO_TEST_CASE(DiscSurfaceExtent) {
   CHECK_CLOSE_ABS(rMax, pRingExtent.max(binX), s_onSurfaceTolerance);
   CHECK_CLOSE_ABS(-rMax, pRingExtent.min(binY), s_onSurfaceTolerance);
   CHECK_CLOSE_ABS(rMax, pRingExtent.max(binY), s_onSurfaceTolerance);
+}
+
+/// Unit test for testing DiscSurface alignment derivatives
+BOOST_AUTO_TEST_CASE(DiscSurfaceAlignment) {
+  Translation3D translation{0., 1., 2.};
+  Transform3D transform(translation);
+  auto pTransform = std::make_shared<const Transform3D>(translation);
+  double rMin(1.0), rMax(5.0), halfPhiSector(M_PI / 8.);
+  auto discSurfaceObject =
+      Surface::makeShared<DiscSurface>(pTransform, rMin, rMax, halfPhiSector);
+
+  const auto& rotation = pTransform->rotation();
+  // The local frame z axis
+  const Vector3D localZAxis = rotation.col(2);
+  // Check the local z axis is aligned to global z axis
+  CHECK_CLOSE_ABS(localZAxis, Vector3D(0., 0., 1.), 1e-15);
+
+  /// Define the track (global) position and direction
+  Vector3D globalPosition{0, 4, 2};
+  Vector3D momentum{0, 0, 1};
+  Vector3D direction = momentum.normalized();
+
+  // Call the function to calculate the derivative of local frame axes w.r.t its
+  // rotation
+  const auto& [rotToLocalXAxis, rotToLocalYAxis, rotToLocalZAxis] =
+      detail::rotationToLocalAxesDerivative(rotation);
+
+  // (a) Test the derivative of path length w.r.t. alignment parameters
+  const AlignmentRowVector& alignToPath =
+      discSurfaceObject->alignmentToPathDerivative(tgContext, rotToLocalZAxis,
+                                                   globalPosition, direction);
+  // The expected results
+  AlignmentRowVector expAlignToPath = AlignmentRowVector::Zero();
+  expAlignToPath << 0, 0, 1, 3, 0, 0;
+  // Check if the calculated derivative is as expected
+  CHECK_CLOSE_ABS(alignToPath, expAlignToPath, 1e-10);
+
+  // (b) Test the derivative of bound track parameters local position w.r.t.
+  // position in local 3D Cartesian coordinates
+  const auto& loc3DToLocBound =
+      discSurfaceObject->localCartesianToBoundLocalDerivative(tgContext,
+                                                              globalPosition);
+  // Check if the result is as expected
+  LocalCartesianToBoundLocalMatrix expLoc3DToLocBound =
+      LocalCartesianToBoundLocalMatrix::Zero();
+  expLoc3DToLocBound << 0, 1, 0, -1.0 / 3, 0, 0;
+  CHECK_CLOSE_ABS(loc3DToLocBound, expLoc3DToLocBound, 1e-10);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

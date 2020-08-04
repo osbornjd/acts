@@ -8,12 +8,12 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include <random>
-
 #include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/MeasurementHelpers.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Utilities/ParameterDefinitions.hpp"
+
+#include <random>
 
 namespace Acts {
 namespace Test {
@@ -21,14 +21,15 @@ namespace Test {
 using SourceLink = MinimalSourceLink;
 
 template <ParID_t... params>
-using MeasurementType = Measurement<SourceLink, params...>;
+using MeasurementType =
+    Measurement<SourceLink, BoundParametersIndices, params...>;
 
 /// @brief Unit test for creation of Measurement object
 ///
 BOOST_AUTO_TEST_CASE(measurement_initialization) {
   auto cylinder = Surface::makeShared<CylinderSurface>(nullptr, 3, 10);
 
-  ActsSymMatrixD<2> cov;
+  SymMatrix2D cov;
   cov << 0.04, 0, 0, 0.1;
   MeasurementType<ParDef::eLOC_0, ParDef::eLOC_1> m(cylinder, {},
                                                     std::move(cov), -0.1, 0.45);
@@ -36,7 +37,7 @@ BOOST_AUTO_TEST_CASE(measurement_initialization) {
   std::default_random_engine generator(42);
 
   // Create a measurement on a cylinder
-  ActsSymMatrixD<2> covc;
+  SymMatrix2D covc;
   covc << 0.04, 0, 0, 0.1;
   MeasurementType<ParDef::eLOC_0, ParDef::eLOC_1> mc(
       cylinder, {}, std::move(covc), -0.1, 0.45);
@@ -45,7 +46,7 @@ BOOST_AUTO_TEST_CASE(measurement_initialization) {
   auto mcCopy(mc);
 
   // The surface should be not null and point to the same
-  const Surface* sfCopy = &mcCopy.referenceSurface();
+  const Surface* sfCopy = &mcCopy.referenceObject();
   BOOST_CHECK_NE(sfCopy, nullptr);
   BOOST_CHECK_EQUAL(sfCopy, cylinder.get());
   // The parameters should be identical though
@@ -55,7 +56,7 @@ BOOST_AUTO_TEST_CASE(measurement_initialization) {
   auto mcAssigned = mc;
 
   // The surface should be not null and point to the same
-  const Surface* sfAssigned = &mcAssigned.referenceSurface();
+  const Surface* sfAssigned = &mcAssigned.referenceObject();
   BOOST_CHECK_NE(sfAssigned, nullptr);
   BOOST_CHECK_EQUAL(sfAssigned, cylinder.get());
   // The parameters should be identical though
@@ -70,7 +71,7 @@ BOOST_AUTO_TEST_CASE(measurement_initialization) {
   covp << 0.01;
   MeasurementType<ParDef::eLOC_0> mp(plane, {}, std::move(covp), 0.1);
 
-  ActsSymMatrixD<2> covpp;
+  SymMatrix2D covpp;
   covpp << 0.01, 0., 0., 0.02;
   MeasurementType<ParDef::eLOC_0, ParDef::eLOC_1> mpp(
       plane, {}, std::move(covpp), 0.1, 0.2);

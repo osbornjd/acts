@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Acts/Surfaces/AnnulusBounds.hpp"
+
 #include "Acts/Surfaces/detail/VerticesHelper.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/detail/periodic.hpp"
@@ -111,14 +112,14 @@ std::vector<Acts::Vector2D> Acts::AnnulusBounds::vertices(
   // Inner bow from phi_min -> phi_max
   for (unsigned int iseg = 0; iseg < phisInner.size() - 1; ++iseg) {
     int addon = (iseg == phisInner.size() - 2) ? 1 : 0;
-    detail::VerticesHelper::createSegment<Vector2D, Eigen::Affine2d>(
+    detail::VerticesHelper::createSegment<Vector2D, Transform2D>(
         rvertices, {get(eMinR), get(eMinR)}, phisInner[iseg],
         phisInner[iseg + 1], lseg, addon);
   }
   // Upper bow from phi_min -> phi_max
   for (unsigned int iseg = 0; iseg < phisOuter.size() - 1; ++iseg) {
     int addon = (iseg == phisOuter.size() - 2) ? 1 : 0;
-    detail::VerticesHelper::createSegment<Vector2D, Eigen::Affine2d>(
+    detail::VerticesHelper::createSegment<Vector2D, Transform2D>(
         rvertices, {get(eMaxR), get(eMaxR)}, phisOuter[iseg],
         phisOuter[iseg + 1], lseg, addon);
   }

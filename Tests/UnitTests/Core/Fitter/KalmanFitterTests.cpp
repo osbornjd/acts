@@ -6,21 +6,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include <boost/math/distributions/chi_squared.hpp>
 #include <boost/test/unit_test.hpp>
-
-#include <algorithm>
-#include <cmath>
-#include <random>
-#include <vector>
 
 #include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/MeasurementHelpers.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/EventData/TrackState.hpp"
 #include "Acts/Fitter/GainMatrixSmoother.hpp"
 #include "Acts/Fitter/GainMatrixUpdater.hpp"
 #include "Acts/Fitter/KalmanFitter.hpp"
+#include "Acts/Fitter/detail/KalmanGlobalCovariance.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryID.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
@@ -40,6 +34,13 @@
 #include "Acts/Utilities/CalibrationContext.hpp"
 #include "Acts/Utilities/Definitions.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <random>
+#include <vector>
+
+#include <boost/math/distributions/chi_squared.hpp>
+
 using namespace Acts::UnitLiterals;
 
 namespace Acts {
@@ -47,22 +48,20 @@ namespace Test {
 
 // A few initialisations and definitionas
 using SourceLink = MinimalSourceLink;
-using Jacobian = BoundParameters::CovMatrix_t;
+using Jacobian = BoundMatrix;
 using Covariance = BoundSymMatrix;
 
-using TrackState = TrackState<SourceLink, BoundParameters>;
 using Resolution = std::pair<ParID_t, double>;
 using ElementResolution = std::vector<Resolution>;
 using VolumeResolution = std::map<GeometryID::Value, ElementResolution>;
 using DetectorResolution = std::map<GeometryID::Value, VolumeResolution>;
-
 using DebugOutput = DebugOutputActor;
 
 std::normal_distribution<double> gauss(0., 1.);
 std::default_random_engine generator(42);
 
 ActsSymMatrixD<1> cov1D;
-ActsSymMatrixD<2> cov2D;
+SymMatrix2D cov2D;
 
 bool debugMode = false;
 
@@ -72,7 +71,8 @@ MagneticFieldContext mfContext = MagneticFieldContext();
 CalibrationContext calContext = CalibrationContext();
 
 template <ParID_t... params>
-using MeasurementType = Measurement<SourceLink, params...>;
+using MeasurementType =
+    Measurement<SourceLink, BoundParametersIndices, params...>;
 
 /// @brief This struct creates FittableMeasurements on the
 /// detector surfaces, according to the given smearing xxparameters
@@ -360,8 +360,8 @@ BOOST_AUTO_TEST_CASE(kalman_fitter_zero_field) {
 
   const Surface* rSurface = &rStart.referenceSurface();
 
-  using Updater = GainMatrixUpdater<BoundParameters>;
-  using Smoother = GainMatrixSmoother<BoundParameters>;
+  using Updater = GainMatrixUpdater;
+  using Smoother = GainMatrixSmoother;
   using KalmanFitter =
       KalmanFitter<RecoPropagator, Updater, Smoother, MinimalOutlierFinder>;
 
@@ -379,6 +379,16 @@ BOOST_AUTO_TEST_CASE(kalman_fitter_zero_field) {
   BOOST_CHECK(fitRes.ok());
   auto& fittedTrack = *fitRes;
   auto fittedParameters = fittedTrack.fittedParameters.value();
+
+  // Calculate global track parameters covariance matrix
+  const auto& [trackParamsCov, stateRowIndices] =
+      detail::globalTrackParametersCovariance(fittedTrack.fittedStates,
+                                              fittedTrack.trackTip);
+
+  // Check the size of the global track parameters size
+  BOOST_CHECK_EQUAL(stateRowIndices.size(), 6);
+  BOOST_CHECK_EQUAL(stateRowIndices.at(fittedTrack.trackTip), 30);
+  BOOST_CHECK_EQUAL(trackParamsCov.rows(), 6 * eBoundParametersSize);
 
   // Make sure it is deterministic
   fitRes = kFitter.fit(sourcelinks, rStart, kfOptions);
@@ -419,6 +429,17 @@ BOOST_AUTO_TEST_CASE(kalman_fitter_zero_field) {
   BOOST_CHECK(fitRes.ok());
   auto& fittedWithHoleTrack = *fitRes;
   auto fittedWithHoleParameters = fittedWithHoleTrack.fittedParameters.value();
+
+  // Calculate global track parameters covariance matrix
+  const auto& [holeTrackTrackParamsCov, holeTrackStateRowIndices] =
+      detail::globalTrackParametersCovariance(fittedWithHoleTrack.fittedStates,
+                                              fittedWithHoleTrack.trackTip);
+
+  // Check the size of the global track parameters size
+  BOOST_CHECK_EQUAL(holeTrackStateRowIndices.size(), 6);
+  BOOST_CHECK_EQUAL(holeTrackStateRowIndices.at(fittedWithHoleTrack.trackTip),
+                    30);
+  BOOST_CHECK_EQUAL(holeTrackTrackParamsCov.rows(), 6 * eBoundParametersSize);
 
   // Count one hole
   BOOST_CHECK_EQUAL(fittedWithHoleTrack.missedActiveSurfaces.size(), 1u);

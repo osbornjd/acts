@@ -10,13 +10,13 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include <limits>
-
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Tests/CommonHelpers/DetectorElementStub.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Definitions.hpp"
+
+#include <limits>
 
 namespace tt = boost::test_tools;
 using boost::test_tools::output_test_stream;
@@ -167,27 +167,25 @@ BOOST_AUTO_TEST_CASE(CylinderSurfaceProperties) {
   BOOST_CHECK(!cylinderSurfaceObject->isOnSurface(testContext, offSurface,
                                                   momentum, true));
   //
-  /// intersectionEstimate
+  /// intersection test
   Vector3D direction{-1., 0, 0};
-  auto intersect = cylinderSurfaceObject->intersectionEstimate(
+  auto sfIntersection = cylinderSurfaceObject->intersect(
       testContext, offSurface, direction, false);
   Intersection expectedIntersect{Vector3D{1, 1, 2}, 99.,
                                  Intersection::Status::reachable};
-  // check the result
-  BOOST_CHECK(bool(intersect));
-  CHECK_CLOSE_ABS(intersect.position, expectedIntersect.position, 1e-9);
-  CHECK_CLOSE_ABS(intersect.pathLength, expectedIntersect.pathLength, 1e-9);
-
-  /// intersect
-  auto surfaceIntersect = cylinderSurfaceObject->intersect(
-      testContext, offSurface, direction, false);
-  BOOST_CHECK(bool(surfaceIntersect));
+  BOOST_CHECK(bool(sfIntersection));
+  CHECK_CLOSE_ABS(sfIntersection.intersection.position,
+                  expectedIntersect.position, 1e-9);
+  CHECK_CLOSE_ABS(sfIntersection.intersection.pathLength,
+                  expectedIntersect.pathLength, 1e-9);
   // there is a second solution & and it should be valid
-  BOOST_CHECK(surfaceIntersect.alternative);
+  BOOST_CHECK(sfIntersection.alternative);
   // And it's path should be further away then the primary solution
-  double pn = surfaceIntersect.intersection.pathLength;
-  double pa = surfaceIntersect.alternative.pathLength;
+  double pn = sfIntersection.intersection.pathLength;
+  double pa = sfIntersection.alternative.pathLength;
   BOOST_CHECK(pn * pn < pa * pa);
+  BOOST_CHECK_EQUAL(sfIntersection.object, cylinderSurfaceObject.get());
+
   //
   /// Test pathCorrection
   CHECK_CLOSE_REL(cylinderSurfaceObject->pathCorrection(testContext, offSurface,
@@ -253,6 +251,35 @@ BOOST_AUTO_TEST_CASE(CylinderSurfaceExtent) {
   CHECK_CLOSE_ABS(radius, cylinderExtent.max(binX), s_onSurfaceTolerance);
   CHECK_CLOSE_ABS(-radius, cylinderExtent.min(binY), s_onSurfaceTolerance);
   CHECK_CLOSE_ABS(radius, cylinderExtent.max(binY), s_onSurfaceTolerance);
+}
+
+/// Unit test for testing CylinderSurface alignment derivatives
+BOOST_AUTO_TEST_CASE(CylinderSurfaceAlignment) {
+  double radius(1.0), halfZ(10.);
+  Translation3D translation{0., 1., 2.};
+  auto pTransform = std::make_shared<const Transform3D>(translation);
+  auto cylinderSurfaceObject =
+      Surface::makeShared<CylinderSurface>(pTransform, radius, halfZ);
+
+  const auto& rotation = pTransform->rotation();
+  // The local frame z axis
+  const Vector3D localZAxis = rotation.col(2);
+  // Check the local z axis is aligned to global z axis
+  CHECK_CLOSE_ABS(localZAxis, Vector3D(0., 0., 1.), 1e-15);
+
+  /// Define the track (global) position and direction
+  Vector3D globalPosition{0, 2, 2};
+
+  // Test the derivative of bound track parameters local position w.r.t.
+  // position in local 3D Cartesian coordinates
+  const auto& loc3DToLocBound =
+      cylinderSurfaceObject->localCartesianToBoundLocalDerivative(
+          testContext, globalPosition);
+  // Check if the result is as expected
+  LocalCartesianToBoundLocalMatrix expLoc3DToLocBound =
+      LocalCartesianToBoundLocalMatrix::Zero();
+  expLoc3DToLocBound << -1, 0, 0, 0, 0, 1;
+  CHECK_CLOSE_ABS(loc3DToLocBound, expLoc3DToLocBound, 1e-10);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

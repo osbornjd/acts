@@ -125,19 +125,21 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
 
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linFactory(ltConfig);
+  Linearizer::State state(magFieldContext);
 
   BoundVector vecBoundZero = BoundVector::Zero();
   BoundSymMatrix matBoundZero = BoundSymMatrix::Zero();
-  SpacePointVector vecSPZero = SpacePointVector::Zero();
-  SpacePointToBoundMatrix matBound2SPZero = SpacePointToBoundMatrix::Zero();
+  Vector4D vecSPZero = Vector4D::Zero();
+  ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4> matBound2SPZero =
+      ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4>::Zero();
   ActsMatrixD<eBoundParametersSize, 3> matBound2MomZero =
       ActsMatrixD<eBoundParametersSize, 3>::Zero();
 
   for (const BoundParameters& parameters : tracks) {
     LinearizedTrack linTrack =
         linFactory
-            .linearizeTrack(parameters, SpacePointVector::Zero(), geoContext,
-                            magFieldContext)
+            .linearizeTrack(parameters, Vector4D::Zero(), geoContext,
+                            magFieldContext, state)
             .value();
 
     BOOST_CHECK_NE(linTrack.parametersAtPCA, vecBoundZero);
@@ -216,19 +218,21 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_straightline_test) {
   // magnetic field, which results in the extreme case of a straight line
   LinearizerStraightLine::Config ltConfig(propagator);
   LinearizerStraightLine linFactory(ltConfig);
+  LinearizerStraightLine::State state(magFieldContext);
 
   BoundVector vecBoundZero = BoundVector::Zero();
   BoundSymMatrix matBoundZero = BoundSymMatrix::Zero();
-  SpacePointVector vecSPZero = SpacePointVector::Zero();
-  SpacePointToBoundMatrix matBound2SPZero = SpacePointToBoundMatrix::Zero();
+  Vector4D vecSPZero = Vector4D::Zero();
+  ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4> matBound2SPZero =
+      ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4>::Zero();
   ActsMatrixD<eBoundParametersSize, 3> matBound2MomZero =
       ActsMatrixD<eBoundParametersSize, 3>::Zero();
 
   for (const BoundParameters& parameters : tracks) {
     LinearizedTrack linTrack =
         linFactory
-            .linearizeTrack(parameters, SpacePointVector::Zero(), geoContext,
-                            magFieldContext)
+            .linearizeTrack(parameters, Vector4D::Zero(), geoContext,
+                            magFieldContext, state)
             .value();
 
     BOOST_CHECK_NE(linTrack.parametersAtPCA, vecBoundZero);

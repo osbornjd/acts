@@ -8,8 +8,11 @@
 
 #include "ACTFW/TrackFinding/TrackFindingOptions.hpp"
 
-#include <boost/program_options.hpp>
+#include "Acts/Geometry/GeometryID.hpp"
+
 #include <string>
+
+#include <boost/program_options.hpp>
 
 void FW::Options::addTrackFindingOptions(FW::Options::Description& desc) {
   using boost::program_options::value;
@@ -17,20 +20,20 @@ void FW::Options::addTrackFindingOptions(FW::Options::Description& desc) {
   auto opt = desc.add_options();
   opt("ckf-slselection-chi2max", value<double>()->default_value(15),
       "Global criteria of maximum chi2 for CKF source link selection");
-  opt("ckf-slselection-nmax", value<int>()->default_value(10),
+  opt("ckf-slselection-nmax", value<size_t>()->default_value(10),
       "Global criteria of maximum number of source link candidates on a "
       "surface for CKF source link selection");
 }
 
 FW::TrackFindingAlgorithm::Config FW::Options::readTrackFindingConfig(
     const FW::Options::Variables& variables) {
-  using Config = typename FW::TrackFindingAlgorithm::Config;
-  Config tfAlgCfg;
+  auto chi2Max = variables["ckf-slselection-chi2max"].template as<double>();
+  auto nMax = variables["ckf-slselection-nmax"].template as<size_t>();
 
-  tfAlgCfg.sourcelinkSelectorCfg.globalChi2CutOff =
-      variables["ckf-slselection-chi2max"].template as<double>();
-  tfAlgCfg.sourcelinkSelectorCfg.globalNumSourcelinksCutOff =
-      variables["ckf-slselection-nmax"].template as<int>();
-
-  return tfAlgCfg;
+  // config is a GeometryHierarchyMap with just the global default
+  TrackFindingAlgorithm::Config cfg;
+  cfg.sourcelinkSelectorCfg = {
+      {Acts::GeometryID(), {chi2Max, nMax}},
+  };
+  return cfg;
 }

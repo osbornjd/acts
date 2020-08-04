@@ -25,7 +25,7 @@ The following dependencies are required to build the Acts core library:
 
 -   A C++17 compatible compiler (recent versions of either gcc and clang should work)
 -   [CMake](https://cmake.org) >= 3.11
--   [Boost](http://boost.org) >= 1.69 with `filesystem`, `program_options`, and `unit_test_framework`
+-   [Boost](http://boost.org) >= 1.69 with `program_options`, and `unit_test_framework`
 -   [Eigen](http://eigen.tuxfamily.org) >= 3.2.9
 
 The following dependencies are optional and are needed to build additional
@@ -95,8 +95,7 @@ $ cd <source>
 $ source CI/setup_lcg95.sh # or setup_lcg96.sh
 ```
 
-This activates a compatible release variant regardless of whether you are on
-*SLC 6* or on *CentOS 7*.
+This activates a compatible release variant on *CentOS 7*.
 
 After sourcing the setup script, you can build Acts as described above. The
 following commands will build Acts in the `<source>/build` directory with the
@@ -121,11 +120,11 @@ continous integration setup and come with all dependencies pre-installed.
     LCG release 95apython3
 -   `centos7-lcg96`: based on CentOS 7 with HEP-specific software from LCG
     release 96
--   `slc6-lcg95apython3`: based on SLC 6 with HEP-specific software from LCG
-    release 95apython3
 
 To use these locally, you first need to pull the relevant images from the
-registry. The current version is always tagged as `master.
+registry. Stable versions are tagged as `vX` where `X` is the version number.
+The latest version is also tagged as `master`. The following command downloads
+the latest `ubuntu2004` image:
 
 ```console
 $ docker pull gitlab-registry.cern.ch/acts/machines/ubuntu2004:master
@@ -247,8 +246,8 @@ components. q
 | ACTS_BUILD_EXAMPLES_HEPMC3            | Build HepMC3-based code in the examples |
 | ACTS_BUILD_EXAMPLES_PYTHIA8           | Build Pythia8-based code in the examples |
 | ACTS_BUILD_BENCHMARKS                 | Build benchmarks |
-| ACTS_BUILD_UNITTESTS                  | Build unit tests |
 | ACTS_BUILD_INTEGRATIONTESTS           | Build integration tests |
+| ACTS_BUILD_UNITTESTS                  | Build unit tests |
 | ACTS_BUILD_DOCS                       | Build documentation |
 
 All Acts-specific options are disabled or empty by default (except for
@@ -266,7 +265,7 @@ documentation](https://cmake.org/documentation/).
 
 | Option               | Description |
 |----------------------|-------------|
-| CMAKE_BUILD_TYPE     | Build type, e.g. Debug or Release; affects compiler flags |
+| CMAKE_BUILD_TYPE     | Build type, e.g. Debug or Release; affects compiler flags <br/> (if not specified **`RelWithDebInfo`** will be used as a default) |
 | CMAKE_CXX_COMPILER   | Which C++ compiler to use, e.g. g++ or clang++ |
 | CMAKE_INSTALL_PREFIX | Where to install Acts to |
 | CMAKE_PREFIX_PATH    | Search path for external packages |

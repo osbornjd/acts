@@ -6,31 +6,29 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include <boost/optional/optional_io.hpp>
 #include <boost/test/unit_test.hpp>
-
-#include <memory>
 
 #include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/MeasurementHelpers.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/EventData/TrackState.hpp"
 #include "Acts/Fitter/GainMatrixUpdater.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/ParameterDefinitions.hpp"
 
+#include <memory>
+
+#include <boost/optional/optional_io.hpp>
+
 namespace Acts {
 namespace Test {
 
-using Jacobian = BoundParameters::CovMatrix_t;
+using Jacobian = BoundMatrix;
 using Covariance = BoundSymMatrix;
-
 using SourceLink = MinimalSourceLink;
-
 template <ParID_t... params>
-using MeasurementType = Measurement<SourceLink, params...>;
-using TrackState = TrackState<SourceLink, BoundParameters>;
+using MeasurementType =
+    Measurement<SourceLink, BoundParametersIndices, params...>;
 
 // Create a test context
 GeometryContext tgContext = GeometryContext();
@@ -39,7 +37,7 @@ BOOST_AUTO_TEST_CASE(gain_matrix_updater) {
   // Make dummy measurement
   auto cylinder = Surface::makeShared<CylinderSurface>(nullptr, 3, 10);
 
-  ActsSymMatrixD<2> cov;
+  SymMatrix2D cov;
   cov << 0.04, 0, 0, 0.1;
   FittableMeasurement<SourceLink> meas(
       MeasurementType<ParDef::eLOC_0, ParDef::eLOC_1>(
@@ -65,7 +63,7 @@ BOOST_AUTO_TEST_CASE(gain_matrix_updater) {
   ts.pathLength() = 0.;
 
   // Gain matrix update and filtered state
-  GainMatrixUpdater<BoundParameters> gmu;
+  GainMatrixUpdater gmu;
 
   BOOST_CHECK(ts.hasFiltered());
   BOOST_CHECK(ts.hasCalibrated());

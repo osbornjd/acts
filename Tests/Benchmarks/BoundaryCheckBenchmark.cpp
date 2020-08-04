@@ -6,17 +6,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+#include "Acts/Surfaces/BoundaryCheck.hpp"
+#include "Acts/Tests/CommonHelpers/BenchmarkTools.hpp"
+#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Utilities/Units.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <functional>
 #include <iostream>
 #include <random>
 #include <vector>
-
-#include "Acts/Surfaces/BoundaryCheck.hpp"
-#include "Acts/Tests/CommonHelpers/BenchmarkTools.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 using namespace Acts;
 
@@ -27,7 +27,7 @@ int main(int /*argc*/, char** /*argv[]*/) {
   const Vector2D poly[] = {{0.4, 0.25}, {0.6, 0.25}, {0.8, 0.75}, {0.2, 0.75}};
 
   // Covariance matrix which specifies "soft" boundary check tolerance
-  ActsSymMatrixD<2> cov;
+  SymMatrix2D cov;
   cov << 0.2, 0.02, 0.15, 0.02;
 
   // Random tests cover the ((0, 0), (1, 1)) rectangle. 20% of that area is

@@ -7,7 +7,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Acts/Material/VolumeMaterialMapper.hpp"
-#include "Acts/EventData/NeutralParameters.hpp"
+
+#include "Acts/EventData/NeutralTrackParameters.hpp"
 #include "Acts/Material/HomogeneousVolumeMaterial.hpp"
 #include "Acts/Material/InterpolatedMaterialMap.hpp"
 #include "Acts/Material/MaterialGridHelper.hpp"
@@ -195,7 +196,6 @@ void Acts::VolumeMaterialMapper::finalizeMaps(State& mState) const {
       Acts::Material mat = homogeneousAccumulation.average();
       mState.volumeMaterial[recMaterial.first] =
           std::make_unique<HomogeneousVolumeMaterial>(std::move(mat));
-      return;
     } else if (mState.materialBin[recMaterial.first].dimensions() == 2) {
       // Accumulate all the recorded material onto a grid
       ACTS_DEBUG("Grid material volume");
@@ -208,7 +208,6 @@ void Acts::VolumeMaterialMapper::finalizeMaps(State& mState) const {
       mState.volumeMaterial[recMaterial.first] = std::make_unique<
           InterpolatedMaterialMap<MaterialMapper<MaterialGrid2D>>>(
           std::move(matMap), mState.materialBin[recMaterial.first]);
-      return;
     } else if (mState.materialBin[recMaterial.first].dimensions() == 3) {
       // Accumulate all the recorded material onto a grid
       ACTS_DEBUG("Grid material volume");
@@ -221,7 +220,6 @@ void Acts::VolumeMaterialMapper::finalizeMaps(State& mState) const {
       mState.volumeMaterial[recMaterial.first] = std::make_unique<
           InterpolatedMaterialMap<MaterialMapper<MaterialGrid3D>>>(
           std::move(matMap), mState.materialBin[recMaterial.first]);
-      return;
     } else {
       throw std::invalid_argument(
           "Incorrect bin dimension, only 0, 2 and 3 are accepted");
@@ -232,8 +230,8 @@ void Acts::VolumeMaterialMapper::finalizeMaps(State& mState) const {
 void Acts::VolumeMaterialMapper::mapMaterialTrack(
     State& mState, RecordedMaterialTrack& mTrack) const {
   // Neutral curvilinear parameters
-  NeutralCurvilinearParameters start(std::nullopt, mTrack.first.first,
-                                     mTrack.first.second, 0.);
+  NeutralCurvilinearTrackParameters start(std::nullopt, mTrack.first.first,
+                                          mTrack.first.second, 0.);
 
   // Prepare Action list and abort list
   using MaterialVolumeCollector = VolumeCollector<MaterialVolume>;
@@ -312,15 +310,14 @@ void Acts::VolumeMaterialMapper::mapMaterialTrack(
         float remainder = rmIter->materialProperties.thickness() -
                           m_cfg.mappingStep * volumeStep;
         properties.scaleThickness(m_cfg.mappingStep / properties.thickness());
-        mState.recordedMaterial[volIter->volume->geoID()].push_back(
-            std::pair(properties, rmIter->position));
-        for (int step = 1; step <= volumeStep; step++) {
-          // Create additional extrapolated point for the grid mapping
-          extraDirection = rmIter->direction;
-          extraDirection =
-              extraDirection * (m_cfg.mappingStep / extraDirection.norm());
-          extraPosition = rmIter->position + step * extraDirection;
-          if (step == volumeStep) {
+        // Get the direction of the Geantino in the volume
+        extraDirection = rmIter->direction;
+        extraDirection =
+            extraDirection * (m_cfg.mappingStep / extraDirection.norm());
+        for (int extraStep = 0; extraStep <= volumeStep; extraStep++) {
+          // Create additional extrapolated points for the grid mapping
+          extraPosition = rmIter->position + extraStep * extraDirection;
+          if (extraStep == volumeStep) {
             // adjust the thickness of the last extrapolated step
             properties.scaleThickness(remainder / properties.thickness());
           }

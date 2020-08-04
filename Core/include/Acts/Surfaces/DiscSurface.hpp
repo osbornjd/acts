@@ -279,8 +279,8 @@ class DiscSurface : public Surface {
   /// - either in the plane
   /// - perpendicular to the normal of the plane
   ///
-  /// @return is the surface intersection object
-  Intersection intersectionEstimate(
+  /// @return The SurfaceIntersection object
+  SurfaceIntersection intersect(
       const GeometryContext& gctx, const Vector3D& position,
       const Vector3D& direction,
       const BoundaryCheck& bcheck = false) const final;
@@ -309,6 +309,17 @@ class DiscSurface : public Surface {
   /// @return A list of vertices and a face/facett description of it
   Polyhedron polyhedronRepresentation(const GeometryContext& gctx,
                                       size_t lseg) const override;
+
+  /// Calculate the derivative of bound track parameters local position w.r.t.
+  /// position in local 3D Cartesian coordinates
+  ///
+  /// @param gctx The current geometry context object, e.g. alignment
+  /// @param position The position of the paramters in global
+  ///
+  /// @return Derivative of bound local position w.r.t. position in local 3D
+  /// cartesian coordinates
+  const LocalCartesianToBoundLocalMatrix localCartesianToBoundLocalDerivative(
+      const GeometryContext& gctx, const Vector3D& position) const final;
 
  protected:
   std::shared_ptr<const DiscBounds> m_bounds;  ///< bounds (shared)

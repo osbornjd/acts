@@ -8,11 +8,11 @@
 
 #pragma once
 
+#include "Acts/Utilities/TypeTraits.hpp"
+
 #include <optional>
 #include <string_view>
 #include <variant>
-
-#include "Acts/Utilities/TypeTraits.hpp"
 
 namespace Acts {
 
@@ -204,10 +204,10 @@ class FiniteStateMachine {
           } else {
             child.on_process(s, event);
           }
-          return std::move(s2);
+          return s2;
         },
         m_state);
-    return std::move(new_state);
+    return new_state;
   }
 
  public:

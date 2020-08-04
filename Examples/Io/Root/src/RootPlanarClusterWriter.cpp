@@ -8,11 +8,6 @@
 
 #include "ACTFW/Io/Root/RootPlanarClusterWriter.hpp"
 
-#include <TFile.h>
-#include <TTree.h>
-#include <ios>
-#include <stdexcept>
-
 #include "ACTFW/EventData/SimHit.hpp"
 #include "ACTFW/EventData/SimIdentifier.hpp"
 #include "ACTFW/EventData/SimParticle.hpp"
@@ -23,6 +18,12 @@
 #include "Acts/Plugins/Digitization/Segmentation.hpp"
 #include "Acts/Plugins/Identification/IdentifiedDetectorElement.hpp"
 #include "Acts/Utilities/Units.hpp"
+
+#include <ios>
+#include <stdexcept>
+
+#include <TFile.h>
+#include <TTree.h>
 
 FW::RootPlanarClusterWriter::RootPlanarClusterWriter(
     const FW::RootPlanarClusterWriter::Config& cfg, Acts::Logging::Level lvl)
@@ -117,7 +118,7 @@ FW::ProcessCode FW::RootPlanarClusterWriter::writeT(
     Acts::Vector3D pos(0, 0, 0);
     Acts::Vector3D mom(1, 1, 1);
     // the cluster surface
-    const auto& clusterSurface = cluster.referenceSurface();
+    const auto& clusterSurface = cluster.referenceObject();
     // transform local into global position information
     clusterSurface.localToGlobal(ctx.geoContext, local, mom, pos);
     // identification

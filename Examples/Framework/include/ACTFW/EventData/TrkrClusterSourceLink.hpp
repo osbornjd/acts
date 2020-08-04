@@ -69,14 +69,15 @@ public:
   {
 
     return Acts::Measurement<TrkrClusterSourceLink, 
+			     Acts::BoundParametersIndices,
 			     Acts::ParDef::eLOC_0,
 			     Acts::ParDef::eLOC_1>
-      {
-	m_surface,
+      {m_surface,
 	  *this,
 	  m_cov.topLeftCorner<2, 2>(),
 	  m_loc[0],
-	  m_loc[1]};
+	  m_loc[1]
+	  };
   }
 
   unsigned int hitID() const

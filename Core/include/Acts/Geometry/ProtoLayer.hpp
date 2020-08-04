@@ -7,12 +7,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
-#include <iostream>
 #include "Acts/Geometry/Extent.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Definitions.hpp"
+
+#include <iostream>
 
 namespace Acts {
 
@@ -29,7 +30,7 @@ struct ProtoLayer {
 
   /// The envelope parameters
   using Range = std::pair<double, double>;
-  std::vector<Range> envelope = std::vector<Range>((int)binValues, {0., 0.});
+  std::vector<Range> envelope{(int)binValues, {0., 0.}};
 
   /// Constructor
   ///
@@ -58,22 +59,22 @@ struct ProtoLayer {
   /// Get the parameters : min
   /// @param bval The accessed binning value
   /// @param addenv The steering if enevlope is added or not
-  double min(BinningValue bval, bool addenv = true);
+  double min(BinningValue bval, bool addenv = true) const;
 
   // Get the  parameters : max
   /// @param bval The accessed binning value
   /// @param addenv The steering if enevlope is added or not
-  double max(BinningValue bval, bool addenv = true);
+  double max(BinningValue bval, bool addenv = true) const;
 
   // Get the  parameters : max
   /// @param bval The accessed binning value
   /// @param addenv The steering if enevlope is added or not
-  double medium(BinningValue bval, bool addenv = true);
+  double medium(BinningValue bval, bool addenv = true) const;
 
   // Get the  parameters : max
   /// @param bval The accessed binning value
   /// @param addenv The steering if enevlope is added or not
-  double range(BinningValue bval, bool addenv = true);
+  double range(BinningValue bval, bool addenv = true) const;
 
   /// Output to ostream
   /// @param sl the input ostream

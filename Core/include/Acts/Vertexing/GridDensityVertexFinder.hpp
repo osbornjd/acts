@@ -14,6 +14,7 @@
 #include "Acts/Vertexing/GaussianGridTrackDensity.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
+
 #include "DummyVertexFitter.hpp"
 
 namespace Acts {
@@ -65,10 +66,8 @@ class GridDensityVertexFinder {
     // Maximum z0 impact parameter significance to use a track
     double maxZ0TrackSignificance = 12.;
     // The actual corresponding cut values in the algorithm
-    const double d0SignificanceCut =
-        maxD0TrackSignificance * maxD0TrackSignificance;
-    const double z0SignificanceCut =
-        maxZ0TrackSignificance * maxZ0TrackSignificance;
+    double d0SignificanceCut = maxD0TrackSignificance * maxD0TrackSignificance;
+    double z0SignificanceCut = maxZ0TrackSignificance * maxZ0TrackSignificance;
     bool estimateSeedWidth = false;
   };
 

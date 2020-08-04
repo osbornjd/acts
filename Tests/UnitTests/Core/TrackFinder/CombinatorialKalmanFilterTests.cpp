@@ -8,11 +8,6 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include <algorithm>
-#include <cmath>
-#include <random>
-#include <vector>
-
 #include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/MeasurementHelpers.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
@@ -39,6 +34,11 @@
 #include "Acts/Utilities/CalibrationContext.hpp"
 #include "Acts/Utilities/Definitions.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <random>
+#include <vector>
+
 using namespace Acts::UnitLiterals;
 
 namespace Acts {
@@ -63,15 +63,14 @@ struct ExtendedMinimalSourceLink {
 };
 
 // helper function to create geometry ids
-GeometryID makeId(int volume, int layer = 0, int sensitive = 0) {
+GeometryID makeId(int volume = 0, int layer = 0, int sensitive = 0) {
   return GeometryID().setVolume(volume).setLayer(layer).setSensitive(sensitive);
 }
 
 // A few initialisations and definitionas
 using SourceLink = ExtendedMinimalSourceLink;
-using Jacobian = BoundParameters::CovMatrix_t;
+using Jacobian = BoundMatrix;
 using Covariance = BoundSymMatrix;
-
 using Resolution = std::pair<ParID_t, double>;
 using ElementResolution = std::vector<Resolution>;
 using VolumeResolution = std::map<GeometryID::Value, ElementResolution>;
@@ -83,7 +82,7 @@ std::normal_distribution<double> gauss(0., 1.);
 std::default_random_engine generator(42);
 
 ActsSymMatrixD<1> cov1D;
-ActsSymMatrixD<2> cov2D;
+SymMatrix2D cov2D;
 
 bool debugMode = false;
 
@@ -93,7 +92,8 @@ MagneticFieldContext mfContext = MagneticFieldContext();
 CalibrationContext calContext = CalibrationContext();
 
 template <ParID_t... params>
-using MeasurementType = Measurement<SourceLink, params...>;
+using MeasurementType =
+    Measurement<SourceLink, BoundParametersIndices, params...>;
 
 /// @brief This struct creates FittableMeasurements on the
 /// detector surfaces, according to the given smearing xxparameters
@@ -286,34 +286,27 @@ BOOST_AUTO_TEST_CASE(comb_kalman_filter_zero_field) {
   using RecoPropagator = Propagator<RecoStepper, Navigator>;
   RecoPropagator rPropagator(rStepper, rNavigator);
 
-  using Updater = GainMatrixUpdater<BoundParameters>;
-  using Smoother = GainMatrixSmoother<BoundParameters>;
+  using Updater = GainMatrixUpdater;
+  using Smoother = GainMatrixSmoother;
   using SourceLinkSelector = CKFSourceLinkSelector;
   using CombinatorialKalmanFilter =
       CombinatorialKalmanFilter<RecoPropagator, Updater, Smoother,
                                 SourceLinkSelector>;
 
-  using SourceLinkSelectorConfig = typename SourceLinkSelector::Config;
-  using CKFCriteriaContainer =
-      Acts::HierarchicalGeometryContainer<GeometryCKFCriteria>;
   // Implement different chi2/nSourceLinks cutoff at different detector level
   // NB: pixel volumeID = 2, strip volumeID= 3
-  std::vector<GeometryCKFCriteria> elements = {
-      {makeId(2, 2), 8.0, 5},  // pixel layer 2 chi2/nSourceLinks cutoff: 8.0/5
-      {makeId(2, 4), 7.0, 5},  // pixel layer 4 chi2/nSourceLinks cutoff: 7.0/5
-      {makeId(2), 7.0, 5},     // pixel volume chi2/nSourceLinks cutoff: 7.0/5
-      {makeId(3), 8.0, 5},     // strip volume chi2/nSourceLinks cutoff: 8.0/5
+  SourceLinkSelector::Config sourcelinkSelectorConfig = {
+      // global default valies
+      {makeId(), {8.0, 10}},
+      // pixel layer 2 chi2/nSourceLinks cutoff: 8.0/5
+      {makeId(2, 2), {8.0, 5}},
+      // pixel layer 4 chi2/nSourceLinks cutoff: 7.0/5
+      {makeId(2, 4), {7.0, 5}},
+      // pixel volume chi2/nSourceLinks cutoff: 7.0/5
+      {makeId(2), {7.0, 5}},
+      // strip volume chi2/nSourceLinks cutoff: 8.0/5
+      {makeId(3), {8.0, 5}},
   };
-  SourceLinkSelectorConfig sourcelinkSelectorConfig;
-  // CKF source link selection criteria at detector sensitive/layer/volume level
-  // implemented via hierarchical geometry container
-  sourcelinkSelectorConfig.criteriaContainer =
-      CKFCriteriaContainer(std::move(elements));
-  // Chi2 cutoff at global level
-  sourcelinkSelectorConfig.globalChi2CutOff = 8;
-  // Cutoff for number of source links at global level
-  sourcelinkSelectorConfig.globalNumSourcelinksCutOff = 10;
-
   CombinatorialKalmanFilter cKF(
       rPropagator,
       getDefaultLogger("CombinatorialKalmanFilter", Logging::VERBOSE));
