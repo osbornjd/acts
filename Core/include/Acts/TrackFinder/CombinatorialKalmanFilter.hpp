@@ -506,7 +506,7 @@ class CombinatorialKalmanFilter {
       // Try to find the surface in the measurement surfaces
       auto sourcelink_it = inputMeasurements.find(surface);
       ACTS_VERBOSE("Searching on surface : ");
-      ACTS_VERBOSE(surface->geoID());
+      ACTS_VERBOSE(surface->geometryId());
       if(sourcelink_it != inputMeasurements.end()){
       }
       else
@@ -1112,7 +1112,7 @@ class CombinatorialKalmanFilter {
         inputMeasurements;
     for (const auto& sl : sourcelinks) {
       const Surface* srf = &sl.referenceSurface();
-      ACTS_VERBOSE("Adding measurement on surface: " << srf->geoID());
+      ACTS_VERBOSE("Adding measurement on surface: " << srf->geometryId());
       inputMeasurements[srf].emplace_back(sl);
     }
 

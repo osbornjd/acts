@@ -285,7 +285,7 @@ class KalmanFitter {
         if (state.stepping.navDir == forward and not result.smoothed and
             not result.forwardFiltered) {
           ACTS_VERBOSE("Perform forward filter step with surface ");
-	  ACTS_VERBOSE(surface->geoID());
+	  ACTS_VERBOSE(surface->geometryId());
           auto res = filter(surface, state, stepper, result);
           if (!res.ok()) {
             ACTS_ERROR("Error in forward filter: " << res.error());
@@ -941,7 +941,7 @@ class KalmanFitter {
     for (const auto& sl : sourcelinks) {
       const Surface* srf = &sl.referenceSurface();
       ACTS_VERBOSE("Adding surface with geoID ");
-      ACTS_VERBOSE(srf->geoID());
+      ACTS_VERBOSE(srf->geometryId());
       inputMeasurements.emplace(srf, sl);
     }
 
