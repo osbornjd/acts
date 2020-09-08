@@ -21,35 +21,35 @@
 #include "Acts/Fitter/KalmanFitter.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 
-#include "ACTFW/Plugins/BField/ScalableBField.hpp"
-#include "ACTFW/EventData/Track.hpp"
-#include "ACTFW/Framework/BareAlgorithm.hpp"
-#include "ACTFW/Plugins/BField/BFieldOptions.hpp"
-#include "ACTFW/EventData/TrkrClusterSourceLink.hpp"
+#include "ActsExamples/Plugins/BField/ScalableBField.hpp"
+#include "ActsExamples/EventData/Track.hpp"
+#include "ActsExamples/Framework/BareAlgorithm.hpp"
+#include "ActsExamples/Plugins/BField/BFieldOptions.hpp"
+#include "ActsExamples/EventData/TrkrClusterSourceLink.hpp"
 
-namespace FW {
+namespace ActsExamples {
 
 /**
  * This class contains the information required to run the Kalman fitter
- * with the TrkrClusterSourceLinks. Based on FW::FittingAlgorithm
+ * with the TrkrClusterSourceLinks. Based on ActsExamples::FittingAlgorithm
  */
-class TrkrClusterFittingAlgorithm : public FW::BareAlgorithm
+class TrkrClusterFittingAlgorithm : public BareAlgorithm
 {
 public:
   /// Construct some aliases to be used for the fitting results
   using FitterResult
-    = Acts::Result<Acts::KalmanFitterResult<FW::Data::TrkrClusterSourceLink>>;
+    = Acts::Result<Acts::KalmanFitterResult<ActsExamples::TrkrClusterSourceLink>>;
   using FitterFunction
-    = std::function<FitterResult(const std::vector<FW::Data::TrkrClusterSourceLink>&,
-                                 const FW::TrackParameters&,
-                                 const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>&)>;
+    = std::function<FitterResult(
+		    const std::vector<ActsExamples::TrkrClusterSourceLink>&,
+		    const ActsExamples::TrackParameters&,
+		    const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>&)>;
 
   /// Create fitter function
   static FitterFunction
     makeFitterFunction(
       std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
-      FW::Options::BFieldVariant                    magneticField,
-      Acts::Logging::Level                          lvl);
+      Options::BFieldVariant magneticField);
 
   struct Config
   {

@@ -11,14 +11,14 @@
 #include <unordered_map>
 #include <utility>
 
-#include "ACTFW/EventData/TrkrClusterSourceLink.hpp"
-#include "ACTFW/Validation/ProtoTrackClassification.hpp"
+#include "ActsExamples/EventData/TrkrClusterSourceLink.hpp"
+#include "ActsExamples/Validation/ProtoTrackClassification.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 
-namespace FW {
+namespace ActsExamples {
   using IndexedParams = std::unordered_map<size_t, Acts::BoundParameters>;
-  using SourceLink = FW::Data::TrkrClusterSourceLink;
+  using SourceLink = ActsExamples::TrkrClusterSourceLink;
   
 /// @brief Struct for truth track fitting/finding result with
 /// Acts::KalmanFitter/Acts::CombinatorialKalmanFilter
@@ -144,4 +144,4 @@ struct TrkrClusterMultiTrajectory {
   IndexedParams m_trackParameters = {};
 };
 
-}  // namespace FW
+}  // namespace ActsExamples

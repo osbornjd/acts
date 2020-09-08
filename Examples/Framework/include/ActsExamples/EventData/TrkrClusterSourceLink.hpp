@@ -6,12 +6,11 @@
 #include "Acts/EventData/detail/fittable_type_generator.hpp"
 #include "Acts/Geometry/GeometryID.hpp"
 
-#include "ACTFW/EventData/GeometryContainers.hpp"
+#include "ActsExamples/EventData/GeometryContainers.hpp"
 #include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
 
-namespace FW {
-  namespace Data {
+namespace ActsExamples {
 
 /**
  * This class creates an Acts::SourceLink that relates TrkrClusters to the
@@ -19,7 +18,7 @@ namespace FW {
  */
 class TrkrClusterSourceLink
 {
-public:
+ public:
 
   /// Instantiate with a hitid, associated surface, and values that actually
   /// make the measurement. Acts requires the surface be available in this class
@@ -29,14 +28,14 @@ public:
 			Acts::BoundMatrix cov)
     : m_hitid(hitid)
     , m_surface(surface)
-    , m_geoId(surface->geoID())
+    , m_geoId(surface->geometryId())
     , m_loc(loc)
     , m_cov(cov)
 {
 }
 
   /// Must be default constructible to satisfy SourceLinkConcept
-  TrkrClusterSourceLink()    = default;
+  TrkrClusterSourceLink()                             = default;
   TrkrClusterSourceLink(TrkrClusterSourceLink&&)      = default;
   TrkrClusterSourceLink(const TrkrClusterSourceLink&) = default;
 
@@ -70,8 +69,8 @@ public:
 
     return Acts::Measurement<TrkrClusterSourceLink, 
 			     Acts::BoundParametersIndices,
-			     Acts::ParDef::eLOC_0,
-			     Acts::ParDef::eLOC_1>
+			     Acts::eBoundLoc0,
+			     Acts::eBoundLoc1>
       {m_surface,
 	  *this,
 	  m_cov.topLeftCorner<2, 2>(),
@@ -112,11 +111,9 @@ private:
     /// Ensure that the SourceLink class satisfies SourceLinkConcept conditions
     static_assert(Acts::SourceLinkConcept<TrkrClusterSourceLink>, 
 		  "TrkrClusterSourceLink does not fulfill SourceLinkConcept");
-  }
-
 
   // Construct a container for TrkrSourceLinks
-  using TrkrClusterSourceLinkContainer = GeometryIdMultiset<Data::TrkrClusterSourceLink>;
-
+  using TrkrClusterSourceLinkContainer = GeometryIdMultiset<TrkrClusterSourceLink>;
 
 }
+

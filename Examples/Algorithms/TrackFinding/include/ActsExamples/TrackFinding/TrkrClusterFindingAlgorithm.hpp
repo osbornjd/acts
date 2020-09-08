@@ -21,17 +21,17 @@
 #include "Acts/TrackFinder/CombinatorialKalmanFilter.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 
-#include "ACTFW/Plugins/BField/ScalableBField.hpp"
-#include "ACTFW/EventData/Track.hpp"
-#include "ACTFW/Framework/BareAlgorithm.hpp"
-#include "ACTFW/Plugins/BField/BFieldOptions.hpp"
-#include "ACTFW/EventData/TrkrClusterSourceLink.hpp"
+#include "ActsExamples/Plugins/BField/ScalableBField.hpp"
+#include "ActsExamples/EventData/Track.hpp"
+#include "ActsExamples/Framework/BareAlgorithm.hpp"
+#include "ActsExamples/Plugins/BField/BFieldOptions.hpp"
+#include "ActsExamples/EventData/TrkrClusterSourceLink.hpp"
 
-using SourceLink = FW::Data::TrkrClusterSourceLink;
+using SourceLink = ActsExamples::TrkrClusterSourceLink;
 
-namespace FW{
+namespace ActsExamples {
 
-  class TrkrClusterFindingAlgorithm : public FW::BareAlgorithm
+  class TrkrClusterFindingAlgorithm : public BareAlgorithm
   {
 
   public:
@@ -40,14 +40,13 @@ namespace FW{
     using CKFOptions = Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>;
     using FinderFunction 
       = std::function<FinderResult(const std::vector<SourceLink>&,
-				   const FW::TrackParameters&,
+				   const ActsExamples::TrackParameters&,
 				   const CKFOptions&)>;
 
     static FinderFunction
       makeFinderFunction(
 	 std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
-	 FW::Options::BFieldVariant magneticField,
-	 Acts::Logging::Level level);
+	 Options::BFieldVariant magneticField);
 
     struct Config
     {
