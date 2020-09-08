@@ -35,19 +35,18 @@ namespace ActsExamples {
  */
 class TrkrClusterFittingAlgorithm : public BareAlgorithm
 {
-public:
+ public:
   /// Construct some aliases to be used for the fitting results
   using FitterResult
     = Acts::Result<Acts::KalmanFitterResult<ActsExamples::TrkrClusterSourceLink>>;
   using FitterFunction
     = std::function<FitterResult(
 		    const std::vector<ActsExamples::TrkrClusterSourceLink>&,
-		    const ActsExamples::TrackParameters&,
+		    const TrackParameters&,
 		    const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>&)>;
 
   /// Create fitter function
-  static FitterFunction
-    makeFitterFunction(
+  static FitterFunction makeFitterFunction(
       std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
       Options::BFieldVariant magneticField);
 
