@@ -35,9 +35,3 @@ install(
   ActsExampleCKFTracks
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-
-install(
-   TARGETS 
-     ActsRecTruthTracks
-   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
