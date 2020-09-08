@@ -6,9 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Io/Csv/CsvTrackingGeometryWriter.hpp"
+#include "ActsExamples/Io/Csv/CsvTrackingGeometryWriter.hpp"
 
-#include "ACTFW/Utilities/Paths.hpp"
+#include "ActsExamples/Utilities/Paths.hpp"
 #include <Acts/Geometry/TrackingVolume.hpp>
 #include <Acts/Plugins/Digitization/CartesianSegmentation.hpp>
 #include <Acts/Plugins/Digitization/DigitizationModule.hpp>
@@ -24,7 +24,7 @@
 
 #include "TrackMlData.hpp"
 
-using namespace FW;
+using namespace ActsExamples;
 
 CsvTrackingGeometryWriter::CsvTrackingGeometryWriter(
     const CsvTrackingGeometryWriter::Config& cfg, Acts::Logging::Level lvl)
@@ -55,10 +55,10 @@ void writeSurface(SurfaceWriter& writer, const Acts::Surface& surface,
   SurfaceData data;
 
   // encoded and partially decoded geometry identifier
-  data.geometry_id = surface.geoID().value();
-  data.volume_id = surface.geoID().volume();
-  data.layer_id = surface.geoID().layer();
-  data.module_id = surface.geoID().sensitive();
+  data.geometry_id = surface.geometryId().value();
+  data.volume_id = surface.geometryId().volume();
+  data.layer_id = surface.geometryId().layer();
+  data.module_id = surface.geometryId().sensitive();
   // center position
   auto center = surface.center(geoCtx);
   data.cx = center.x() / Acts::UnitConstants::mm;

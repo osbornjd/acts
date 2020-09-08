@@ -120,7 +120,6 @@ std::uniform_int_distribution<> nTracksDist(3, 10);
 /// with default input track type (= BoundParameters)
 ///
 BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_defaulttrack_test) {
-  bool debugMode = false;
   // Set up RNG
   int mySeed = 31415;
   std::mt19937 gen(mySeed);
@@ -200,8 +199,8 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_defaulttrack_test) {
       covMat << resD0 * resD0, 0., 0., 0., 0., 0., 0., resZ0 * resZ0, 0., 0.,
           0., 0., 0., 0., resPh * resPh, 0., 0., 0., 0., 0., 0., resTh * resTh,
           0., 0., 0., 0., 0., 0., resQp * resQp, 0., 0., 0., 0., 0., 0., 1.;
-      tracks.push_back(BoundParameters(geoContext, std::move(covMat), paramVec,
-                                       perigeeSurface));
+      tracks.push_back(
+          BoundParameters(perigeeSurface, paramVec, std::move(covMat)));
     }
 
     std::vector<const BoundParameters*> tracksPtr;
@@ -223,13 +222,11 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_defaulttrack_test) {
       CHECK_CLOSE_ABS(fittedVertexConstraint.position(), vertexPosition, 1_mm);
     }
 
-    if (debugMode) {
-      std::cout << "Fitting nTracks: " << nTracks << std::endl;
-      std::cout << "True Vertex: " << x << ", " << y << ", " << z << std::endl;
-      std::cout << "Fitted Vertex: " << fittedVertex.position() << std::endl;
-      std::cout << "Fitted constraint Vertex: "
-                << fittedVertexConstraint.position() << std::endl;
-    }
+    std::cout << "Fitting nTracks: " << nTracks << std::endl;
+    std::cout << "True Vertex: " << x << ", " << y << ", " << z << std::endl;
+    std::cout << "Fitted Vertex: " << fittedVertex.position() << std::endl;
+    std::cout << "Fitted constraint Vertex: "
+              << fittedVertexConstraint.position() << std::endl;
   }
 }
 
@@ -250,8 +247,6 @@ struct InputTrack {
 /// type
 ///
 BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_usertrack_test) {
-  bool debugMode = false;
-
   // Set up RNG
   int mySeed = 31415;
   std::mt19937 gen(mySeed);
@@ -341,8 +336,8 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_usertrack_test) {
       covMat << resD0 * resD0, 0., 0., 0., 0., 0., 0., resZ0 * resZ0, 0., 0.,
           0., 0., 0., 0., resPh * resPh, 0., 0., 0., 0., 0., 0., resTh * resTh,
           0., 0., 0., 0., 0., 0., resQp * resQp, 0., 0., 0., 0., 0., 0., 1.;
-      tracks.push_back(InputTrack(BoundParameters(geoContext, std::move(covMat),
-                                                  paramVec, perigeeSurface)));
+      tracks.push_back(InputTrack(
+          BoundParameters(perigeeSurface, paramVec, std::move(covMat))));
     }
 
     std::vector<const InputTrack*> tracksPtr;
@@ -364,13 +359,11 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_usertrack_test) {
       CHECK_CLOSE_ABS(fittedVertexConstraint.position(), vertexPosition, 1_mm);
     }
 
-    if (debugMode) {
-      std::cout << "Fitting nTracks: " << nTracks << std::endl;
-      std::cout << "True Vertex: " << x << ", " << y << ", " << z << std::endl;
-      std::cout << "Fitted Vertex: " << fittedVertex.position() << std::endl;
-      std::cout << "Fitted constraint Vertex: "
-                << fittedVertexConstraint.position() << std::endl;
-    }
+    std::cout << "Fitting nTracks: " << nTracks << std::endl;
+    std::cout << "True Vertex: " << x << ", " << y << ", " << z << std::endl;
+    std::cout << "Fitted Vertex: " << fittedVertex.position() << std::endl;
+    std::cout << "Fitted constraint Vertex: "
+              << fittedVertexConstraint.position() << std::endl;
   }
 }
 

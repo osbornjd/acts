@@ -12,7 +12,7 @@
 #include "Acts/Utilities/detail/ReferenceWrapperAnyCompat.hpp"
 
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/EventData/detail/coordinate_transformations.hpp"
+#include "Acts/EventData/detail/TransformationBoundToFree.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Propagator/ConstrainedStep.hpp"
@@ -80,7 +80,7 @@ class AtlasStepper {
       // this is a nasty but working solution for the stepper state without
       // functions
 
-      const Vector3D pos = pars.position();
+      const auto pos = pars.position(gctx);
       const auto Vp = pars.parameters();
 
       double Sf, Cf, Ce, Se;
@@ -89,9 +89,9 @@ class AtlasStepper {
       Se = sin(Vp[eBoundTheta]);
       Ce = cos(Vp[eBoundTheta]);
 
-      pVector[0] = pos(0);
-      pVector[1] = pos(1);
-      pVector[2] = pos(2);
+      pVector[0] = pos[ePos0];
+      pVector[1] = pos[ePos1];
+      pVector[2] = pos[ePos2];
       pVector[3] = pars.time();
       pVector[4] = Cf * Se;
       pVector[5] = Sf * Se;
@@ -316,11 +316,10 @@ class AtlasStepper {
       State& state, const BoundVector& boundParams, const BoundSymMatrix& cov,
       const Surface& surface, const NavigationDirection navDir = forward,
       const double stepSize = std::numeric_limits<double>::max()) const {
-    using transformation = detail::coordinate_transformation;
     // Update the stepping state
     update(state,
-           transformation::boundParameters2freeParameters(state.geoContext,
-                                                          boundParams, surface),
+           detail::transformBoundToFreeParameters(surface, state.geoContext,
+                                                  boundParams),
            cov);
     state.navDir = navDir;
     state.stepSize = ConstrainedStep(stepSize);
@@ -509,8 +508,8 @@ class AtlasStepper {
   /// @param state [in,out] The stepping state (thread-local cache)
   /// @param surface [in] The surface provided
   /// @param bcheck [in] The boundary check for this status update
-  Intersection::Status updateSurfaceStatus(State& state, const Surface& surface,
-                                           const BoundaryCheck& bcheck) const {
+  Intersection3D::Status updateSurfaceStatus(
+      State& state, const Surface& surface, const BoundaryCheck& bcheck) const {
     return detail::updateSingleSurfaceStatus<AtlasStepper>(*this, state,
                                                            surface, bcheck);
   }

@@ -14,7 +14,6 @@
 #include "Acts/Material/MaterialGridHelper.hpp"
 #include "Acts/Material/ProtoVolumeMaterial.hpp"
 #include "Acts/Propagator/ActionList.hpp"
-#include "Acts/Propagator/DebugOutputActor.hpp"
 #include "Acts/Propagator/StandardAborters.hpp"
 #include "Acts/Utilities/BinAdjustmentVolume.hpp"
 
@@ -79,7 +78,7 @@ void Acts::VolumeMaterialMapper::checkAndInsert(
   auto volumeMaterial = volume.volumeMaterial();
   // Check if the volume has a proxy
   if (volumeMaterial != nullptr) {
-    auto geoID = volume.geoID();
+    auto geoID = volume.geometryId();
     size_t volumeID = geoID.volume();
     ACTS_DEBUG("Material volume found with volumeID " << volumeID);
     ACTS_DEBUG("       - ID is " << geoID);
@@ -130,7 +129,7 @@ void Acts::VolumeMaterialMapper::collectMaterialSurfaces(
   // Check the boundary surfaces
   for (auto& bSurface : tVolume.boundarySurfaces()) {
     if (bSurface->surfaceRepresentation().surfaceMaterial() != nullptr) {
-      mState.surfaceMaterial[bSurface->surfaceRepresentation().geoID()] =
+      mState.surfaceMaterial[bSurface->surfaceRepresentation().geometryId()] =
           bSurface->surfaceRepresentation().surfaceMaterialSharedPtr();
     }
   }
@@ -143,7 +142,7 @@ void Acts::VolumeMaterialMapper::collectMaterialSurfaces(
       if (cLayer->layerType() != navigation) {
         // Check the representing surface
         if (cLayer->surfaceRepresentation().surfaceMaterial() != nullptr) {
-          mState.surfaceMaterial[cLayer->surfaceRepresentation().geoID()] =
+          mState.surfaceMaterial[cLayer->surfaceRepresentation().geometryId()] =
               cLayer->surfaceRepresentation().surfaceMaterialSharedPtr();
         }
         // Get the approach surfaces if present
@@ -152,7 +151,7 @@ void Acts::VolumeMaterialMapper::collectMaterialSurfaces(
                cLayer->approachDescriptor()->containedSurfaces()) {
             if (aSurface != nullptr) {
               if (aSurface->surfaceMaterial() != nullptr) {
-                mState.surfaceMaterial[aSurface->geoID()] =
+                mState.surfaceMaterial[aSurface->geometryId()] =
                     aSurface->surfaceMaterialSharedPtr();
               }
             }
@@ -164,7 +163,7 @@ void Acts::VolumeMaterialMapper::collectMaterialSurfaces(
           for (auto& sSurface : cLayer->surfaceArray()->surfaces()) {
             if (sSurface != nullptr) {
               if (sSurface->surfaceMaterial() != nullptr) {
-                mState.surfaceMaterial[sSurface->geoID()] =
+                mState.surfaceMaterial[sSurface->geometryId()] =
                     sSurface->surfaceMaterialSharedPtr();
               }
             }
@@ -235,22 +234,16 @@ void Acts::VolumeMaterialMapper::mapMaterialTrack(
 
   // Prepare Action list and abort list
   using MaterialVolumeCollector = VolumeCollector<MaterialVolume>;
-  using ActionList = ActionList<MaterialVolumeCollector, DebugOutputActor>;
+  using ActionList = ActionList<MaterialVolumeCollector>;
   using AbortList = AbortList<EndOfWorldReached>;
 
-  PropagatorOptions<ActionList, AbortList> options(mState.geoContext,
-                                                   mState.magFieldContext);
-  options.debug = m_cfg.mapperDebugOutput;
+  auto propLogger = getDefaultLogger("Propagator", Logging::INFO);
+  PropagatorOptions<ActionList, AbortList> options(
+      mState.geoContext, mState.magFieldContext, LoggerWrapper{*propLogger});
 
   // Now collect the material volume by using the straight line propagator
   const auto& result = m_propagator.propagate(start, options).value();
   auto mcResult = result.get<MaterialVolumeCollector::result_type>();
-  // Massive screen output
-  if (m_cfg.mapperDebugOutput) {
-    auto debugOutput = result.get<DebugOutputActor::result_type>();
-    ACTS_VERBOSE("Debug propagation output.");
-    ACTS_VERBOSE(debugOutput.debugString);
-  }
 
   auto mappingVolumes = mcResult.collected;
 
@@ -264,7 +257,7 @@ void Acts::VolumeMaterialMapper::mapMaterialTrack(
                             << " mapping volumes for this track.");
   ACTS_VERBOSE("Mapping volumes are :")
   for (auto& mVolumes : mappingVolumes) {
-    ACTS_VERBOSE(" - Volume : " << mVolumes.volume->geoID()
+    ACTS_VERBOSE(" - Volume : " << mVolumes.volume->geometryId()
                                 << " at position = (" << mVolumes.position.x()
                                 << ", " << mVolumes.position.y() << ", "
                                 << mVolumes.position.z() << ")");
@@ -275,7 +268,6 @@ void Acts::VolumeMaterialMapper::mapMaterialTrack(
   // onto the mapping volume:
   auto rmIter = rMaterial.begin();
   auto volIter = mappingVolumes.begin();
-  bool encounterVolume = false;
 
   // Use those to minimize the lookup
   GeometryID lastID = GeometryID();
@@ -288,15 +280,19 @@ void Acts::VolumeMaterialMapper::mapMaterialTrack(
   Acts::Vector3D extraDirection = {0, 0, 0};
 
   while (rmIter != rMaterial.end() && volIter != mappingVolumes.end()) {
-    if (volIter != mappingVolumes.end() && encounterVolume == true &&
+    if (volIter != mappingVolumes.end() &&
         !volIter->volume->inside(rmIter->position)) {
-      encounterVolume = false;
-      // Switch to next assignment volume
-      ++volIter;
+      double distVol = (volIter->position - mTrack.first.first).norm();
+      double distMat = (rmIter->position - mTrack.first.first).norm();
+      // Material past the entry point to the current volume
+      if (distMat - distVol > s_epsilon) {
+        // Switch to next material volume
+        ++volIter;
+      }
     }
     if (volIter != mappingVolumes.end() &&
         volIter->volume->inside(rmIter->position)) {
-      currentID = volIter->volume->geoID();
+      currentID = volIter->volume->geometryId();
       if (not(currentID == lastID)) {
         // Let's (re-)assess the information
         lastID = currentID;
@@ -321,11 +317,11 @@ void Acts::VolumeMaterialMapper::mapMaterialTrack(
             // adjust the thickness of the last extrapolated step
             properties.scaleThickness(remainder / properties.thickness());
           }
-          mState.recordedMaterial[volIter->volume->geoID()].push_back(
+          mState.recordedMaterial[volIter->volume->geometryId()].push_back(
               std::pair(properties, extraPosition));
         }
       }
-      encounterVolume = true;
+      rmIter->volume = volIter->volume;
     }
     ++rmIter;
   }

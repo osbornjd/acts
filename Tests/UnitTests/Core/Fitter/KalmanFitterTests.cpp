@@ -20,7 +20,6 @@
 #include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
-#include "Acts/Propagator/DebugOutputActor.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
@@ -55,15 +54,12 @@ using Resolution = std::pair<ParID_t, double>;
 using ElementResolution = std::vector<Resolution>;
 using VolumeResolution = std::map<GeometryID::Value, ElementResolution>;
 using DetectorResolution = std::map<GeometryID::Value, VolumeResolution>;
-using DebugOutput = DebugOutputActor;
 
 std::normal_distribution<double> gauss(0., 1.);
 std::default_random_engine generator(42);
 
 ActsSymMatrixD<1> cov1D;
 SymMatrix2D cov2D;
-
-bool debugMode = false;
 
 // Create a test context
 GeometryContext tgContext = GeometryContext();
@@ -107,7 +103,7 @@ struct MeasurementCreator {
     // monitor the current surface
     auto surface = state.navigation.currentSurface;
     if (surface and surface->associatedDetectorElement()) {
-      auto geoID = surface->geoID();
+      auto geoID = surface->geometryId();
       auto volumeID = geoID.volume();
       auto layerID = geoID.layer();
       // find volume and layer information for this
@@ -230,19 +226,54 @@ struct MinimalOutlierFinder {
   ///
   /// @tparam track_state_t Type of the track state
   ///
-  /// @param trackState The trackState to investigate
+  /// @param state The track state to investigate
   ///
   /// @return Whether it's outlier or not
   template <typename track_state_t>
-  bool operator()(const track_state_t& trackState) const {
-    double chi2 = trackState.chi2();
+  bool operator()(const track_state_t& state) const {
+    // Can't determine if it's an outlier if no calibrated measurement or no
+    // predicted parameters
+    if (not state.hasCalibrated() or not state.hasPredicted()) {
+      return false;
+    }
+
+    // The predicted parameters coefficients
+    const auto& predicted = state.predicted();
+    // The predicted parameters covariance
+    const auto& predicted_covariance = state.predictedCovariance();
+
+    // Calculate the chi2 using predicted parameters and calibrated measurement
+    double chi2 = std::numeric_limits<double>::max();
+    visit_measurement(
+        state.calibrated(), state.calibratedCovariance(),
+        state.calibratedSize(),
+        [&](const auto calibrated, const auto calibrated_covariance) {
+          constexpr size_t measdim = decltype(calibrated)::RowsAtCompileTime;
+          using par_t = ActsVectorD<measdim>;
+
+          // Take the projector (measurement mapping function)
+          const ActsMatrixD<measdim, eBoundParametersSize> H =
+              state.projector()
+                  .template topLeftCorner<measdim, eBoundParametersSize>();
+
+          // Calculate the residual
+          const par_t residual = calibrated - H * predicted;
+
+          // Calculate the chi2
+          chi2 = (residual.transpose() *
+                  ((calibrated_covariance +
+                    H * predicted_covariance * H.transpose()))
+                      .inverse() *
+                  residual)
+                     .eval()(0, 0);
+        });
+
+    // In case the chi2 is too small
     if (std::abs(chi2) < chi2Tolerance) {
       return false;
     }
-    // The measurement dimension
-    size_t ndf = trackState.calibratedSize();
     // The chisq distribution
-    boost::math::chi_squared chiDist(ndf);
+    boost::math::chi_squared chiDist(state.calibratedSize());
     // The p-Value
     double pValue = 1 - boost::math::cdf(chiDist, chi2);
     // If pValue is NOT significant enough => outlier
@@ -277,7 +308,7 @@ BOOST_AUTO_TEST_CASE(kalman_fitter_zero_field) {
                                                          mMom, 42_ns);
 
   // Create action list for the measurement creation
-  using MeasurementActions = ActionList<MeasurementCreator, DebugOutput>;
+  using MeasurementActions = ActionList<MeasurementCreator>;
   using MeasurementAborters = AbortList<EndOfWorldReached>;
 
   auto pixelResX = Resolution(eLOC_0, 25_um);
@@ -305,19 +336,12 @@ BOOST_AUTO_TEST_CASE(kalman_fitter_zero_field) {
 
   // Set options for propagator
   PropagatorOptions<MeasurementActions, MeasurementAborters> mOptions(
-      tgContext, mfContext);
-  mOptions.debug = debugMode;
+      tgContext, mfContext, getDummyLogger());
   auto& mCreator = mOptions.actionList.get<MeasurementCreator>();
   mCreator.detectorResolution = detRes;
 
   // Launch and collect - the measurements
   auto mResult = mPropagator.propagate(mStart, mOptions).value();
-  if (debugMode) {
-    const auto debugString =
-        mResult.template get<DebugOutput::result_type>().debugString;
-    std::cout << ">>>> Measurement creation: " << std::endl;
-    std::cout << debugString;
-  }
 
   // Extract measurements from result of propagation.
   // This vector owns the measurements
@@ -367,12 +391,13 @@ BOOST_AUTO_TEST_CASE(kalman_fitter_zero_field) {
 
   MinimalOutlierFinder outlierFinder;
   outlierFinder.measurementSignificanceCutoff = 0.05;
-
-  KalmanFitter kFitter(rPropagator,
-                       getDefaultLogger("KalmanFilter", Logging::VERBOSE));
+  auto kfLogger = getDefaultLogger("KalmanFilter", Logging::VERBOSE);
 
   KalmanFitterOptions<MinimalOutlierFinder> kfOptions(
-      tgContext, mfContext, calContext, outlierFinder, rSurface);
+      tgContext, mfContext, calContext, outlierFinder, LoggerWrapper{*kfLogger},
+      rSurface);
+
+  KalmanFitter kFitter(rPropagator);
 
   // Fit the track
   auto fitRes = kFitter.fit(sourcelinks, rStart, kfOptions);
@@ -400,6 +425,17 @@ BOOST_AUTO_TEST_CASE(kalman_fitter_zero_field) {
                   fittedAgainParameters.parameters().template head<5>(), 1e-5);
   CHECK_CLOSE_ABS(fittedParameters.parameters().template tail<1>(),
                   fittedAgainParameters.parameters().template tail<1>(), 1e-5);
+
+  // Fit without target surface
+  kfOptions.referenceSurface = nullptr;
+  fitRes = kFitter.fit(sourcelinks, rStart, kfOptions);
+  BOOST_CHECK(fitRes.ok());
+  auto fittedWithoutTargetSurface = *fitRes;
+  // Check if there is no fitted parameters
+  BOOST_CHECK(fittedWithoutTargetSurface.fittedParameters == std::nullopt);
+
+  // Reset the target surface
+  kfOptions.referenceSurface = rSurface;
 
   // Change the order of the sourcelinks
   std::vector<SourceLink> shuffledMeasurements = {
@@ -471,6 +507,9 @@ BOOST_AUTO_TEST_CASE(kalman_fitter_zero_field) {
       nSmoothed++;
   });
   BOOST_CHECK_EQUAL(nSmoothed, 6u);
+
+  // Reset to use smoothing formalism
+  kfOptions.backwardFiltering = false;
 
   // Extract outliers from result of propagation.
   // This vector owns the outliers
