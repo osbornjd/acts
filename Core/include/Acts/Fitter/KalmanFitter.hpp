@@ -282,7 +282,8 @@ class KalmanFitter {
         // non-outlier
         if (state.stepping.navDir == forward and not result.smoothed and
             not result.forwardFiltered) {
-          ACTS_VERBOSE("Perform forward filter step");
+          ACTS_VERBOSE("Perform forward filter step with surface ");
+	  ACTS_VERBOSE(surface->geoID());
           auto res = filter(surface, state, stepper, result);
           if (!res.ok()) {
             ACTS_ERROR("Error in forward filter: " << res.error());
@@ -434,6 +435,11 @@ class KalmanFitter {
                         const stepper_t& stepper, result_type& result) const {
       // Try to find the surface in the measurement surfaces
       auto sourcelink_it = inputMeasurements.find(surface);
+      if(sourcelink_it != inputMeasurements.end()){
+      }
+      else
+	ACTS_VERBOSE("Couldn't find source link in measurement list");
+
       if (sourcelink_it != inputMeasurements.end()) {
         // Screen output message
         ACTS_VERBOSE("Measurement surface " << surface->geoID()
@@ -912,6 +918,8 @@ class KalmanFitter {
     std::map<const Surface*, source_link_t> inputMeasurements;
     for (const auto& sl : sourcelinks) {
       const Surface* srf = &sl.referenceSurface();
+      ACTS_VERBOSE("Adding surface with geoID ");
+      ACTS_VERBOSE(srf->geoID());
       inputMeasurements.emplace(srf, sl);
     }
 
