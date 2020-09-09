@@ -10,7 +10,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/EventData/detail/coordinate_transformations.hpp"
+#include "Acts/EventData/detail/TransformationBoundToFree.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/Propagator/AtlasStepper.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE(BuildBound) {
 
   auto&& [pars, jac, pathLength] = stepper.boundState(state, *plane);
   // check parameters
-  CHECK_CLOSE_ABS(pars.position(), pos, eps);
+  CHECK_CLOSE_ABS(pars.position(geoCtx), pos, eps);
   CHECK_CLOSE_ABS(pars.time(), time, eps);
   CHECK_CLOSE_ABS(pars.momentum(), mom, eps);
   BOOST_CHECK_EQUAL(pars.charge(), charge);
@@ -216,7 +216,7 @@ BOOST_AUTO_TEST_CASE(BuildCurvilinear) {
 
   auto&& [pars, jac, pathLength] = stepper.curvilinearState(state);
   // check parameters
-  CHECK_CLOSE_ABS(pars.position(), pos, eps);
+  CHECK_CLOSE_ABS(pars.position(geoCtx), pos, eps);
   CHECK_CLOSE_ABS(pars.time(), time, eps);
   CHECK_CLOSE_ABS(pars.momentum(), mom, eps);
   BOOST_CHECK_EQUAL(pars.charge(), charge);
@@ -313,9 +313,8 @@ BOOST_AUTO_TEST_CASE(Reset) {
   double charge = 1.;
   BoundSymMatrix cov = 8.5 * Covariance::Identity();
   CurvilinearParameters cp(cov, pos, mom, charge, time);
-  FreeVector freeParams =
-      detail::coordinate_transformation::boundParameters2freeParameters(
-          geoCtx, cp.parameters(), cp.referenceSurface());
+  FreeVector freeParams = detail::transformBoundToFreeParameters(
+      cp.referenceSurface(), geoCtx, cp.parameters());
   NavigationDirection ndir = forward;
   double stepSize = -256.;
 

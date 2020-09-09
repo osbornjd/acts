@@ -9,7 +9,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/EventData/NeutralTrackParameters.hpp"
-#include "Acts/EventData/detail/coordinate_transformations.hpp"
+#include "Acts/EventData/detail/TransformationBoundToFree.hpp"
 #include "Acts/Geometry/CuboidVolumeBuilder.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
@@ -21,7 +21,6 @@
 #include "Acts/Material/HomogeneousVolumeMaterial.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Material/IVolumeMaterial.hpp"
-#include "Acts/Propagator/DebugOutputActor.hpp"
 #include "Acts/Propagator/DefaultExtension.hpp"
 #include "Acts/Propagator/DenseEnvironmentExtension.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
@@ -42,6 +41,8 @@ namespace Acts {
 namespace Test {
 
 using Covariance = BoundSymMatrix;
+
+static constexpr auto eps = 2 * std::numeric_limits<double>::epsilon();
 
 // Create a test context
 GeometryContext tgContext = GeometryContext();
@@ -148,11 +149,11 @@ BOOST_AUTO_TEST_CASE(eigen_stepper_state_test) {
   BOOST_CHECK_EQUAL(esState.derivative, FreeVector::Zero());
   BOOST_CHECK(!esState.covTransport);
   BOOST_CHECK_EQUAL(esState.cov, Covariance::Zero());
-  BOOST_CHECK_EQUAL(esState.pos, pos);
-  BOOST_CHECK_EQUAL(esState.dir, mom.normalized());
-  BOOST_CHECK_EQUAL(esState.p, mom.norm());
+  CHECK_CLOSE_OR_SMALL(esState.pos, pos, eps, eps);
+  CHECK_CLOSE_OR_SMALL(esState.dir, mom.normalized(), eps, eps);
+  CHECK_CLOSE_REL(esState.p, mom.norm(), eps);
   BOOST_CHECK_EQUAL(esState.q, charge);
-  BOOST_CHECK_EQUAL(esState.t, time);
+  CHECK_CLOSE_OR_SMALL(esState.t, time, eps, eps);
   BOOST_CHECK_EQUAL(esState.navDir, ndir);
   BOOST_CHECK_EQUAL(esState.pathAccumulated, 0.);
   BOOST_CHECK_EQUAL(esState.stepSize, ndir * stepSize);
@@ -283,9 +284,8 @@ BOOST_AUTO_TEST_CASE(eigen_stepper_test) {
   double charge2 = 1.;
   BoundSymMatrix cov2 = 8.5 * Covariance::Identity();
   CurvilinearParameters cp2(cov2, pos2, mom2, charge2, time2);
-  FreeVector freeParams =
-      detail::coordinate_transformation::boundParameters2freeParameters(
-          tgContext, cp2.parameters(), cp2.referenceSurface());
+  FreeVector freeParams = detail::transformBoundToFreeParameters(
+      cp2.referenceSurface(), tgContext, cp2.parameters());
   ndir = forward;
   double stepSize2 = -2. * stepSize;
 
@@ -389,7 +389,7 @@ BOOST_AUTO_TEST_CASE(eigen_stepper_test) {
   // Test the bound state construction
   auto boundState = es.boundState(esState, *plane);
   auto boundPars = std::get<0>(boundState);
-  CHECK_CLOSE_ABS(boundPars.position(), bp.position(), 1e-6);
+  CHECK_CLOSE_ABS(boundPars.position(tgContext), bp.position(tgContext), 1e-6);
   CHECK_CLOSE_ABS(boundPars.momentum(), bp.momentum(), 1e-6);
   CHECK_CLOSE_ABS(boundPars.charge(), bp.charge(), 1e-6);
   CHECK_CLOSE_ABS(boundPars.time(), bp.time(), 1e-6);
@@ -400,24 +400,20 @@ BOOST_AUTO_TEST_CASE(eigen_stepper_test) {
   CHECK_CLOSE_ABS(std::get<2>(boundState), 0., 1e-6);
 
   // Update in context of a surface
-  BoundParameters bpTarget(tgContext, 2. * cov, 2. * pos, 2. * mom,
-                           -1. * charge, 2. * time, targetSurface);
-  Vector3D dir = bpTarget.momentum().normalized();
-  freeParams[eFreePos0] = bpTarget.position()[eX];
-  freeParams[eFreePos1] = bpTarget.position()[eY];
-  freeParams[eFreePos2] = bpTarget.position()[eZ];
-  freeParams[eFreeTime] = bpTarget.time();
-  freeParams[eFreeDir0] = dir[eMom0];
-  freeParams[eFreeDir1] = dir[eMom1];
-  freeParams[eFreeDir2] = dir[eMom2];
-  freeParams[eFreeQOverP] = bpTarget.charge() / bpTarget.momentum().norm();
+  freeParams = detail::transformBoundToFreeParameters(
+      bp.referenceSurface(), tgContext, bp.parameters());
+  freeParams.segment<3>(eFreePos0) *= 2;
+  freeParams[eFreeTime] *= 2;
+  freeParams.segment<3>(eFreeDir0) *= 2;
+  freeParams[eFreeQOverP] *= -0.5;
 
-  es.update(esState, freeParams, *bpTarget.covariance());
-  BOOST_CHECK_EQUAL(esState.pos, 2. * pos);
-  CHECK_CLOSE_ABS(esState.dir, mom.normalized(), 1e-6);
-  BOOST_CHECK_EQUAL(esState.p, 2. * mom.norm());
+  es.update(esState, freeParams, 2 * (*bp.covariance()));
+  CHECK_CLOSE_OR_SMALL(esState.pos, 2. * pos, eps, eps);
+  CHECK_CLOSE_OR_SMALL(esState.dir, mom.normalized(), eps, eps);
+  CHECK_CLOSE_REL(esState.p, 2 * mom.norm(), eps);
+  // update does not change the particle hypothesis
   BOOST_CHECK_EQUAL(esState.q, 1. * charge);
-  BOOST_CHECK_EQUAL(esState.t, 2. * time);
+  CHECK_CLOSE_OR_SMALL(esState.t, 2. * time, eps, eps);
   CHECK_CLOSE_COVARIANCE(esState.cov, Covariance(2. * cov), 1e-6);
 
   // Transport the covariance in the context of a surface
@@ -505,7 +501,7 @@ BOOST_AUTO_TEST_CASE(step_extension_vacuum_test) {
   // Set options for propagator
   DenseStepperPropagatorOptions<ActionList<StepCollector>,
                                 AbortList<EndOfWorld>>
-      propOpts(tgContext, mfContext);
+      propOpts(tgContext, mfContext, getDummyLogger());
   propOpts.actionList = aList;
   propOpts.abortList = abortList;
   propOpts.maxSteps = 100;
@@ -546,7 +542,7 @@ BOOST_AUTO_TEST_CASE(step_extension_vacuum_test) {
 
   // Set options for propagator
   PropagatorOptions<ActionList<StepCollector>, AbortList<EndOfWorld>>
-      propOptsDef(tgContext, mfContext);
+      propOptsDef(tgContext, mfContext, getDummyLogger());
   propOptsDef.actionList = aListDef;
   propOptsDef.abortList = abortList;
   propOptsDef.maxSteps = 100;
@@ -618,12 +614,11 @@ BOOST_AUTO_TEST_CASE(step_extension_material_test) {
   // Set options for propagator
   DenseStepperPropagatorOptions<ActionList<StepCollector>,
                                 AbortList<EndOfWorld>>
-      propOpts(tgContext, mfContext);
+      propOpts(tgContext, mfContext, getDummyLogger());
   propOpts.actionList = aList;
   propOpts.abortList = abortList;
   propOpts.maxSteps = 100;
   propOpts.maxStepSize = 1.5_m;
-  propOpts.debug = true;
 
   // Build stepper and propagator
   ConstantBField bField(Vector3D(0., 0., 0.));
@@ -668,12 +663,11 @@ BOOST_AUTO_TEST_CASE(step_extension_material_test) {
   // Set options for propagator
   DenseStepperPropagatorOptions<ActionList<StepCollector>,
                                 AbortList<EndOfWorld>>
-      propOptsDense(tgContext, mfContext);
+      propOptsDense(tgContext, mfContext, getDummyLogger());
   propOptsDense.actionList = aList;
   propOptsDense.abortList = abortList;
   propOptsDense.maxSteps = 100;
   propOptsDense.maxStepSize = 1.5_m;
-  propOptsDense.debug = true;
 
   // Build stepper and propagator
   EigenStepper<ConstantBField, StepperExtensionList<DenseEnvironmentExtension>>
@@ -789,12 +783,10 @@ BOOST_AUTO_TEST_CASE(step_extension_vacmatvac_test) {
   AbortList<EndOfWorld> abortList;
   abortList.get<EndOfWorld>().maxX = 3_m;
 
-  using DebugOutput = Acts::DebugOutputActor;
-
   // Set options for propagator
-  DenseStepperPropagatorOptions<ActionList<StepCollector, DebugOutput>,
+  DenseStepperPropagatorOptions<ActionList<StepCollector>,
                                 AbortList<EndOfWorld>>
-      propOpts(tgContext, mfContext);
+      propOpts(tgContext, mfContext, getDummyLogger());
   propOpts.abortList = abortList;
   propOpts.maxSteps = 100;
   propOpts.maxStepSize = 1.5_m;
@@ -851,14 +843,12 @@ BOOST_AUTO_TEST_CASE(step_extension_vacmatvac_test) {
   // Build launcher through vacuum
   // Set options for propagator
 
-  PropagatorOptions<ActionList<StepCollector, DebugOutput>,
-                    AbortList<EndOfWorld>>
-      propOptsDef(tgContext, mfContext);
+  PropagatorOptions<ActionList<StepCollector>, AbortList<EndOfWorld>>
+      propOptsDef(tgContext, mfContext, getDummyLogger());
   abortList.get<EndOfWorld>().maxX = 1_m;
   propOptsDef.abortList = abortList;
   propOptsDef.maxSteps = 100;
   propOptsDef.maxStepSize = 1.5_m;
-  propOptsDef.debug = false;
 
   // Build stepper and propagator
   EigenStepper<ConstantBField, StepperExtensionList<DefaultExtension>> esDef(
@@ -891,12 +881,6 @@ BOOST_AUTO_TEST_CASE(step_extension_vacmatvac_test) {
     }
   }
 
-  if (propOptsDef.debug) {
-    const auto debugString =
-        resultDef.template get<DebugOutput::result_type>().debugString;
-    std::cout << debugString << std::endl;
-  }
-
   CHECK_CLOSE_ABS(endParams.first, endParamsControl.first, 1_um);
   CHECK_CLOSE_ABS(endParams.second, endParamsControl.second, 1_um);
 
@@ -918,7 +902,7 @@ BOOST_AUTO_TEST_CASE(step_extension_vacmatvac_test) {
   // Set options for propagator
   DenseStepperPropagatorOptions<ActionList<StepCollector>,
                                 AbortList<EndOfWorld>>
-      propOptsDense(tgContext, mfContext);
+      propOptsDense(tgContext, mfContext, getDummyLogger());
   abortList.get<EndOfWorld>().maxX = 2_m;
   propOptsDense.abortList = abortList;
   propOptsDense.maxSteps = 1000;
@@ -1058,7 +1042,7 @@ BOOST_AUTO_TEST_CASE(step_extension_trackercalomdt_test) {
   // Set options for propagator
   DenseStepperPropagatorOptions<ActionList<StepCollector, MaterialInteractor>,
                                 AbortList<EndOfWorld>>
-      propOpts(tgContext, mfContext);
+      propOpts(tgContext, mfContext, getDummyLogger());
   propOpts.abortList.get<EndOfWorld>().maxX = 3._m;
 
   // Build stepper and propagator

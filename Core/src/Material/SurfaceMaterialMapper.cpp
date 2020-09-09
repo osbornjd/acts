@@ -12,7 +12,6 @@
 #include "Acts/Material/BinnedSurfaceMaterial.hpp"
 #include "Acts/Material/ProtoSurfaceMaterial.hpp"
 #include "Acts/Propagator/ActionList.hpp"
-#include "Acts/Propagator/DebugOutputActor.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/StandardAborters.hpp"
@@ -100,7 +99,7 @@ void Acts::SurfaceMaterialMapper::checkAndInsert(State& mState,
   auto surfaceMaterial = surface.surfaceMaterial();
   // Check if the surface has a proxy
   if (surfaceMaterial != nullptr) {
-    auto geoID = surface.geoID();
+    auto geoID = surface.geometryId();
     size_t volumeID = geoID.volume();
     ACTS_DEBUG("Material surface found with volumeID " << volumeID);
     ACTS_DEBUG("       - surfaceID is " << geoID);
@@ -145,7 +144,8 @@ void Acts::SurfaceMaterialMapper::collectMaterialVolumes(
                                    << "' for material surfaces.")
   ACTS_VERBOSE("- Insert Volume ...");
   if (tVolume.volumeMaterial() != nullptr) {
-    mState.volumeMaterial[tVolume.geoID()] = tVolume.volumeMaterialSharedPtr();
+    mState.volumeMaterial[tVolume.geometryId()] =
+        tVolume.volumeMaterialSharedPtr();
   }
 
   // Step down into the sub volume
@@ -180,27 +180,20 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
                                           mTrack.first.second, 0.);
 
   // Prepare Action list and abort list
-  using DebugOutput = DebugOutputActor;
   using MaterialSurfaceCollector = SurfaceCollector<MaterialSurface>;
   using MaterialVolumeCollector = VolumeCollector<MaterialVolume>;
-  using ActionList = ActionList<MaterialSurfaceCollector,
-                                MaterialVolumeCollector, DebugOutput>;
+  using ActionList =
+      ActionList<MaterialSurfaceCollector, MaterialVolumeCollector>;
   using AbortList = AbortList<EndOfWorldReached>;
 
-  PropagatorOptions<ActionList, AbortList> options(mState.geoContext,
-                                                   mState.magFieldContext);
-  options.debug = m_cfg.mapperDebugOutput;
+  auto propLogger = getDefaultLogger("SufMatMapProp", Logging::INFO);
+  PropagatorOptions<ActionList, AbortList> options(
+      mState.geoContext, mState.magFieldContext, LoggerWrapper{*propLogger});
 
   // Now collect the material layers by using the straight line propagator
   const auto& result = m_propagator.propagate(start, options).value();
   auto mcResult = result.get<MaterialSurfaceCollector::result_type>();
   auto mvcResult = result.get<MaterialVolumeCollector::result_type>();
-  // Massive screen output
-  if (m_cfg.mapperDebugOutput) {
-    auto debugOutput = result.get<DebugOutput::result_type>();
-    ACTS_VERBOSE("Debug propagation output.");
-    ACTS_VERBOSE(debugOutput.debugString);
-  }
 
   auto mappingSurfaces = mcResult.collected;
   auto mappingVolumes = mvcResult.collected;
@@ -216,11 +209,11 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
                             << " mapping surfaces for this track.");
   ACTS_VERBOSE("Mapping surfaces are :")
   for (auto& mSurface : mappingSurfaces) {
-    ACTS_VERBOSE(" - Surface : " << mSurface.surface->geoID()
+    ACTS_VERBOSE(" - Surface : " << mSurface.surface->geometryId()
                                  << " at position = (" << mSurface.position.x()
                                  << ", " << mSurface.position.y() << ", "
                                  << mSurface.position.z() << ")");
-    assignedMaterial[mSurface.surface->geoID()] = 0;
+    assignedMaterial[mSurface.surface->geometryId()] = 0;
   }
 
   // Run the mapping process, i.e. take the recorded material and map it
@@ -231,7 +224,6 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
   auto rmIter = rMaterial.begin();
   auto sfIter = mappingSurfaces.begin();
   auto volIter = mappingVolumes.begin();
-  bool encounterVolume = false;
 
   // Use those to minimize the lookup
   GeometryID lastID = GeometryID();
@@ -247,16 +239,20 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
 
   // Assign the recorded ones, break if you hit an end
   while (rmIter != rMaterial.end() && sfIter != mappingSurfaces.end()) {
-    if (volIter != mappingVolumes.end() && encounterVolume == true &&
+    // Material not inside current volume
+    if (volIter != mappingVolumes.end() &&
         !volIter->volume->inside(rmIter->position)) {
-      encounterVolume = false;
-      // Switch to next material volume
-      ++volIter;
+      double distVol = (volIter->position - mTrack.first.first).norm();
+      double distMat = (rmIter->position - mTrack.first.first).norm();
+      // Material past the entry point to the current volume
+      if (distMat - distVol > s_epsilon) {
+        // Switch to next material volume
+        ++volIter;
+      }
     }
     /// check if we are inside a material volume
     if (volIter != mappingVolumes.end() &&
         volIter->volume->inside(rmIter->position)) {
-      encounterVolume = true;
       ++rmIter;
       continue;
     }
@@ -267,7 +263,7 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
       ++sfIter;
     }
     // get the current Surface ID
-    currentID = sfIter->surface->geoID();
+    currentID = sfIter->surface->geometryId();
     // We have work to do: the assignemnt surface has changed
     if (not(currentID == lastID)) {
       // Let's (re-)assess the information
@@ -282,8 +278,7 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
         currentPos, rmIter->materialProperties, currentPathCorrection);
     touchedMapBins.insert(MapBin(&(currentAccMaterial->second), tBin));
     ++assignedMaterial[currentID];
-    // Update the material interaction with the associated surface and direction
-    rmIter->direction = mTrack.first.second.normalized();
+    // Update the material interaction with the associated surface
     rmIter->surface = sfIter->surface;
     // Switch to next material
     ++rmIter;
@@ -306,7 +301,7 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
     // the material surface has been intersected by the mapping ray
     // but no material step was assigned to this surface
     for (auto& mSurface : mappingSurfaces) {
-      auto mgID = mSurface.surface->geoID();
+      auto mgID = mSurface.surface->geometryId();
       // Count an empty hit only if the surface does not appear in the
       // list of assigned surfaces
       if (assignedMaterial[mgID] == 0) {

@@ -78,7 +78,7 @@ class EigenStepper {
                    const parameters_t& par, NavigationDirection ndir = forward,
                    double ssize = std::numeric_limits<double>::max(),
                    double stolerance = s_onSurfaceTolerance)
-        : pos(par.position()),
+        : pos(par.position(gctx)),
           dir(par.momentum().normalized()),
           p(par.momentum().norm()),
           q(par.charge()),
@@ -232,8 +232,8 @@ class EigenStepper {
   /// @param state [in,out] The stepping state (thread-local cache)
   /// @param surface [in] The surface provided
   /// @param bcheck [in] The boundary check for this status update
-  Intersection::Status updateSurfaceStatus(State& state, const Surface& surface,
-                                           const BoundaryCheck& bcheck) const {
+  Intersection3D::Status updateSurfaceStatus(
+      State& state, const Surface& surface, const BoundaryCheck& bcheck) const {
     return detail::updateSingleSurfaceStatus<EigenStepper>(*this, state,
                                                            surface, bcheck);
   }

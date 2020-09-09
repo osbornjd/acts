@@ -1,4 +1,4 @@
-#include "ACTFW/TrackFinding/TrkrClusterFindingAlgorithm.hpp"
+#include "ActsExamples/TrackFinding/TrkrClusterFindingAlgorithm.hpp"
 
 
 #include "Acts/Fitter/GainMatrixSmoother.hpp"
@@ -26,10 +26,10 @@ namespace {
 
     TrkrFindingFunctionImpl(Finder&& f) : finder(std::move(f)) {}
 
-    FW::TrkrClusterFindingAlgorithm::FinderResult
+    ActsExamples::TrkrClusterFindingAlgorithm::FinderResult
     operator()(
        const std::vector<SourceLink>& sourceLinks,
-       const FW::TrackParameters&                          initialParameters,
+       const ActsExamples::TrackParameters& initialParameters,
        const Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>&       options) const
   {
       /// Call CombinatorialKalmanFilter findTracks
@@ -41,11 +41,10 @@ namespace {
 /**
  * Function that actually makes the track finding function to be used 
  */
-FW::TrkrClusterFindingAlgorithm::FinderFunction
-FW::TrkrClusterFindingAlgorithm::makeFinderFunction(
+ActsExamples::TrkrClusterFindingAlgorithm::FinderFunction
+ActsExamples::TrkrClusterFindingAlgorithm::makeFinderFunction(
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
-    FW::Options::BFieldVariant                    magneticField,
-    Acts::Logging::Level                          level)
+    Options::BFieldVariant magneticField)
 {
   using Updater  = Acts::GainMatrixUpdater;
   using Smoother = Acts::GainMatrixSmoother;
@@ -53,7 +52,7 @@ FW::TrkrClusterFindingAlgorithm::makeFinderFunction(
   /// Return a new instance of the finder with the given magnetic field
   /// need to unpack the magnetic field and return the finder
   return std::visit(
-      [trackingGeometry, level](auto&& inputField) -> FinderFunction {
+      [trackingGeometry](auto&& inputField) -> FinderFunction {
 	/// Construct some aliases for the components below
         using InputMagneticField = typename std::decay_t<decltype(inputField)>::element_type;
         using MagneticField      = Acts::SharedBField<InputMagneticField>;
@@ -72,8 +71,7 @@ FW::TrkrClusterFindingAlgorithm::makeFinderFunction(
         navigator.resolveMaterial  = true;
         navigator.resolveSensitive = true;
         Propagator propagator(std::move(stepper), std::move(navigator));
-        Finder     finder(std::move(propagator),
-                      Acts::getDefaultLogger("CombinatorialKalmanFilter", level));
+        Finder     finder(std::move(propagator));
 
         /// Build the fitter function
         return TrkrFindingFunctionImpl<Finder>(std::move(finder));

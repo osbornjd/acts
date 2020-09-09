@@ -1,4 +1,4 @@
-#include "ACTFW/Fitting/TrkrClusterFittingAlgorithm.hpp"
+#include "ActsExamples/Fitting/TrkrClusterFittingAlgorithm.hpp"
 
 #include <iostream>
 #include <map>
@@ -19,7 +19,7 @@
 #include "Acts/Utilities/ParameterDefinitions.hpp"
 #include "boost/program_options.hpp"
 
-#include "ACTFW/Plugins/BField/ScalableBField.hpp"
+#include "ActsExamples/Plugins/BField/ScalableBField.hpp"
 
 
 /**
@@ -33,10 +33,10 @@ struct TrkrFitterFunctionImpl
 
   TrkrFitterFunctionImpl(Fitter&& f) : fitter(std::move(f)) {}
 
-  FW::TrkrClusterFittingAlgorithm::FitterResult
-  operator()(const std::vector<FW::Data::TrkrClusterSourceLink>& sourceLinks,
-             const FW::TrackParameters&                  initialParameters,
-             const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>&            options) const
+  ActsExamples::TrkrClusterFittingAlgorithm::FitterResult operator()(
+       const std::vector<ActsExamples::TrkrClusterSourceLink>& sourceLinks,
+       const ActsExamples::TrackParameters& initialParameters,
+       const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>& options) const
   {
     return fitter.fit(sourceLinks, initialParameters, options);
   };
@@ -46,18 +46,17 @@ struct TrkrFitterFunctionImpl
 /**
  * Function that actually makes the fitting function to be used 
  */
-FW::TrkrClusterFittingAlgorithm::FitterFunction
-FW::TrkrClusterFittingAlgorithm::makeFitterFunction(
+ActsExamples::TrkrClusterFittingAlgorithm::FitterFunction
+ActsExamples::TrkrClusterFittingAlgorithm::makeFitterFunction(
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
-    FW::Options::BFieldVariant                    magneticField,
-    Acts::Logging::Level                          level)
+    Options::BFieldVariant magneticField)
 {
   using Updater  = Acts::GainMatrixUpdater;
   using Smoother = Acts::GainMatrixSmoother;
 
   /// Return a new instance of the fitter
   return std::visit(
-      [trackingGeometry, level](auto&& inputField) -> FitterFunction {
+      [trackingGeometry](auto&& inputField) -> FitterFunction {
 	/// Construct some aliases for the components below
         using InputMagneticField = typename std::decay_t<decltype(inputField)>::element_type;
         using MagneticField      = Acts::SharedBField<InputMagneticField>;
@@ -74,9 +73,8 @@ FW::TrkrClusterFittingAlgorithm::makeFitterFunction(
         navigator.resolveMaterial  = true;
         navigator.resolveSensitive = true;
         Propagator propagator(std::move(stepper), std::move(navigator));
-        Fitter     fitter(std::move(propagator),
-                      Acts::getDefaultLogger("KalmanFitter", level));
-
+        Fitter     fitter(std::move(propagator));
+			 
         /// Build the fitter function
         return TrkrFitterFunctionImpl<Fitter>(std::move(fitter));
       },

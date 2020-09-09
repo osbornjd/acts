@@ -1,9 +1,9 @@
 add_executable(
-  ActsRecTruthTracks
+  ActsExampleTruthTracks
   RecTruthTracks.cpp)
 
 target_link_libraries(
-  ActsRecTruthTracks
+  ActsExampleTruthTracks
   PRIVATE
     ActsExamplesFramework
     ActsExamplesCommon
@@ -16,10 +16,10 @@ target_link_libraries(
     ActsExamplesIoPerformance)
 
 add_executable(
-    ActsRecCKFTracks
+    ActsExampleCKFTracks
     RecCKFTracks.cpp)
 target_link_libraries(
-    ActsRecCKFTracks
+    ActsExampleCKFTracks
     PRIVATE
     ActsExamplesFramework
     ActsExamplesCommon
@@ -32,12 +32,6 @@ target_link_libraries(
 
 install(
   TARGETS
-  ActsRecCKFTracks
+  ActsExampleCKFTracks
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-
-install(
-   TARGETS 
-     ActsRecTruthTracks
-   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 

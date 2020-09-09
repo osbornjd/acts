@@ -6,16 +6,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Io/Root/RootTrajectoryWriter.hpp"
+#include "ActsExamples/Io/Root/RootTrajectoryWriter.hpp"
 
-#include "ACTFW/EventData/SimParticle.hpp"
-#include "ACTFW/Utilities/Paths.hpp"
 #include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/MultiTrajectoryHelpers.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/EventData/detail/coordinate_transformations.hpp"
+#include "Acts/EventData/detail/TransformationBoundToFree.hpp"
 #include "Acts/Utilities/Helpers.hpp"
+#include "ActsExamples/EventData/SimParticle.hpp"
+#include "ActsExamples/Utilities/Paths.hpp"
 
 #include <ios>
 #include <stdexcept>
@@ -28,11 +28,12 @@ using Acts::VectorHelpers::perp;
 using Acts::VectorHelpers::phi;
 using Acts::VectorHelpers::theta;
 using Measurement =
-    Acts::Measurement<FW::SimSourceLink, Acts::BoundParametersIndices,
+    Acts::Measurement<ActsExamples::SimSourceLink, Acts::BoundParametersIndices,
                       Acts::eBoundLoc0, Acts::eBoundLoc1>;
 
-FW::RootTrajectoryWriter::RootTrajectoryWriter(
-    const FW::RootTrajectoryWriter::Config& cfg, Acts::Logging::Level lvl)
+ActsExamples::RootTrajectoryWriter::RootTrajectoryWriter(
+    const ActsExamples::RootTrajectoryWriter::Config& cfg,
+    Acts::Logging::Level lvl)
     : WriterT(cfg.inputTrajectories, "RootTrajectoryWriter", lvl),
       m_cfg(cfg),
       m_outputFile(cfg.rootFile) {
@@ -232,13 +233,13 @@ FW::RootTrajectoryWriter::RootTrajectoryWriter(
   }
 }
 
-FW::RootTrajectoryWriter::~RootTrajectoryWriter() {
+ActsExamples::RootTrajectoryWriter::~RootTrajectoryWriter() {
   if (m_outputFile) {
     m_outputFile->Close();
   }
 }
 
-FW::ProcessCode FW::RootTrajectoryWriter::endRun() {
+ActsExamples::ProcessCode ActsExamples::RootTrajectoryWriter::endRun() {
   if (m_outputFile) {
     m_outputFile->cd();
     m_outputTree->Write();
@@ -249,7 +250,7 @@ FW::ProcessCode FW::RootTrajectoryWriter::endRun() {
   return ProcessCode::SUCCESS;
 }
 
-FW::ProcessCode FW::RootTrajectoryWriter::writeT(
+ActsExamples::ProcessCode ActsExamples::RootTrajectoryWriter::writeT(
     const AlgorithmContext& ctx, const TrajectoryContainer& trajectories) {
   if (m_outputFile == nullptr)
     return ProcessCode::SUCCESS;
@@ -358,7 +359,7 @@ FW::ProcessCode FW::RootTrajectoryWriter::writeT(
       auto& surface = meas.referenceObject();
 
       // get the geometry ID
-      auto geoID = surface.geoID();
+      auto geoID = surface.geometryId();
       m_volumeID.push_back(geoID.volume());
       m_layerID.push_back(geoID.layer());
       m_moduleID.push_back(geoID.sensitive());
@@ -492,20 +493,20 @@ FW::ProcessCode FW::RootTrajectoryWriter::writeT(
             sqrt(covariance(Acts::eBoundTime, Acts::eBoundTime)));
 
         // further predicted parameter info
-        const Acts::Vector3D freePosition =
-            Acts::detail::coordinate_transformation::parameters2globalPosition(
-                gctx, parameters, surface);
-        const Acts::Vector3D freeMomentum =
-            Acts::detail::coordinate_transformation::parameters2globalMomentum(
-                parameters);
-        m_x_prt.push_back(freePosition.x());
-        m_y_prt.push_back(freePosition.y());
-        m_z_prt.push_back(freePosition.z());
-        m_px_prt.push_back(freeMomentum.x());
-        m_py_prt.push_back(freeMomentum.y());
-        m_pz_prt.push_back(freeMomentum.z());
-        m_pT_prt.push_back(perp(freeMomentum));
-        m_eta_prt.push_back(eta(freePosition));
+        Acts::FreeVector freeParams =
+            Acts::detail::transformBoundToFreeParameters(surface, gctx,
+                                                         parameters);
+        m_x_prt.push_back(freeParams[Acts::eFreePos0]);
+        m_y_prt.push_back(freeParams[Acts::eFreePos1]);
+        m_z_prt.push_back(freeParams[Acts::eFreePos2]);
+        auto p = std::abs(1 / freeParams[Acts::eFreeQOverP]);
+        m_px_prt.push_back(p * freeParams[Acts::eFreeDir0]);
+        m_py_prt.push_back(p * freeParams[Acts::eFreeDir1]);
+        m_pz_prt.push_back(p * freeParams[Acts::eFreeDir2]);
+        m_pT_prt.push_back(p * std::hypot(freeParams[Acts::eFreeDir0],
+                                          freeParams[Acts::eFreeDir1]));
+        m_eta_prt.push_back(
+            Acts::VectorHelpers::eta(freeParams.segment<3>(Acts::eFreeDir0)));
       } else {
         // push default values if no predicted parameter
         m_res_x_hit.push_back(-99.);
@@ -607,20 +608,20 @@ FW::ProcessCode FW::RootTrajectoryWriter::writeT(
             sqrt(covariance(Acts::eBoundTime, Acts::eBoundTime)));
 
         // more filtered parameter info
-        const Acts::Vector3D freePosition =
-            Acts::detail::coordinate_transformation::parameters2globalPosition(
-                gctx, parameters, surface);
-        const Acts::Vector3D freeMomentum =
-            Acts::detail::coordinate_transformation::parameters2globalMomentum(
-                parameters);
-        m_x_flt.push_back(freePosition.x());
-        m_y_flt.push_back(freePosition.y());
-        m_z_flt.push_back(freePosition.z());
-        m_px_flt.push_back(freeMomentum.x());
-        m_py_flt.push_back(freeMomentum.y());
-        m_pz_flt.push_back(freeMomentum.z());
-        m_pT_flt.push_back(perp(freeMomentum));
-        m_eta_flt.push_back(eta(freePosition));
+        const Acts::FreeVector freeParams =
+            Acts::detail::transformBoundToFreeParameters(surface, gctx,
+                                                         parameters);
+        m_x_flt.push_back(freeParams[Acts::eFreePos0]);
+        m_y_flt.push_back(freeParams[Acts::eFreePos1]);
+        m_z_flt.push_back(freeParams[Acts::eFreePos2]);
+        const auto p = std::abs(1 / freeParams[Acts::eFreeQOverP]);
+        m_px_flt.push_back(p * freeParams[Acts::eFreeDir0]);
+        m_py_flt.push_back(p * freeParams[Acts::eFreeDir1]);
+        m_pz_flt.push_back(p * freeParams[Acts::eFreeDir2]);
+        m_pT_flt.push_back(p * std::hypot(freeParams[Acts::eFreeDir0],
+                                          freeParams[Acts::eFreeDir1]));
+        m_eta_flt.push_back(
+            Acts::VectorHelpers::eta(freeParams.segment<3>(Acts::eFreeDir0)));
         m_chi2.push_back(state.chi2());
       } else {
         // push default values if no filtered parameter
@@ -717,20 +718,20 @@ FW::ProcessCode FW::RootTrajectoryWriter::writeT(
             sqrt(covariance(Acts::eBoundTime, Acts::eBoundTime)));
 
         // further smoothed parameter info
-        const Acts::Vector3D freePosition =
-            Acts::detail::coordinate_transformation::parameters2globalPosition(
-                gctx, parameters, surface);
-        const Acts::Vector3D freeMomentum =
-            Acts::detail::coordinate_transformation::parameters2globalMomentum(
-                parameters);
-        m_x_smt.push_back(freePosition.x());
-        m_y_smt.push_back(freePosition.y());
-        m_z_smt.push_back(freePosition.z());
-        m_px_smt.push_back(freeMomentum.x());
-        m_py_smt.push_back(freeMomentum.y());
-        m_pz_smt.push_back(freeMomentum.z());
-        m_pT_smt.push_back(perp(freeMomentum));
-        m_eta_smt.push_back(eta(freePosition));
+        const Acts::FreeVector freeParams =
+            Acts::detail::transformBoundToFreeParameters(surface, gctx,
+                                                         parameters);
+        m_x_smt.push_back(freeParams[Acts::eFreePos0]);
+        m_y_smt.push_back(freeParams[Acts::eFreePos1]);
+        m_z_smt.push_back(freeParams[Acts::eFreePos2]);
+        const auto p = std::abs(1 / freeParams[Acts::eFreeQOverP]);
+        m_px_smt.push_back(p * freeParams[Acts::eFreeDir0]);
+        m_py_smt.push_back(p * freeParams[Acts::eFreeDir1]);
+        m_pz_smt.push_back(p * freeParams[Acts::eFreeDir2]);
+        m_pT_smt.push_back(p * std::hypot(freeParams[Acts::eFreeDir0],
+                                          freeParams[Acts::eFreeDir1]));
+        m_eta_smt.push_back(
+            Acts::VectorHelpers::eta(freeParams.segment<3>(Acts::eFreeDir0)));
       } else {
         // push default values if no smoothed parameter
         m_eLOC0_smt.push_back(-99.);

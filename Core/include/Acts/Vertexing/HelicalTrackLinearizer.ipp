@@ -20,7 +20,8 @@ Acts::Result<Acts::LinearizedTrack> Acts::
       Surface::makeShared<PerigeeSurface>(linPointPos);
 
   // Create propagator options
-  propagator_options_t pOptions(gctx, mctx);
+  auto logger = getDefaultLogger("HelTrkLinProp", Logging::INFO);
+  propagator_options_t pOptions(gctx, mctx, LoggerWrapper{*logger});
   pOptions.direction = backward;
 
   const BoundParameters* endParams = nullptr;
@@ -36,17 +37,18 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   BoundVector paramsAtPCA = endParams->parameters();
   Vector4D positionAtPCA = Vector4D::Zero();
   {
-    auto pos = endParams->position();
+    auto pos = endParams->position(gctx);
     positionAtPCA[ePos0] = pos[ePos0];
     positionAtPCA[ePos1] = pos[ePos1];
     positionAtPCA[ePos2] = pos[ePos2];
+    positionAtPCA[eTime] = endParams->time();
   }
   BoundSymMatrix parCovarianceAtPCA = *(endParams->covariance());
 
   if (endParams->covariance()->determinant() == 0) {
     // Use the original parameters
     paramsAtPCA = params.parameters();
-    auto pos = endParams->position();
+    auto pos = endParams->position(gctx);
     positionAtPCA[ePos0] = pos[ePos0];
     positionAtPCA[ePos1] = pos[ePos1];
     positionAtPCA[ePos2] = pos[ePos2];

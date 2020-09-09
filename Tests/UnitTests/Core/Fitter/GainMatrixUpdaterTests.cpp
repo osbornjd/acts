@@ -88,8 +88,7 @@ BOOST_AUTO_TEST_CASE(gain_matrix_updater) {
   Vector3D expMomentum;
   expMomentum << 0.0000000, 80.9016994, 58.7785252;
 
-  BoundParameters filtered(tgContext, ts.filteredCovariance(), ts.filtered(),
-                           cylinder);
+  BoundParameters filtered(cylinder, ts.filtered(), ts.filteredCovariance());
 
   double expChi2 = 1.33958;
 
@@ -97,7 +96,7 @@ BOOST_AUTO_TEST_CASE(gain_matrix_updater) {
 
   CHECK_CLOSE_ABS(expCov, *filtered.covariance(), tol);
   CHECK_CLOSE_ABS(expPar, filtered.parameters(), tol);
-  CHECK_CLOSE_ABS(expPosition, filtered.position(), tol);
+  CHECK_CLOSE_ABS(expPosition, filtered.position(tgContext), tol);
   CHECK_CLOSE_ABS(expMomentum, filtered.momentum(), tol);
   CHECK_CLOSE_ABS(expChi2, ts.chi2(), 1e-4);
 }
