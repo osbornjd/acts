@@ -123,14 +123,14 @@ ActsExamples::BField::root::fieldMapperRZ(
   TTree* tree = (TTree*)inputFile->Get(treeName.c_str());
   Int_t entries = tree->GetEntries();
 
-  double r, z;
-  double Br, Bz;
+  float r, z;
+  float Br, Bz;
 
   tree->SetBranchAddress("r", &r);
   tree->SetBranchAddress("z", &z);
 
-  tree->SetBranchAddress("Br", &Br);
-  tree->SetBranchAddress("Bz", &Bz);
+  tree->SetBranchAddress("br", &Br);
+  tree->SetBranchAddress("bz", &Bz);
 
   // reserve size
   rPos.reserve(entries);
