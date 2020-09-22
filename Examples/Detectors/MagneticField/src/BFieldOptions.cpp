@@ -226,9 +226,9 @@ BFieldVariant readBField(const boost::program_options::variables_map& vm) {
     } else {
       // Create the constant magnetic field
       return std::make_shared<Acts::ConstantBField>(
-          bFieldValues.at(0) * Acts::units::_T,
-          bFieldValues.at(1) * Acts::units::_T,
-          bFieldValues.at(2) * Acts::units::_T);
+          bscalor * bFieldValues.at(0) * Acts::units::_T,
+          bscalor * bFieldValues.at(1) * Acts::units::_T,
+          bscalor * bFieldValues.at(2) * Acts::units::_T);
     }
   }
 }
