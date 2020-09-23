@@ -971,7 +971,7 @@ class KalmanFitter {
     auto result = m_propagator.template propagate(sParameters, kalmanOptions);
 
     if (!result.ok()) {
-      ACTS_ERROR("Propapation failed: " << result.error());
+      ACTS_VERBOSE("Propapation failed: " << result.error());
       return result.error();
     }
 
@@ -987,7 +987,7 @@ class KalmanFitter {
     }
 
     if (!kalmanResult.result.ok()) {
-      ACTS_ERROR("KalmanFilter failed: " << kalmanResult.result.error());
+      ACTS_VERBOSE("KalmanFilter failed: " << kalmanResult.result.error());
       return kalmanResult.result.error();
     }
 
