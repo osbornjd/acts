@@ -4,7 +4,7 @@
 #include "Acts/EventData/MeasurementHelpers.hpp"
 #include "Acts/EventData/SourceLinkConcept.hpp"
 #include "Acts/EventData/detail/fittable_type_generator.hpp"
-#include "Acts/Geometry/GeometryID.hpp"
+#include "Acts/Geometry/GeometryIdentifier.hpp"
 
 #include "ActsExamples/EventData/GeometryContainers.hpp"
 #include <boost/container/flat_map.hpp>
@@ -52,7 +52,7 @@ class TrkrClusterSourceLink
     return m_cov;
   }
 
-  const Acts::GeometryID geoId() const 
+  const Acts::GeometryIdentifier geoId() const 
   {
     return m_geoId;
   }
@@ -68,7 +68,7 @@ class TrkrClusterSourceLink
   {
 
     return Acts::Measurement<TrkrClusterSourceLink, 
-			     Acts::BoundParametersIndices,
+			     Acts::BoundIndices,
 			     Acts::eBoundLoc0,
 			     Acts::eBoundLoc1>
       {m_surface,
@@ -91,7 +91,7 @@ private:
   /// surface to which it belongs to
   unsigned int m_hitid;
   std::shared_ptr<const Acts::Surface> m_surface;
-  Acts::GeometryID m_geoId;
+  Acts::GeometryIdentifier m_geoId;
 
   /// Local x and y position for cluster
   Acts::BoundVector m_loc;

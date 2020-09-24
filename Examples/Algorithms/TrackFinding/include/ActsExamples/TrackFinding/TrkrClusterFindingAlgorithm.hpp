@@ -5,9 +5,9 @@
 #include <stdexcept>
 #include <boost/program_options.hpp>
 
-#include "Acts/Fitter/GainMatrixSmoother.hpp"
-#include "Acts/Fitter/GainMatrixUpdater.hpp"
-#include "Acts/Geometry/GeometryID.hpp"
+#include "Acts/TrackFitting/GainMatrixSmoother.hpp"
+#include "Acts/TrackFitting/GainMatrixUpdater.hpp"
+#include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/MagneticField/InterpolatedBFieldMap.hpp"
 #include "Acts/MagneticField/SharedBField.hpp"
@@ -17,8 +17,8 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/ParameterDefinitions.hpp"
-#include "Acts/TrackFinder/CKFSourceLinkSelector.hpp"
-#include "Acts/TrackFinder/CombinatorialKalmanFilter.hpp"
+#include "Acts/TrackFinding/CKFSourceLinkSelector.hpp"
+#include "Acts/TrackFinding/CombinatorialKalmanFilter.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 
 #include "ActsExamples/Plugins/BField/ScalableBField.hpp"
