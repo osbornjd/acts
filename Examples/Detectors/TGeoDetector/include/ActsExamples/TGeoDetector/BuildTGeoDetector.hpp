@@ -223,6 +223,7 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
   Acts::TrackingGeometryBuilder::Config tgConfig;
   // Add the builders
   tgConfig.materialDecorator = mdecorator;
+
   for (auto& vb : volumeBuilders) {
     tgConfig.trackingVolumeBuilders.push_back(
         [=](const auto& gcontext, const auto& inner, const auto&) {
