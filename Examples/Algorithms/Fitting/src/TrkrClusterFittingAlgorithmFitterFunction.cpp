@@ -33,6 +33,7 @@ struct TrkrFitterFunctionImpl
 
   TrkrFitterFunctionImpl(Fitter&& f) : fitter(std::move(f)) {}
 
+  ///  Calls Acts standard fitter with navigation on each layer
   ActsExamples::TrkrClusterFittingAlgorithm::FitterResult operator()(
        const std::vector<ActsExamples::TrkrClusterSourceLink>& sourceLinks,
        const ActsExamples::TrackParameters& initialParameters,
@@ -40,6 +41,18 @@ struct TrkrFitterFunctionImpl
   {
     return fitter.fit(sourceLinks, initialParameters, options);
   };
+
+  /// Calls Acts direct navigation fitter with a sequence of surfaces that
+  /// are specified. Navigation will proceed from surface to surface and must
+  /// be already sorted/ordered
+  ActsExamples::TrkrClusterFittingAlgorithm::FitterResult operator()(
+       const std::vector<ActsExamples::TrkrClusterSourceLink>& sourceLinks,
+       const ActsExamples::TrackParameters& initialParameters,
+       const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>& options,
+       const std::vector<const Acts::Surface*>& surfSequence) const
+  {
+    return fitter.fit(sourceLinks, initialParameters, options, surfSequence);
+  }
 };
 }  // namespace
 
