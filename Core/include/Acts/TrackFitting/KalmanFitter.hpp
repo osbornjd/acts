@@ -1075,7 +1075,7 @@ class KalmanFitter {
     kalmanActor.energyLoss = kfOptions.energyLoss;
     kalmanActor.backwardFiltering = kfOptions.backwardFiltering;
     // Set config for outlier finder
-    kalmanActor.m_outlierFinder.m_config = kfOptions.outlierFinderConfig;
+    kalmanActor.m_outlierFinder = kfOptions.outlierFinder;
 
     // Set the surface sequence
     auto& dInitializer =

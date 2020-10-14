@@ -41,6 +41,24 @@ struct TrkrFitterFunctionImpl
     return fitter.fit(sourceLinks, initialParameters, options);
   };
 };
+
+template <typename Fitter>
+struct DirectedTrkrFitterFunctionImpl
+{
+  Fitter fitter;
+
+  DirectedTrkrFitterFunctionImpl(Fitter&& f) : fitter(std::move(f)) {}
+
+  ActsExamples::TrkrClusterFittingAlgorithm::FitterResult operator()(
+       const std::vector<ActsExamples::TrkrClusterSourceLink>& sourceLinks,
+       const ActsExamples::TrackParameters& initialParameters,
+       const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>& options,
+       const std::vector<const Acts::Surface*>& sSequence) const
+  {
+    return fitter.fit(sourceLinks, initialParameters, options, sSequence);
+  };
+};
+
 }  // namespace
 
 /**
@@ -77,6 +95,38 @@ ActsExamples::TrkrClusterFittingAlgorithm::makeFitterFunction(
 			 
         /// Build the fitter function
         return TrkrFitterFunctionImpl<Fitter>(std::move(fitter));
+      },
+      std::move(magneticField));
+}
+
+
+ActsExamples::TrkrClusterFittingAlgorithm::DirectedFitterFunction
+ActsExamples::TrkrClusterFittingAlgorithm::makeFitterFunction(
+    Options::BFieldVariant magneticField)
+{
+  using Updater  = Acts::GainMatrixUpdater;
+  using Smoother = Acts::GainMatrixSmoother;
+
+  /// Return a new instance of the fitter
+  return std::visit(
+      [](auto&& inputField) -> DirectedFitterFunction {
+	/// Construct some aliases for the components below
+        using InputMagneticField = typename std::decay_t<decltype(inputField)>::element_type;
+        using MagneticField      = Acts::SharedBField<InputMagneticField>;
+        using Stepper            = Acts::EigenStepper<MagneticField>;
+        using Navigator          = Acts::DirectNavigator;
+        using Propagator         = Acts::Propagator<Stepper, Navigator>;
+        using Fitter             = Acts::KalmanFitter<Propagator, Updater, Smoother>;
+
+        /// Make the components for the fitter
+        MagneticField field(std::move(inputField));
+        Stepper       stepper(std::move(field));
+        Navigator     navigator;
+        Propagator propagator(std::move(stepper), std::move(navigator));
+        Fitter     fitter(std::move(propagator));
+			 
+        /// Build the fitter function
+        return DirectedTrkrFitterFunctionImpl<Fitter>(std::move(fitter));
       },
       std::move(magneticField));
 }
