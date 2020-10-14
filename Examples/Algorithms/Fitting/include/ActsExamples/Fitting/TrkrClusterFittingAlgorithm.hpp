@@ -45,14 +45,26 @@ class TrkrClusterFittingAlgorithm : public BareAlgorithm
 		    const TrackParameters&,
 		    const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>&)>;
 
+  using DirectedFitterFunction
+  = std::function<FitterResult(
+		    const std::vector<ActsExamples::TrkrClusterSourceLink>&,
+		    const TrackParameters&,
+		    const Acts::KalmanFitterOptions<Acts::VoidOutlierFinder>&,
+		    const std::vector<const Acts::Surface*>&)>;
+      
+
   /// Create fitter function
   static FitterFunction makeFitterFunction(
       std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
       Options::BFieldVariant magneticField);
 
+  static DirectedFitterFunction makeFitterFunction(
+      Options::BFieldVariant magneticField);
+
   struct Config
   {
     FitterFunction fit;
+    DirectedFitterFunction dFit;
   };
 
   /// Constructor 
