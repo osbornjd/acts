@@ -167,7 +167,7 @@ void reinitializeJacobians(
   if (not lpResult.ok()) {
     ACTS_LOCAL_LOGGER(
         Acts::getDefaultLogger("CovarianceEngine", Logging::INFO));
-    ACTS_FATAL(
+    ACTS_ERROR(
         "Inconsistency in global to local transformation during propagation.")
   }
   auto loc = lpResult.value();
