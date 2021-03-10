@@ -43,11 +43,13 @@ struct TrkrClusterMultiTrajectory {
   /// @param parameters The fitted track parameters indexed by trajectory entry
   /// index
   TrkrClusterMultiTrajectory(const Acts::MultiTrajectory<SourceLink>& multiTraj,
-                     const std::vector<size_t>& tTips,
-                     const IndexedParams& parameters)
+			     const std::vector<size_t>& tTips,
+			     const IndexedParams& parameters,
+			     const int& vertexId)
       : m_multiTrajectory(multiTraj),
         m_trackTips(tTips),
-        m_trackParameters(parameters) {}
+        m_trackParameters(parameters),
+	m_vertexId(vertexId){}
 
   /// @brief Copy constructor
   ///
@@ -55,7 +57,8 @@ struct TrkrClusterMultiTrajectory {
   TrkrClusterMultiTrajectory(const TrkrClusterMultiTrajectory& rhs)
       : m_multiTrajectory(rhs.m_multiTrajectory),
         m_trackTips(rhs.m_trackTips),
-        m_trackParameters(rhs.m_trackParameters) {}
+        m_trackParameters(rhs.m_trackParameters),
+	m_vertexId(rhs.m_vertexId){}
 
   /// @brief Copy move constructor
   ///
@@ -63,8 +66,9 @@ struct TrkrClusterMultiTrajectory {
   TrkrClusterMultiTrajectory(TrkrClusterMultiTrajectory&& rhs)
       : m_multiTrajectory(std::move(rhs.m_multiTrajectory)),
         m_trackTips(std::move(rhs.m_trackTips)),
-        m_trackParameters(std::move(rhs.m_trackParameters)) {}
-
+        m_trackParameters(std::move(rhs.m_trackParameters)),
+	m_vertexId(std::move(rhs.m_vertexId)){}
+  
   /// @brief Default destructor
   ///
   ~TrkrClusterMultiTrajectory() = default;
@@ -76,6 +80,7 @@ struct TrkrClusterMultiTrajectory {
     m_multiTrajectory = rhs.m_multiTrajectory;
     m_trackTips = rhs.m_trackTips;
     m_trackParameters = rhs.m_trackParameters;
+    m_vertexId = rhs.m_vertexId;
     return *this;
   }
 
@@ -86,6 +91,7 @@ struct TrkrClusterMultiTrajectory {
     m_multiTrajectory = std::move(rhs.m_multiTrajectory);
     m_trackTips = std::move(rhs.m_trackTips);
     m_trackParameters = std::move(rhs.m_trackParameters);
+    m_vertexId = std::move(rhs.m_vertexId);
     return *this;
   }
 
@@ -142,6 +148,8 @@ struct TrkrClusterMultiTrajectory {
 
   // The fitted parameters at the provided surface for individual trajectories
   IndexedParams m_trackParameters = {};
+  
+  unsigned int m_vertexId = 9999;
 };
 
 }  // namespace ActsExamples
