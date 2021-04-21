@@ -311,6 +311,7 @@ class KalmanFitter {
 
         if (not result.smoothed and not result.reversed) {
           ACTS_VERBOSE("Perform " << direction << " filter step");
+
           auto res = filter(surface, state, stepper, result);
           if (!res.ok()) {
             ACTS_ERROR("Error in " << direction << " filter: " << res.error());
@@ -1100,7 +1101,7 @@ class KalmanFitter {
     auto result = m_propagator.template propagate(sParameters, kalmanOptions);
 
     if (!result.ok()) {
-      ACTS_ERROR("Propapation failed: " << result.error());
+      ACTS_VERBOSE("Propapation failed: " << result.error());
       return result.error();
     }
 
@@ -1116,7 +1117,7 @@ class KalmanFitter {
     }
 
     if (!kalmanResult.result.ok()) {
-      ACTS_ERROR("KalmanFilter failed: " << kalmanResult.result.error());
+      ACTS_VERBOSE("KalmanFilter failed: " << kalmanResult.result.error());
       return kalmanResult.result.error();
     }
 
@@ -1188,6 +1189,7 @@ class KalmanFitter {
     kalmanActor.energyLoss = kfOptions.energyLoss;
     kalmanActor.reversedFiltering = kfOptions.reversedFiltering;
     kalmanActor.m_calibrator = kfOptions.calibrator;
+
     // Set config for outlier finder
     kalmanActor.m_outlierFinder = kfOptions.outlierFinder;
 

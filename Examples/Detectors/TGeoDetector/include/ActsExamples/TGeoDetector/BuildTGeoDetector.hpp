@@ -22,6 +22,8 @@
 #include "Acts/Material/Material.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Plugins/TGeo/TGeoDetectorElement.hpp"
+#include "Acts/Utilities/Units.hpp"
+
 #include "Acts/Utilities/BinningType.hpp"
 #include "ActsExamples/TGeoDetector/BuildTGeoDetector.hpp"
 #include "ActsExamples/TGeoDetector/TGeoDetectorOptions.hpp"
@@ -34,6 +36,7 @@
 #include <boost/program_options.hpp>
 
 namespace ActsExamples {
+
 namespace TGeo {
 
 /// @brief global method to build the generic tracking geometry
@@ -49,7 +52,7 @@ template <typename variable_maps_t>
 std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     variable_maps_t& vm, const Acts::GeometryContext& context,
     std::vector<std::shared_ptr<const Acts::TGeoDetectorElement>>&
-        detElementStore,
+    detElementStore,
     std::shared_ptr<const Acts::IMaterialDecorator> mdecorator) {
   Acts::Logging::Level surfaceLogLevel =
       Acts::Logging::Level(vm["geo-surface-loglevel"].template as<size_t>());
@@ -97,6 +100,7 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
 
   std::string rootFileName = vm["geo-tgeo-filename"].template as<std::string>();
 
+
   // Create a beam pipe if configured to do so
   if (vm.count("geo-tgeo-beampipe-parameters")) {
     auto beamPipeParameters =
@@ -122,11 +126,17 @@ std::shared_ptr<const Acts::TrackingGeometry> buildTGeoDetector(
     bpvConfig.buildToRadiusZero = true;
     auto beamPipeVolumeBuilder =
         std::make_shared<const Acts::CylinderVolumeBuilder>(
+
+
             bpvConfig,
             Acts::getDefaultLogger("BeamPipeVolumeBuilder", volumeLogLevel));
     // add to the list of builders
     volumeBuilders.push_back(beamPipeVolumeBuilder);
+
   }
+
+
+
 
   // import the file from
   TGeoManager::Import(rootFileName.c_str());

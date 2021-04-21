@@ -188,6 +188,7 @@ class DirectNavigator {
                  << " out of " << state.navigation.navSurfaces.size()
                  << " surfaces remain to try.");
 
+
     if (state.navigation.navSurfaceIter != state.navigation.navSurfaces.end()) {
       // Establish & update the surface status
       auto surfaceStatus = stepper.updateSurfaceStatus(
