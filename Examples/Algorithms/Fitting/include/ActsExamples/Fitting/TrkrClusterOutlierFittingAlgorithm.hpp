@@ -59,9 +59,15 @@ struct ResidualOutlierFinder {
 	std::cout << "Distance between prediction and measurement is: " << distance << std::endl;
 	std::cout << "chi2 " << chi2  << std::endl;
       }
-
+   
     auto volID = state.referenceSurface().geometryId().volume();
+    if(verbosity > 0)
+      {
+	auto layer = state.referenceSurface().geometryId().layer();
+	std::cout << "volid " << volID << " " <<layer << " " << distance << " " << chi2 << std::endl;
+      }
 
+    bool outlier = false;
     for(auto& pair : chi2Cuts)
       {
 	if(verbosity > 2)
@@ -70,14 +76,14 @@ struct ResidualOutlierFinder {
 		      << ",   chicut " << pair.second << " with chi2 " << chi2 << std::endl;
 	  }
 
-	if(volID == pair.first)
+	if(volID == pair.first and chi2 > pair.second)
 	  {
-	    return chi2 >= pair.second;
+	    outlier = true;
 	  }
       }
-    
+
     /// If it's some other (unknown) detector default to keeping the measurement
-    return false;
+    return outlier;
   }
 };
 
