@@ -2,8 +2,7 @@
 
 #include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/MeasurementHelpers.hpp"
-#include "Acts/EventData/SourceLinkConcept.hpp"
-#include "Acts/EventData/detail/fittable_type_generator.hpp"
+#include "Acts/EventData/SourceLink.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 
 #include "ActsExamples/EventData/GeometryContainers.hpp"
@@ -16,17 +15,19 @@ namespace ActsExamples {
  * This class creates an Acts::SourceLink that relates TrkrClusters to the
  * surface they were measured on. The source link is needed for the fitting
  */
-class TrkrClusterSourceLink
+class TrkrClusterSourceLink final : public Acts::SourceLink
 {
  public:
 
   /// Instantiate with a hitid, associated surface, and values that actually
   /// make the measurement. Acts requires the surface be available in this class
-  TrkrClusterSourceLink(uint64_t cluskey,
+  TrkrClusterSourceLink(Acts::GeometryIdentifier gid,
+			uint64_t cluskey,
 			std::shared_ptr<const Acts::Surface> surface,
 			Acts::BoundVector loc,
 			Acts::BoundMatrix cov)
-    : m_cluskey(cluskey)
+    : SourceLink(gid) 
+    , m_cluskey(cluskey)
     , m_surface(surface)
     , m_geoId(surface->geometryId())
     , m_loc(loc)
@@ -35,11 +36,10 @@ class TrkrClusterSourceLink
 }
 
   /// Must be default constructible to satisfy SourceLinkConcept
-  TrkrClusterSourceLink()                             = default;
+  TrkrClusterSourceLink() : SourceLink{Acts::GeometryIdentifier{}} {}
   TrkrClusterSourceLink(TrkrClusterSourceLink&&)      = default;
   TrkrClusterSourceLink(const TrkrClusterSourceLink&) = default;
 
-  /// Needs equality operators defined to satisfy SourceLinkConcept
   TrkrClusterSourceLink& operator=(TrkrClusterSourceLink&&)      = default;
   TrkrClusterSourceLink& operator=(const TrkrClusterSourceLink&) = default;
 
@@ -62,23 +62,26 @@ class TrkrClusterSourceLink
   {
     return *m_surface;
   }
-
+  
   /// Create Acts::FittableMeasurement from information in SourceLink
-  Acts::FittableMeasurement<TrkrClusterSourceLink> operator*() const
+  Acts::Measurement<Acts::BoundIndices,2> operator*() const
   {
-
-    return Acts::Measurement<TrkrClusterSourceLink, 
-			     Acts::BoundIndices,
-			     Acts::eBoundLoc0,
-			     Acts::eBoundLoc1>
-      {m_surface,
-	  *this,
-	  m_cov.topLeftCorner<2, 2>(),
-	  m_loc[0],
-	  m_loc[1]
-	  };
+    Acts::ActsVector<2> par;
+    Acts::ActsSymMatrix<2> cov = m_cov.topLeftCorner<2,2>();
+    std::array<Acts::BoundIndices,2> indices;
+    indices[0] = Acts::BoundIndices::eBoundLoc0;
+    indices[1] = Acts::BoundIndices::eBoundLoc1;
+    par[0] = m_loc(0);
+    par[1] = m_loc(1);
+    return Acts::Measurement<Acts::BoundIndices,
+			     2>
+      (*this,
+       indices,
+       par,
+       cov
+       );
   }
-
+  
   uint64_t cluskey() const
   {
     return m_cluskey;
@@ -107,10 +110,6 @@ private:
   }
 
 };
-
-    /// Ensure that the SourceLink class satisfies SourceLinkConcept conditions
-    static_assert(Acts::SourceLinkConcept<TrkrClusterSourceLink>, 
-		  "TrkrClusterSourceLink does not fulfill SourceLinkConcept");
 
   // Construct a container for TrkrSourceLinks
   using TrkrClusterSourceLinkContainer = GeometryIdMultiset<TrkrClusterSourceLink>;

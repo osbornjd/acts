@@ -4,7 +4,6 @@ add_library(
   src/SpacePointMaker.cpp
   src/SpacePointMakerOptions.cpp
   src/TrackFindingAlgorithm.cpp
-  src/TrkrClusterFindingAlgorithmFinderFunction.cpp
   src/TrackFindingAlgorithmFunction.cpp
   src/TrackFindingOptions.cpp
   src/TrackParamsEstimationAlgorithm.cpp)

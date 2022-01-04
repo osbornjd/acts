@@ -1207,10 +1207,6 @@ class CombinatorialKalmanFilter {
     const auto& logger = tfOptions.logger;
 
     ACTS_VERBOSE("Preparing " << sourcelinks.size() << " input measurements");
-    for (const auto& sl : sourcelinks) {
-      const Surface* srf = &sl.referenceSurface();
-      ACTS_VERBOSE("Adding measurement on surface: " << srf->geometryId());
-    }
 
     // Create the ActionList and AbortList
     using CombinatorialKalmanFilterAborter =
