@@ -15,6 +15,7 @@
 #include "Acts/Geometry/LayerArrayCreator.hpp"
 #include "Acts/Geometry/LayerCreator.hpp"
 #include "Acts/Geometry/PassiveLayerBuilder.hpp"
+#include "Acts/Geometry/SurfaceArrayCreator.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/Geometry/TrackingVolumeArrayCreator.hpp"
@@ -98,7 +99,7 @@ namespace Test {
 /// Test the filling and conversion
 BOOST_AUTO_TEST_CASE(SurfaceMaterialMapper_tests) {
   /// We need a Navigator, Stepper to build a Propagator
-  Navigator navigator(tGeometry);
+  Navigator navigator({tGeometry});
   StraightLineStepper stepper;
   SurfaceMaterialMapper::StraightLinePropagator propagator(
       std::move(stepper), std::move(navigator));

@@ -7,10 +7,10 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/IConfinedTrackingVolumeBuilder.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
 class TrackingVolume;
@@ -63,7 +63,7 @@ class DD4hepVolumeBuilder : public IConfinedTrackingVolumeBuilder {
   const std::string& identification() const final;
 
   /// Set the configuration object
-  /// @param [in] Config is the configuration struct
+  /// @param [in] config is the configuration struct
   void setConfiguration(const Config& config);
 
   /// Get the configuration object
@@ -90,7 +90,7 @@ class DD4hepVolumeBuilder : public IConfinedTrackingVolumeBuilder {
   ///
   /// @param [in] tGeoTrans Transformation of the DD4hep DetElement
   /// @return Pointer to the corresponding Acts transformation
-  Acts::Transform3D convertTransform(const TGeoMatrix* tGeoTrans) const;
+  Acts::Transform3 convertTransform(const TGeoMatrix* tGeoTrans) const;
 };
 
 inline const std::string& DD4hepVolumeBuilder::identification() const {

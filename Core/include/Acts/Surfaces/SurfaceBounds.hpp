@@ -7,8 +7,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Surfaces/BoundaryCheck.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <ostream>
 
@@ -33,16 +33,16 @@ class SurfaceBounds {
     eCylinder = 1,
     eDiamond = 2,
     eDisc = 3,
-    eEllipse = 5,
-    eLine = 6,
-    eRectangle = 7,
-    eTrapezoid = 8,
-    eTriangle = 9,
-    eDiscTrapezoid = 10,
-    eConvexPolygon = 11,
-    eAnnulus = 12,
-    eBoundless = 13,
-    eOther = 14
+    eEllipse = 4,
+    eLine = 5,
+    eRectangle = 6,
+    eTrapezoid = 7,
+    eTriangle = 8,
+    eDiscTrapezoid = 9,
+    eConvexPolygon = 10,
+    eAnnulus = 11,
+    eBoundless = 12,
+    eOther = 13
   };
 
   virtual ~SurfaceBounds() = default;
@@ -65,12 +65,12 @@ class SurfaceBounds {
   /// @param lposition Local position (assumed to be in right surface frame)
   /// @param bcheck boundary check directive
   /// @return boolean indicator for the success of this operation
-  virtual bool inside(const Vector2D& lposition,
+  virtual bool inside(const Vector2& lposition,
                       const BoundaryCheck& bcheck) const = 0;
 
   /// Output Method for std::ostream, to be overloaded by child classes
   ///
-  /// @param sl is the outstream in which the string dump is done
+  /// @param os is the outstream in which the string dump is done
   virtual std::ostream& toStream(std::ostream& os) const = 0;
 };
 

@@ -8,26 +8,25 @@
 
 #pragma once
 
-#include "Acts/Geometry/GeometryContext.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/Volume.hpp"
 #include "Acts/Geometry/VolumeBounds.hpp"
-#include "Acts/Utilities/BoundingBox.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/detail/periodic.hpp"
 
 #include <array>
 #include <cmath>
-#include <exception>
-#include <vector>
+#include <iomanip>
+#include <iosfwd>
+#include <memory>
+#include <stdexcept>
 
 namespace Acts {
 
-class Surface;
 class CylinderBounds;
 class RadialBounds;
 class PlanarBounds;
-class IVisualization3D;
 
 /// @class CylinderVolumeBounds
 ///
@@ -109,14 +108,14 @@ class CylinderVolumeBounds : public VolumeBounds {
 
   /// Constructor - extruded from cylinder bounds and thickness
   ///
-  /// @param cbounds the cylinder bounds
+  /// @param cBounds the cylinder bounds
   /// @param thickness of the extrusion
   CylinderVolumeBounds(const CylinderBounds& cBounds,
                        double thickness) noexcept(false);
 
   /// Constructor - extruded from radial bounds and thickness
   ///
-  /// @param rbounds the Radial bounds
+  /// @param rBounds the Radial bounds
   /// @param thickness
   CylinderVolumeBounds(const RadialBounds& rBounds,
                        double thickness) noexcept(false);
@@ -143,7 +142,7 @@ class CylinderVolumeBounds : public VolumeBounds {
   ///
   /// @param pos is a global position to be checked
   /// @param tol is the tolerance for the check
-  bool inside(const Vector3D& pos, double tol = 0.) const override;
+  bool inside(const Vector3& pos, double tol = 0.) const override;
 
   /// Oriented surfaces, i.e. the decomposed boundary surfaces and the
   /// according navigation direction into the volume given the normal
@@ -156,21 +155,21 @@ class CylinderVolumeBounds : public VolumeBounds {
   ///
   /// @return a vector of surfaces bounding this volume
   OrientedSurfaces orientedSurfaces(
-      const Transform3D& transform = Transform3D::Identity()) const override;
+      const Transform3& transform = Transform3::Identity()) const override;
 
   /// Construct bounding box for this shape
   /// @param trf Optional transform
   /// @param envelope Optional envelope to add / subtract from min/max
   /// @param entity Entity to associate this bounding box with
   /// @return Constructed bounding box
-  Volume::BoundingBox boundingBox(const Transform3D* trf = nullptr,
-                                  const Vector3D& envelope = {0, 0, 0},
+  Volume::BoundingBox boundingBox(const Transform3* trf = nullptr,
+                                  const Vector3& envelope = {0, 0, 0},
                                   const Volume* entity = nullptr) const final;
 
   /// Binning offset - overloaded for some R-binning types
   ///
   /// @param bValue is the type used for the binning
-  Vector3D binningOffset(BinningValue bValue) const override;
+  Vector3 binningOffset(BinningValue bValue) const override;
 
   /// Binning borders in double
   ///
@@ -210,8 +209,7 @@ class CylinderVolumeBounds : public VolumeBounds {
   stream_t& dumpT(stream_t& dt) const;
 };
 
-inline bool CylinderVolumeBounds::inside(const Vector3D& pos,
-                                         double tol) const {
+inline bool CylinderVolumeBounds::inside(const Vector3& pos, double tol) const {
   using VectorHelpers::perp;
   using VectorHelpers::phi;
   double ros = perp(pos);
@@ -224,10 +222,10 @@ inline bool CylinderVolumeBounds::inside(const Vector3D& pos,
   return (insideZ && insideR && insidePhi);
 }
 
-inline Vector3D CylinderVolumeBounds::binningOffset(BinningValue bValue)
+inline Vector3 CylinderVolumeBounds::binningOffset(BinningValue bValue)
     const {  // the medium radius is taken for r-type binning
   if (bValue == Acts::binR || bValue == Acts::binRPhi) {
-    return Vector3D(0.5 * (get(eMinR) + get(eMaxR)), 0., 0.);
+    return Vector3(0.5 * (get(eMinR) + get(eMaxR)), 0., 0.);
   }
   return VolumeBounds::binningOffset(bValue);
 }

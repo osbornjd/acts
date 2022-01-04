@@ -17,9 +17,17 @@
 #include "Acts/Plugins/DD4hep/ConvertDD4hepDetector.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 
+#include <stdexcept>
+
+#include "DD4hep/Printout.h"
+
 ActsExamples::DD4hep::DD4hepGeometryService::DD4hepGeometryService(
     const ActsExamples::DD4hep::DD4hepGeometryService::Config& cfg)
-    : BareService("DD4hepGeometryService", cfg.logLevel), m_cfg(cfg) {}
+    : BareService("DD4hepGeometryService", cfg.logLevel), m_cfg(cfg) {
+  if (m_cfg.xmlFileNames.empty()) {
+    throw std::invalid_argument("Missing DD4hep XML filenames");
+  }
+}
 
 ActsExamples::DD4hep::DD4hepGeometryService::~DD4hepGeometryService() {
   if (m_lcdd)
@@ -28,6 +36,29 @@ ActsExamples::DD4hep::DD4hepGeometryService::~DD4hepGeometryService() {
 
 ActsExamples::ProcessCode
 ActsExamples::DD4hep::DD4hepGeometryService::buildDD4hepGeometry() {
+  switch (m_cfg.logLevel) {
+    case Acts::Logging::Level::VERBOSE:
+      dd4hep::setPrintLevel(dd4hep::PrintLevel::VERBOSE);
+      break;
+    case Acts::Logging::Level::DEBUG:
+      dd4hep::setPrintLevel(dd4hep::PrintLevel::DEBUG);
+      break;
+    case Acts::Logging::Level::INFO:
+      dd4hep::setPrintLevel(dd4hep::PrintLevel::INFO);
+      break;
+    case Acts::Logging::Level::WARNING:
+      dd4hep::setPrintLevel(dd4hep::PrintLevel::WARNING);
+      break;
+    case Acts::Logging::Level::ERROR:
+      dd4hep::setPrintLevel(dd4hep::PrintLevel::ERROR);
+      break;
+    case Acts::Logging::Level::FATAL:
+      dd4hep::setPrintLevel(dd4hep::PrintLevel::FATAL);
+      break;
+    case Acts::Logging::Level::MAX:
+      dd4hep::setPrintLevel(dd4hep::PrintLevel::ALWAYS);
+      break;
+  }
   m_lcdd = &(dd4hep::Detector::getInstance());
   for (auto& file : m_cfg.xmlFileNames) {
     m_lcdd->fromCompact(file.c_str());
@@ -78,4 +109,45 @@ ActsExamples::DD4hep::DD4hepGeometryService::trackingGeometry(
     buildTrackingGeometry(gctx);
   }
   return std::move(m_trackingGeometry);
+}
+
+void ActsExamples::DD4hep::sortFCChhDetElements(
+    std::vector<dd4hep::DetElement>& det) {
+  std::vector<dd4hep::DetElement> tracker;
+  std::vector<dd4hep::DetElement> eCal;
+  std::vector<dd4hep::DetElement> hCal;
+  std::vector<dd4hep::DetElement> muon;
+  for (auto& detElement : det) {
+    std::string detName = detElement.name();
+    if (detName.find("Muon") != std::string::npos)
+      muon.push_back(detElement);
+    else if (detName.find("ECal") != std::string::npos)
+      eCal.push_back(detElement);
+    else if (detName.find("HCal") != std::string::npos)
+      hCal.push_back(detElement);
+    else
+      tracker.push_back(detElement);
+  }
+  sort(muon.begin(), muon.end(),
+       [](const dd4hep::DetElement& a, const dd4hep::DetElement& b) {
+         return (a.id() < b.id());
+       });
+  sort(eCal.begin(), eCal.end(),
+       [](const dd4hep::DetElement& a, const dd4hep::DetElement& b) {
+         return (a.id() < b.id());
+       });
+  sort(hCal.begin(), hCal.end(),
+       [](const dd4hep::DetElement& a, const dd4hep::DetElement& b) {
+         return (a.id() < b.id());
+       });
+  sort(tracker.begin(), tracker.end(),
+       [](const dd4hep::DetElement& a, const dd4hep::DetElement& b) {
+         return (a.id() < b.id());
+       });
+  det.clear();
+  det = tracker;
+
+  det.insert(det.end(), eCal.begin(), eCal.end());
+  det.insert(det.end(), hCal.begin(), hCal.end());
+  det.insert(det.end(), muon.begin(), muon.end());
 }

@@ -9,6 +9,7 @@
 #include "ActsExamples/TrackFinding/TrackFindingOptions.hpp"
 
 #include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "ActsExamples/Utilities/Options.hpp"
 
 #include <string>
 
@@ -19,23 +20,37 @@ void ActsExamples::Options::addTrackFindingOptions(
   using boost::program_options::value;
 
   auto opt = desc.add_options();
-  opt("ckf-slselection-chi2max", value<double>()->default_value(15),
-      "Global criteria of maximum chi2 for CKF source link selection");
-  opt("ckf-slselection-nmax", value<size_t>()->default_value(10),
-      "Global criteria of maximum number of source link candidates on a "
-      "surface for CKF source link selection");
+  opt("ckf-selection-abseta-bins", value<VariableReals>()->default_value({{}}),
+      "bins in |eta| to specify variable selections");
+  opt("ckf-selection-chi2max", value<VariableReals>()->default_value({{15}}),
+      "Maximum chi2 for CKF measurement selection "
+      "(specify multiple values with --ckf-selection-abseta-bins)");
+  opt("ckf-selection-nmax", value<VariableIntegers>()->default_value({{10}}),
+      "Maximum number of measurement candidates on a "
+      "surface for CKF measurement selection "
+      "(specify multiple values with --ckf-selection-abseta-bins)");
+  opt("ckf-initial-variance-inflation",
+      value<Reals<6>>()->default_value({{1., 1., 1., 1., 1., 1.}}),
+      "Inflation factor for the initial variances in the CKF search, must be "
+      "of form i:j:k:l:m:n.");
 }
 
 ActsExamples::TrackFindingAlgorithm::Config
 ActsExamples::Options::readTrackFindingConfig(
     const ActsExamples::Options::Variables& variables) {
-  auto chi2Max = variables["ckf-slselection-chi2max"].template as<double>();
-  auto nMax = variables["ckf-slselection-nmax"].template as<size_t>();
+  auto etaBins = variables["ckf-selection-abseta-bins"]
+                     .template as<VariableReals>()
+                     .values;
+  auto chi2Max =
+      variables["ckf-selection-chi2max"].template as<VariableReals>().values;
+  auto nMax =
+      variables["ckf-selection-nmax"].template as<VariableIntegers>().values;
 
   // config is a GeometryHierarchyMap with just the global default
   TrackFindingAlgorithm::Config cfg;
-  cfg.sourcelinkSelectorCfg = {
-      {Acts::GeometryIdentifier(), {chi2Max, nMax}},
+  cfg.measurementSelectorCfg = {
+      {Acts::GeometryIdentifier(),
+       {etaBins, chi2Max, {nMax.begin(), nMax.end()}}},
   };
   return cfg;
 }

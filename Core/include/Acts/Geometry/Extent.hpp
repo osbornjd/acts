@@ -8,11 +8,14 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <iosfwd>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -40,7 +43,7 @@ struct Extent {
 
   /// Check if it intersects
   /// @param other The source Extent
-  /// @param bValue The binning value for the check (binValues for all)
+  /// @param bVal The binning value for the check (binValues for all)
   /// @param tolerance An additional tolerance for the intersection check
   bool intersects(const Extent& other, BinningValue bVal = binValues,
                   double tolerance = s_epsilon) {
@@ -108,7 +111,7 @@ struct Extent {
 
   /// Check the vertex
   /// @param vtx the Vertex to be checked
-  void check(const Vector3D& vtx) {
+  void check(const Vector3& vtx) {
     // min/max value check
     auto minMax = [&](BinningValue bval, double value) -> void {
       ranges[bval].first = std::min(value, ranges[bval].first);

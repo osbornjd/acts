@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,18 +8,17 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Geometry/TrackingVolume.hpp"
 
-#include <functional>
-#include <map>
 #include <memory>
-#include <vector>
+#include <string>
+#include <unordered_map>
 
 namespace Acts {
 
-class TrackingVolume;
 class Layer;
 class Surface;
 class PerigeeSurface;
@@ -63,23 +62,16 @@ class TrackingGeometry {
   ///
   /// @return plain pointer to the lowest TrackingVolume
   const TrackingVolume* lowestTrackingVolume(const GeometryContext& gctx,
-                                             const Vector3D& gp) const;
-
-  /// return the lowest tracking Volume
-  ///
-  /// @param name is the name for the volume search
-  ///
-  /// @return plain pointer to the lowest TrackingVolume
-  const TrackingVolume* trackingVolume(const std::string& name) const;
+                                             const Vector3& gp) const;
 
   /// Forward the associated Layer information
   ///
-  /// @paramn gctx is the context for this request (e.g. alignment)
+  /// @param gctx is the context for this request (e.g. alignment)
   /// @param gp is the global position of the call
   ///
   /// @return plain pointer to assocaiated layer
   const Layer* associatedLayer(const GeometryContext& gctx,
-                               const Vector3D& gp) const;
+                               const Vector3& gp) const;
 
   /// Register the beam tube
   ///
@@ -96,18 +88,38 @@ class TrackingGeometry {
 
   /// @brief Visit all sensitive surfaces
   ///
+  /// @tparam visitor_t Type of the callable visitor
+  ///
   /// @param visitor The callable. Will be called for each sensitive surface
   /// that is found
-  void visitSurfaces(
-      const std::function<void(const Acts::Surface*)>& visitor) const;
+  template <typename visitor_t>
+  void visitSurfaces(visitor_t&& visitor) const {
+    highestTrackingVolume()->template visitSurfaces<visitor_t>(
+        std::forward<visitor_t>(visitor));
+  }
+
+  /// Search for a volume with the given identifier.
+  ///
+  /// @param id is the geometry identifier of the volume
+  /// @retval nullptr if no such volume exists
+  /// @retval pointer to the found volume otherwise.
+  const TrackingVolume* findVolume(GeometryIdentifier id) const;
+
+  /// Search for a surface with the given identifier.
+  ///
+  /// @param id is the geometry identifier of the surface
+  /// @retval nullptr if no such surface exists
+  /// @retval pointer to the found surface otherwise.
+  const Surface* findSurface(GeometryIdentifier id) const;
 
  private:
-  /// The known world - and the beamline
+  // the known world
   TrackingVolumePtr m_world;
+  // beam line
   std::shared_ptr<const PerigeeSurface> m_beam;
-
-  /// The Volumes in a map for string based search
-  std::map<std::string, const TrackingVolume*> m_trackingVolumes;
+  // lookup containers
+  std::unordered_map<GeometryIdentifier, const TrackingVolume*> m_volumesById;
+  std::unordered_map<GeometryIdentifier, const Surface*> m_surfacesById;
 };
 
 }  // namespace Acts

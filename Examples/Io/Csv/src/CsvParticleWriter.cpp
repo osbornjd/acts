@@ -10,14 +10,14 @@
 
 #include "ActsExamples/Framework/WhiteBoard.hpp"
 #include "ActsExamples/Utilities/Paths.hpp"
-#include <Acts/Utilities/Units.hpp>
+#include <Acts/Definitions/Units.hpp>
 
 #include <map>
 #include <stdexcept>
 
 #include <dfe/dfe_io_dsv.hpp>
 
-#include "TrackMlData.hpp"
+#include "CsvOutputData.hpp"
 
 ActsExamples::CsvParticleWriter::CsvParticleWriter(
     const ActsExamples::CsvParticleWriter::Config& cfg,
@@ -46,7 +46,7 @@ ActsExamples::ProcessCode ActsExamples::CsvParticleWriter::writeT(
     data.vy = particle.position().y() / Acts::UnitConstants::mm;
     data.vz = particle.position().z() / Acts::UnitConstants::mm;
     data.vt = particle.time() / Acts::UnitConstants::ns;
-    const auto p = particle.absMomentum() / Acts::UnitConstants::GeV;
+    const auto p = particle.absoluteMomentum() / Acts::UnitConstants::GeV;
     data.px = p * particle.unitDirection().x();
     data.py = p * particle.unitDirection().y();
     data.pz = p * particle.unitDirection().z();

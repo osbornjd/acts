@@ -8,13 +8,13 @@
 
 #include "ActsExamples/Io/Csv/CsvPlanarClusterReader.hpp"
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Plugins/Digitization/PlanarModuleCluster.hpp"
 #include "Acts/Plugins/Identification/IdentifiedDetectorElement.hpp"
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Surfaces/Surface.hpp"
 #include "ActsExamples/EventData/GeometryContainers.hpp"
-#include "ActsExamples/EventData/IndexContainers.hpp"
+#include "ActsExamples/EventData/Index.hpp"
 #include "ActsExamples/EventData/SimHit.hpp"
-#include "ActsExamples/EventData/SimIdentifier.hpp"
 #include "ActsExamples/EventData/SimParticle.hpp"
 #include "ActsExamples/Framework/WhiteBoard.hpp"
 #include "ActsExamples/Utilities/Paths.hpp"
@@ -22,35 +22,30 @@
 
 #include <dfe/dfe_io_dsv.hpp>
 
-#include "TrackMlData.hpp"
+#include "CsvOutputData.hpp"
 
 ActsExamples::CsvPlanarClusterReader::CsvPlanarClusterReader(
-    const ActsExamples::CsvPlanarClusterReader::Config& cfg,
-    Acts::Logging::Level lvl)
-    : m_cfg(cfg)
+    const ActsExamples::CsvPlanarClusterReader::Config& config,
+    Acts::Logging::Level level)
+    : m_cfg(config),
       // TODO check that all files (hits,cells,truth) exists
-      ,
-      m_eventsRange(determineEventFilesRange(cfg.inputDir, "hits.csv")),
-      m_logger(Acts::getDefaultLogger("CsvPlanarClusterReader", lvl)) {
+      m_eventsRange(determineEventFilesRange(config.inputDir, "hits.csv")),
+      m_logger(Acts::getDefaultLogger("CsvPlanarClusterReader", level)) {
   if (m_cfg.outputClusters.empty()) {
     throw std::invalid_argument("Missing cluster output collection");
   }
   if (m_cfg.outputHitIds.empty()) {
     throw std::invalid_argument("Missing hit id output collection");
   }
-  if (m_cfg.outputHitParticlesMap.empty()) {
+  if (m_cfg.outputMeasurementParticlesMap.empty()) {
     throw std::invalid_argument("Missing hit-particles map output collection");
   }
-  if (m_cfg.outputSimulatedHits.empty()) {
+  if (m_cfg.outputSimHits.empty()) {
     throw std::invalid_argument("Missing simulated hits output collection");
   }
   if (not m_cfg.trackingGeometry) {
     throw std::invalid_argument("Missing tracking geometry");
   }
-  // fill the geo id to surface map once to speed up lookups later on
-  m_cfg.trackingGeometry->visitSurfaces([this](const Acts::Surface* surface) {
-    this->m_surfaces[surface->geometryId()] = surface;
-  });
 }
 
 std::string ActsExamples::CsvPlanarClusterReader::CsvPlanarClusterReader::name()
@@ -84,16 +79,7 @@ struct CompareHitId {
 /// Convert separate volume/layer/module id into a single geometry identifier.
 inline Acts::GeometryIdentifier extractGeometryId(
     const ActsExamples::HitData& data) {
-  // if available, use the encoded geometry directly
-  if (data.geometry_id != 0u) {
-    return data.geometry_id;
-  }
-  // otherwise, reconstruct it from the available components
-  Acts::GeometryIdentifier geoId;
-  geoId.setVolume(data.volume_id);
-  geoId.setLayer(data.layer_id);
-  geoId.setSensitive(data.module_id);
-  return geoId;
+  return data.geometry_id;
 }
 
 struct CompareGeometryId {
@@ -233,26 +219,25 @@ ActsExamples::ProcessCode ActsExamples::CsvPlanarClusterReader::read(
       auto range = makeRange(std::equal_range(cells.begin(), cells.end(),
                                               hit.hit_id, CompareHitId{}));
       for (const auto& c : range) {
-        digitizationCells.emplace_back(c.ch0, c.ch1, c.value);
+        digitizationCells.emplace_back(c.channel0, c.channel1, c.value);
       }
     }
 
     // identify hit surface
-    auto it = m_surfaces.find(geoId);
-    if (it == m_surfaces.end() or not it->second) {
+    const Acts::Surface* surface = m_cfg.trackingGeometry->findSurface(geoId);
+    if (not surface) {
       ACTS_FATAL("Could not retrieve the surface for hit " << hit);
       return ProcessCode::ABORT;
     }
-    const Acts::Surface& surface = *(it->second);
 
     // transform global hit coordinates into local coordinates on the surface
-    Acts::Vector3D pos(hit.x * Acts::UnitConstants::mm,
-                       hit.y * Acts::UnitConstants::mm,
-                       hit.z * Acts::UnitConstants::mm);
+    Acts::Vector3 pos(hit.x * Acts::UnitConstants::mm,
+                      hit.y * Acts::UnitConstants::mm,
+                      hit.z * Acts::UnitConstants::mm);
     double time = hit.t * Acts::UnitConstants::ns;
-    Acts::Vector3D mom(1, 1, 1);  // fake momentum
-    Acts::Vector2D local(0, 0);
-    auto lpResult = surface.globalToLocal(ctx.geoContext, pos, mom);
+    Acts::Vector3 mom(1, 1, 1);  // fake momentum
+    Acts::Vector2 local(0, 0);
+    auto lpResult = surface->globalToLocal(ctx.geoContext, pos, mom);
     if (not lpResult.ok()) {
       ACTS_FATAL("Global to local transformation did not succeed.");
       return ProcessCode::ABORT;
@@ -260,11 +245,11 @@ ActsExamples::ProcessCode ActsExamples::CsvPlanarClusterReader::read(
     local = lpResult.value();
 
     // TODO what to use as cluster uncertainty?
-    Acts::ActsSymMatrixD<3> cov = Acts::ActsSymMatrixD<3>::Identity();
+    Acts::ActsSymMatrix<3> cov = Acts::ActsSymMatrix<3>::Identity();
     // create the planar cluster
     Acts::PlanarModuleCluster cluster(
-        surface.getSharedPtr(),
-        Identifier(identifier_type(geoId.value()), std::move(simHitIndices)),
+        surface->getSharedPtr(),
+        Acts::DigitizationSourceLink(geoId, std::move(simHitIndices)),
         std::move(cov), local[0], local[1], time, std::move(digitizationCells));
 
     // due to the previous sorting of the raw hit data by geometry id, new
@@ -292,8 +277,9 @@ ActsExamples::ProcessCode ActsExamples::CsvPlanarClusterReader::read(
   // write the data to the EventStore
   ctx.eventStore.add(m_cfg.outputClusters, std::move(clusters));
   ctx.eventStore.add(m_cfg.outputHitIds, std::move(hitIds));
-  ctx.eventStore.add(m_cfg.outputHitParticlesMap, std::move(hitParticlesMap));
-  ctx.eventStore.add(m_cfg.outputSimulatedHits, std::move(simHits));
+  ctx.eventStore.add(m_cfg.outputMeasurementParticlesMap,
+                     std::move(hitParticlesMap));
+  ctx.eventStore.add(m_cfg.outputSimHits, std::move(simHits));
 
   return ActsExamples::ProcessCode::SUCCESS;
 }

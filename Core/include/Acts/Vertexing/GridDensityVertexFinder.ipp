@@ -35,7 +35,7 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::find(
       return seedVec;
     }
   } else {
-    state.mainGrid = ActsVectorF<mainGridSize>::Zero();
+    state.mainGrid = MainGridVector::Zero();
     // Fill with track densities
     for (auto trk : trackVector) {
       const BoundTrackParameters& trkParams = m_extractParameters(*trk);
@@ -59,7 +59,7 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::find(
 
   double z = 0;
   double width = 0;
-  if (state.mainGrid != ActsVectorF<mainGridSize>::Zero()) {
+  if (state.mainGrid != MainGridVector::Zero()) {
     if (not m_cfg.estimateSeedWidth) {
       // Get z value of highest density bin
       auto maxZres = m_cfg.gridDensity.getMaxZPosition(state.mainGrid);
@@ -81,13 +81,12 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::find(
   }
 
   // Construct output vertex
-  Vector3D seedPos =
-      vertexingOptions.vertexConstraint.position() + Vector3D(0., 0., z);
+  Vector3 seedPos =
+      vertexingOptions.vertexConstraint.position() + Vector3(0., 0., z);
 
   Vertex<InputTrack_t> returnVertex = Vertex<InputTrack_t>(seedPos);
 
-  ActsSymMatrixD<4> seedCov =
-      vertexingOptions.vertexConstraint.fullCovariance();
+  SymMatrix4 seedCov = vertexingOptions.vertexConstraint.fullCovariance();
 
   if (width != 0.) {
     // Use z-constraint from seed width
@@ -108,6 +107,9 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::
   const double d0 = trk.parameters()[BoundIndices::eBoundLoc0];
   const double z0 = trk.parameters()[BoundIndices::eBoundLoc1];
   // Get track covariance
+  if (not trk.covariance().has_value()) {
+    return false;
+  }
   const auto perigeeCov = *(trk.covariance());
   const double covDD =
       perigeeCov(BoundIndices::eBoundLoc0, BoundIndices::eBoundLoc0);

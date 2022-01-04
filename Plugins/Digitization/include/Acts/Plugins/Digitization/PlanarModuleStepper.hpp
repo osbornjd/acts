@@ -7,9 +7,10 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Plugins/Digitization/DigitizationCell.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
 #include <memory>
@@ -29,7 +30,6 @@ class PlanarModuleStepper {
  public:
   /// Constructor
   ///
-  /// @param pmsConfig is the configuration
   /// @param mlogger is the logging istance
   PlanarModuleStepper(std::unique_ptr<const Logger> mlogger = getDefaultLogger(
                           "PlanarModuleStepper", Logging::INFO));
@@ -47,8 +47,8 @@ class PlanarModuleStepper {
   /// @return is the vector of digitization steps
   std::vector<DigitizationStep> cellSteps(const GeometryContext& gctx,
                                           const DigitizationModule& dmodule,
-                                          const Vector3D& startPoint,
-                                          const Vector3D& endPoint) const;
+                                          const Vector3& startPoint,
+                                          const Vector3& endPoint) const;
 
   /// Calculate the steps caused by this track - fast simulation interface
   ///
@@ -60,8 +60,8 @@ class PlanarModuleStepper {
   /// @return is the vector of digitization steps
   std::vector<DigitizationStep> cellSteps(const GeometryContext& gctx,
                                           const DigitizationModule& dmodule,
-                                          const Vector2D& moduleIntersection,
-                                          const Vector3D& trackDirection) const;
+                                          const Vector2& moduleIntersection,
+                                          const Vector3& trackDirection) const;
 
   /// Set logging instance
   ///

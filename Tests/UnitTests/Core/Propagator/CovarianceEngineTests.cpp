@@ -27,9 +27,9 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   GeometryContext tgContext = GeometryContext();
 
   // Build a start vector
-  Vector3D position{1., 2., 3.};
+  Vector3 position{1., 2., 3.};
   double time = 4.;
-  Vector3D direction{sqrt(5. / 22.), 3. * sqrt(2. / 55.), 7. / sqrt(110.)};
+  Vector3 direction{sqrt(5. / 22.), 3. * sqrt(2. / 55.), 7. / sqrt(110.)};
   double qop = 0.125;
   FreeVector parameters, startParameters;
   parameters << position[0], position[1], position[2], time, direction[0],
@@ -42,46 +42,49 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   FreeMatrix transportJacobian = 3. * FreeMatrix::Identity();
   FreeVector derivatives;
   derivatives << 9., 10., 11., 12., 13., 14., 15., 16.;
-  BoundToFreeMatrix jacobianLocalToGlobal = 4. * BoundToFreeMatrix::Identity();
+  BoundToFreeMatrix boundToFreeJacobian = 4. * BoundToFreeMatrix::Identity();
 
   // Covariance transport to curvilinear coordinates
-  detail::covarianceTransport(covariance, jacobian, transportJacobian,
-                              derivatives, jacobianLocalToGlobal, direction);
+  detail::transportCovarianceToCurvilinear(covariance, jacobian,
+                                           transportJacobian, derivatives,
+                                           boundToFreeJacobian, direction);
 
   // Tests to see that the right components are (un-)changed
   BOOST_CHECK_NE(covariance, Covariance::Identity());
   BOOST_CHECK_NE(jacobian, 2. * Jacobian::Identity());
   BOOST_CHECK_EQUAL(transportJacobian, FreeMatrix::Identity());
   BOOST_CHECK_EQUAL(derivatives, FreeVector::Zero());
-  BOOST_CHECK_NE(jacobianLocalToGlobal, 4. * BoundToFreeMatrix::Identity());
-  BOOST_CHECK_EQUAL(direction, Vector3D(sqrt(5. / 22.), 3. * sqrt(2. / 55.),
-                                        7. / sqrt(110.)));
+  BOOST_CHECK_NE(boundToFreeJacobian, 4. * BoundToFreeMatrix::Identity());
+  BOOST_CHECK_EQUAL(
+      direction, Vector3(sqrt(5. / 22.), 3. * sqrt(2. / 55.), 7. / sqrt(110.)));
 
   // Reset
   covariance = Covariance::Identity();
   jacobian = 2. * Jacobian::Identity();
   transportJacobian = 3. * FreeMatrix::Identity();
   derivatives << 9., 10., 11., 12., 13., 14., 15., 16.;
-  jacobianLocalToGlobal = 4. * BoundToFreeMatrix::Identity();
+  boundToFreeJacobian = 4. * BoundToFreeMatrix::Identity();
 
   // Repeat transport to surface
   auto surface = Surface::makeShared<PlaneSurface>(position, direction);
-  detail::covarianceTransport(tgContext, covariance, jacobian,
-                              transportJacobian, derivatives,
-                              jacobianLocalToGlobal, parameters, *surface);
+  detail::transportCovarianceToBound(tgContext, covariance, jacobian,
+                                     transportJacobian, derivatives,
+                                     boundToFreeJacobian, parameters, *surface);
 
   BOOST_CHECK_NE(covariance, Covariance::Identity());
   BOOST_CHECK_NE(jacobian, 2. * Jacobian::Identity());
   BOOST_CHECK_EQUAL(transportJacobian, FreeMatrix::Identity());
   BOOST_CHECK_EQUAL(derivatives, FreeVector::Zero());
-  BOOST_CHECK_NE(jacobianLocalToGlobal, 4. * BoundToFreeMatrix::Identity());
+  BOOST_CHECK_NE(boundToFreeJacobian, 4. * BoundToFreeMatrix::Identity());
   BOOST_CHECK_EQUAL(parameters, startParameters);
 
   // Produce a curvilinear state without covariance matrix
+  auto covarianceBefore = covariance;
   auto curvResult = detail::curvilinearState(
-      covariance, jacobian, transportJacobian, derivatives,
-      jacobianLocalToGlobal, parameters, false, 1337.);
-  BOOST_CHECK(!std::get<0>(curvResult).covariance().has_value());
+      covariance, jacobian, transportJacobian, derivatives, boundToFreeJacobian,
+      parameters, false, 1337.);
+  BOOST_CHECK(std::get<0>(curvResult).covariance().has_value());
+  BOOST_CHECK_EQUAL(*(std::get<0>(curvResult).covariance()), covarianceBefore);
   BOOST_CHECK_EQUAL(std::get<2>(curvResult), 1337.);
 
   // Reset
@@ -89,11 +92,11 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   jacobian = 2. * Jacobian::Identity();
   transportJacobian = 3. * FreeMatrix::Identity();
   derivatives << 9., 10., 11., 12., 13., 14., 15., 16.;
-  jacobianLocalToGlobal = 4. * BoundToFreeMatrix::Identity();
+  boundToFreeJacobian = 4. * BoundToFreeMatrix::Identity();
 
   // Produce a curvilinear state with covariance matrix
   curvResult = detail::curvilinearState(covariance, jacobian, transportJacobian,
-                                        derivatives, jacobianLocalToGlobal,
+                                        derivatives, boundToFreeJacobian,
                                         parameters, true, 1337.);
   BOOST_CHECK(std::get<0>(curvResult).covariance().has_value());
   BOOST_CHECK_NE(*(std::get<0>(curvResult).covariance()),
@@ -102,10 +105,14 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   BOOST_CHECK_EQUAL(std::get<2>(curvResult), 1337.);
 
   // Produce a bound state without covariance matrix
-  auto boundResult = detail::boundState(
-      tgContext, covariance, jacobian, transportJacobian, derivatives,
-      jacobianLocalToGlobal, parameters, false, 1337., *surface);
-  BOOST_CHECK(!std::get<0>(boundResult).covariance().has_value());
+  covarianceBefore = covariance;
+  auto boundResult =
+      detail::boundState(tgContext, covariance, jacobian, transportJacobian,
+                         derivatives, boundToFreeJacobian, parameters, false,
+                         1337., *surface)
+          .value();
+  BOOST_CHECK(std::get<0>(curvResult).covariance().has_value());
+  BOOST_CHECK_EQUAL(*(std::get<0>(curvResult).covariance()), covarianceBefore);
   BOOST_CHECK_EQUAL(std::get<2>(boundResult), 1337.);
 
   // Reset
@@ -113,12 +120,14 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   jacobian = 2. * Jacobian::Identity();
   transportJacobian = 3. * FreeMatrix::Identity();
   derivatives << 9., 10., 11., 12., 13., 14., 15., 16.;
-  jacobianLocalToGlobal = 4. * BoundToFreeMatrix::Identity();
+  boundToFreeJacobian = 4. * BoundToFreeMatrix::Identity();
 
   // Produce a bound state with covariance matrix
-  boundResult = detail::boundState(
-      tgContext, covariance, jacobian, transportJacobian, derivatives,
-      jacobianLocalToGlobal, parameters, true, 1337., *surface);
+  boundResult =
+      detail::boundState(tgContext, covariance, jacobian, transportJacobian,
+                         derivatives, boundToFreeJacobian, parameters, true,
+                         1337., *surface)
+          .value();
   BOOST_CHECK(std::get<0>(boundResult).covariance().has_value());
   BOOST_CHECK_NE(*(std::get<0>(boundResult).covariance()),
                  Covariance::Identity());

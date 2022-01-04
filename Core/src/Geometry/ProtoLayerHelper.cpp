@@ -9,6 +9,10 @@
 #include "Acts/Geometry/ProtoLayerHelper.hpp"
 
 #include "Acts/Geometry/Extent.hpp"
+#include "Acts/Geometry/Polyhedron.hpp"
+#include "Acts/Surfaces/Surface.hpp"
+
+#include <iosfwd>
 
 std::vector<Acts::ProtoLayer> Acts::ProtoLayerHelper::protoLayers(
     const GeometryContext& gctx, const std::vector<const Surface*>& surfaces,
@@ -59,7 +63,7 @@ std::vector<Acts::ProtoLayer> Acts::ProtoLayerHelper::protoLayers(
   std::vector<std::vector<const Surface*>> sortSurfaces = {surfaces};
   for (const auto& sorting : sortings) {
     ACTS_VERBOSE("-> Sorting a set of " << sortSurfaces.size() << " in "
-                                        << binningValueNames[sorting.first]);
+                                        << binningValueNames()[sorting.first]);
     std::vector<std::vector<const Surface*>> subSurfaces;
     for (const auto& ssurfaces : sortSurfaces) {
       ACTS_VERBOSE("-> Surfaces for this sorting step: " << ssurfaces.size());

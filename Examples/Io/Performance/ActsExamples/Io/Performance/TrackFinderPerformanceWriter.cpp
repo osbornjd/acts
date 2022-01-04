@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,13 +8,13 @@
 
 #include "ActsExamples/Io/Performance/TrackFinderPerformanceWriter.hpp"
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Utilities/Helpers.hpp"
-#include "Acts/Utilities/Units.hpp"
-#include "ActsExamples/EventData/IndexContainers.hpp"
+#include "ActsExamples/EventData/Index.hpp"
 #include "ActsExamples/EventData/SimParticle.hpp"
 #include "ActsExamples/Utilities/Paths.hpp"
 #include "ActsExamples/Utilities/Range.hpp"
-#include "ActsExamples/Validation/ProtoTrackClassification.hpp"
+#include "ActsExamples/Validation/TrackClassification.hpp"
 #include "ActsFatras/EventData/Barcode.hpp"
 
 #include <algorithm>
@@ -80,30 +80,29 @@ struct ActsExamples::TrackFinderPerformanceWriter::Impl {
   const Acts::Logger& _logger;
 
   Impl(Config&& c, const Acts::Logger& l) : cfg(std::move(c)), _logger(l) {
-    if (cfg.inputParticles.empty()) {
-      throw std::invalid_argument("Missing particles input collection");
-    }
-    if (cfg.inputHitParticlesMap.empty()) {
-      throw std::invalid_argument("Missing hit-particles map input collection");
-    }
     if (cfg.inputProtoTracks.empty()) {
       throw std::invalid_argument("Missing proto tracks input collection");
     }
-    if (cfg.outputFilename.empty()) {
+    if (cfg.inputMeasurementParticlesMap.empty()) {
+      throw std::invalid_argument("Missing hit-particles map input collection");
+    }
+    if (cfg.inputParticles.empty()) {
+      throw std::invalid_argument("Missing particles input collection");
+    }
+    if (cfg.filePath.empty()) {
       throw std::invalid_argument("Missing output filename");
     }
 
     // the output file can not be given externally since TFile accesses to the
     // same file from multiple threads are unsafe.
     // must always be opened internally
-    auto path = joinPaths(cfg.outputDir, cfg.outputFilename);
-    file = TFile::Open(path.c_str(), "RECREATE");
+    file = TFile::Open(cfg.filePath.c_str(), cfg.fileMode.c_str());
     if (not file) {
-      throw std::invalid_argument("Could not open '" + path + "'");
+      throw std::invalid_argument("Could not open '" + cfg.filePath + "'");
     }
 
     // construct trees
-    trkTree = new TTree("track_finder_tracks", "");
+    trkTree = new TTree(cfg.treeNameTracks.c_str(), cfg.treeNameTracks.c_str());
     trkTree->SetDirectory(file);
     trkTree->Branch("event_id", &trkEventId);
     trkTree->Branch("track_id", &trkTrackId);
@@ -112,7 +111,8 @@ struct ActsExamples::TrackFinderPerformanceWriter::Impl {
     trkTree->Branch("particle_id", &trkParticleId);
     trkTree->Branch("particle_nhits_total", &trkParticleNumHitsTotal);
     trkTree->Branch("particle_nhits_on_track", &trkParticleNumHitsOnTrack);
-    prtTree = new TTree("track_finder_particles", "");
+    prtTree =
+        new TTree(cfg.treeNameParticles.c_str(), cfg.treeNameParticles.c_str());
     prtTree->SetDirectory(file);
     prtTree->Branch("event_id", &prtEventId);
     prtTree->Branch("particle_id", &prtParticleId);
@@ -207,7 +207,7 @@ struct ActsExamples::TrackFinderPerformanceWriter::Impl {
         prtVy = particle.position().y() / Acts::UnitConstants::mm;
         prtVz = particle.position().z() / Acts::UnitConstants::mm;
         prtVt = particle.time() / Acts::UnitConstants::ns;
-        const auto p = particle.absMomentum() / Acts::UnitConstants::GeV;
+        const auto p = particle.absoluteMomentum() / Acts::UnitConstants::GeV;
         prtPx = p * particle.unitDirection().x();
         prtPy = p * particle.unitDirection().y();
         prtPz = p * particle.unitDirection().z();
@@ -236,10 +236,10 @@ struct ActsExamples::TrackFinderPerformanceWriter::Impl {
 };
 
 ActsExamples::TrackFinderPerformanceWriter::TrackFinderPerformanceWriter(
-    ActsExamples::TrackFinderPerformanceWriter::Config cfg,
-    Acts::Logging::Level lvl)
-    : WriterT(cfg.inputProtoTracks, "TrackFinderPerformanceWriter", lvl),
-      m_impl(std::make_unique<Impl>(std::move(cfg), logger())) {}
+    ActsExamples::TrackFinderPerformanceWriter::Config config,
+    Acts::Logging::Level level)
+    : WriterT(config.inputProtoTracks, "TrackFinderPerformanceWriter", level),
+      m_impl(std::make_unique<Impl>(std::move(config), logger())) {}
 
 ActsExamples::TrackFinderPerformanceWriter::~TrackFinderPerformanceWriter() {
   // explicit destructor needed for pimpl idiom to work
@@ -250,8 +250,8 @@ ActsExamples::ProcessCode ActsExamples::TrackFinderPerformanceWriter::writeT(
     const ActsExamples::ProtoTrackContainer& tracks) {
   const auto& particles =
       ctx.eventStore.get<SimParticleContainer>(m_impl->cfg.inputParticles);
-  const auto& hitParticlesMap =
-      ctx.eventStore.get<HitParticlesMap>(m_impl->cfg.inputHitParticlesMap);
+  const auto& hitParticlesMap = ctx.eventStore.get<HitParticlesMap>(
+      m_impl->cfg.inputMeasurementParticlesMap);
   m_impl->write(ctx.eventNumber, particles, hitParticlesMap, tracks);
   return ProcessCode::SUCCESS;
 }

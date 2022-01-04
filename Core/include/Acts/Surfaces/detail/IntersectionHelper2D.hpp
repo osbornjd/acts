@@ -8,10 +8,10 @@
 
 #pragma once
 
-#include <utility>
-
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Utilities/Intersection.hpp"
+
+#include <array>
 
 namespace Acts {
 namespace detail {
@@ -22,35 +22,54 @@ struct IntersectionHelper2D {
   /// @param s0 The Start of the segement
   /// @param s1 The end of the segement
   /// @param origin The Start of intersection line
-  /// @param direction The Direction of intersection line
+  /// @param dir The Direction of intersection line
   ///
   /// @return the intersection point with status
-  static Intersection2D intersectSegment(const Vector2D& s0, const Vector2D& s1,
-                                         const Vector2D& origin,
-                                         const Vector2D& dir);
+  static Intersection2D intersectSegment(const Vector2& s0, const Vector2& s1,
+                                         const Vector2& origin,
+                                         const Vector2& dir,
+                                         bool boundCheck = false);
 
   /// Intersect ellipses
   ///
   /// @param Rx The radius in x
   /// @param Ry The radius in y
   /// @param origin The Start of intersection line
-  /// @param direction The Direction of intersection line
+  /// @param dir The Direction of intersection line
   ///
   /// @return the intersection points
-  static std::pair<Intersection2D, Intersection2D> intersectEllipse(
-      double Rx, double Ry, const Vector2D& origin, const Vector2D& dir);
+  static std::array<Intersection2D, 2> intersectEllipse(ActsScalar Rx,
+                                                        ActsScalar Ry,
+                                                        const Vector2& origin,
+                                                        const Vector2& dir);
 
   /// Intersect the circle
   ///
   /// @param R The radius
   /// @param origin The Start of intersection line
-  /// @param direction The Direction of intersection line
+  /// @param dir The Direction of intersection line
   ///
   /// @return the intersection points
-  static inline std::pair<Intersection2D, Intersection2D> intersectCircle(
-      double R, const Vector2D& origin, const Vector2D& dir) {
+  static inline std::array<Intersection2D, 2> intersectCircle(
+      ActsScalar R, const Vector2& origin, const Vector2& dir) {
     return intersectEllipse(R, R, origin, dir);
   }
+
+  /// Intersect a circle segment
+  ///
+  /// @note only forward solution is taken
+  ///
+  /// @param R The radius
+  /// @param phiMin The minimum phi value
+  /// @param phiMax The maximum phi value
+  /// @param origin The Start of intersection line
+  /// @param dir The Direction of intersection line
+  ///
+  /// @return the intersection points
+  static Intersection2D intersectCircleSegment(ActsScalar R, ActsScalar phiMin,
+                                               ActsScalar phiMax,
+                                               const Vector2& origin,
+                                               const Vector2& dir);
 
 };  // struct IntersectionHelper2D
 

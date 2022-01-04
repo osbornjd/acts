@@ -17,11 +17,16 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <tbb/task_arena.h>
+
 namespace ActsExamples {
+
+using IterationCallback = void (*)();
 
 /// A simple algorithm sequencer for event processing.
 ///
@@ -34,13 +39,18 @@ class Sequencer {
     /// number of events to skip at the beginning
     size_t skip = 0;
     /// number of events to process, SIZE_MAX to process all available events
-    size_t events = SIZE_MAX;
+    std::optional<size_t> events = std::nullopt;
     /// logging level
     Acts::Logging::Level logLevel = Acts::Logging::INFO;
     /// number of parallel threads to run, negative for automatic determination
     int numThreads = -1;
     /// output directory for timing information, empty for working directory
     std::string outputDir;
+    /// output name of the timing file
+    std::string outputTimingFile = "timing.tsv";
+    /// Callback that is invoked in the event loop.
+    /// @warning This function can be called from multiple threads and should therefore be thread-safe
+    IterationCallback iterationCallback = []() {};
   };
 
   Sequencer(const Config& cfg);
@@ -94,6 +104,9 @@ class Sequencer {
   /// the end-of-run hook for all configured writers.
   int run();
 
+  /// Get const access to the config
+  const Config& config() const { return m_cfg; }
+
  private:
   /// List of all configured algorithm names.
   std::vector<std::string> listAlgorithmNames() const;
@@ -101,6 +114,7 @@ class Sequencer {
   std::pair<size_t, size_t> determineEventsRange() const;
 
   Config m_cfg;
+  tbb::task_arena m_taskArena;
   std::vector<std::shared_ptr<IService>> m_services;
   std::vector<std::shared_ptr<IContextDecorator>> m_decorators;
   std::vector<std::shared_ptr<IReader>> m_readers;

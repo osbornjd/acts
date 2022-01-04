@@ -8,8 +8,11 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/MagneticField/MagneticFieldProvider.hpp"
+
+#include <functional>
 
 namespace Acts {
 
@@ -62,13 +65,13 @@ namespace Acts {
 ///  z           4pi    __ |  |           2    |  2          1       |
 ///                   |/Rr |_ \   2r(1 - k )   /                    _|
 ///
-class SolenoidBField {
+class SolenoidBField final : public MagneticFieldProvider {
  public:
   struct Cache {
     /// @brief Constructor with magnetic field context
     ///
-    /// @param mcfg the magnetic field context
-    Cache(std::reference_wrapper<const MagneticFieldContext> /*mcfg*/) {}
+    /// @param mctx the magnetic field context
+    Cache(const MagneticFieldContext& mctx) { (void)mctx; }
   };
 
   /// Config struct for the SolenoidBfield.
@@ -90,47 +93,31 @@ class SolenoidBField {
   /// @tparam bField is the shared BField to be stored
   SolenoidBField(Config config);
 
-  /// @brief retrieve magnetic field value
-  ///
-  /// @param [in] position global 3D position
-  ///
-  /// @return magnetic field vector at given position
-  Vector3D getField(const Vector3D& position) const;
-
-  /// @brief Retrieve magnetic field value
-  ///
-  /// @param [in] position global 3D position
-  /// @param [in] cache Cache object, passed through to wrapped BField
-  Vector3D getField(const Vector3D& position, Cache& /*cache*/) const;
-
   /// @brief Retrieve magnetic field value in local (r,z) coordinates
   ///
   /// @param [in] position local 2D position
-  Vector2D getField(const Vector2D& position) const;
+  Vector2 getField(const Vector2& position) const;
 
-  /// @brief retrieve magnetic field value & its gradient
+  /// @copydoc MagneticFieldProvider::makeCache(const MagneticFieldContext&) const
+  MagneticFieldProvider::Cache makeCache(
+      const MagneticFieldContext& mctx) const override;
+
+  /// @brief Get the B field at a position
   ///
-  /// @param [in]  position   global 3D position
-  /// @param [out] derivative gradient of magnetic field vector as (3x3) matrix
-  /// @return magnetic field vector
+  /// @param position The position to query at
+  Vector3 getField(const Vector3& position) const;
+
+  /// @copydoc MagneticFieldProvider::getField(const Vector3&,MagneticFieldProvider::Cache&) const
+  Result<Vector3> getField(const Vector3& position,
+                           MagneticFieldProvider::Cache& cache) const override;
+
+  /// @copydoc MagneticFieldProvider::getFieldGradient(const Vector3&,ActsMatrix<3,3>&,MagneticFieldProvider::Cache&) const
   ///
   /// @note currently the derivative is not calculated
   /// @todo return derivative
-  Vector3D getFieldGradient(const Vector3D& position,
-                            ActsMatrixD<3, 3>& /*derivative*/) const;
-
-  /// @brief retrieve magnetic field value & its gradient
-  ///
-  /// @param [in]  position   global 3D position
-  /// @param [out] derivative gradient of magnetic field vector as (3x3) matrix
-  /// @param [in] cache Cache object, passed through to wrapped BField
-  /// @return magnetic field vector
-  ///
-  /// @note currently the derivative is not calculated
-  /// @todo return derivative
-  Vector3D getFieldGradient(const Vector3D& position,
-                            ActsMatrixD<3, 3>& /*derivative*/,
-                            Cache& /*cache*/) const;
+  Result<Vector3> getFieldGradient(
+      const Vector3& position, ActsMatrix<3, 3>& derivative,
+      MagneticFieldProvider::Cache& cache) const override;
 
  private:
   Config m_cfg;
@@ -138,13 +125,13 @@ class SolenoidBField {
   double m_dz;
   double m_R2;
 
-  Vector2D multiCoilField(const Vector2D& pos, double scale) const;
+  Vector2 multiCoilField(const Vector2& pos, double scale) const;
 
-  Vector2D singleCoilField(const Vector2D& pos, double scale) const;
+  Vector2 singleCoilField(const Vector2& pos, double scale) const;
 
-  double B_r(const Vector2D& pos, double scale) const;
+  double B_r(const Vector2& pos, double scale) const;
 
-  double B_z(const Vector2D& pos, double scale) const;
+  double B_z(const Vector2& pos, double scale) const;
 
   double k2(double r, double z) const;
 };

@@ -1,6 +1,5 @@
 add_library(
   ActsExamplesFramework SHARED
-  src/EventData/SimMultiTrajectory.cpp
   src/Framework/BareAlgorithm.cpp
   src/Framework/BareService.cpp
   src/Framework/RandomNumbers.cpp
@@ -8,24 +7,22 @@ add_library(
   src/Utilities/Paths.cpp
   src/Utilities/Options.cpp
   src/Utilities/Helpers.cpp
+  src/Validation/DuplicationPlotTool.cpp
   src/Validation/EffPlotTool.cpp
   src/Validation/FakeRatePlotTool.cpp
-  src/Validation/DuplicationPlotTool.cpp
+  src/Validation/ResPlotTool.cpp
+  src/Validation/TrackClassification.cpp
   src/Validation/TrackSummaryPlotTool.cpp
-  src/Validation/ProtoTrackClassification.cpp
-  src/Validation/ResPlotTool.cpp)
+)
 target_include_directories(
   ActsExamplesFramework
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  PRIVATE ${TBB_INCLUDE_DIRS})
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(
   ActsExamplesFramework
-  PUBLIC ActsCore ActsFatras Boost::boost ROOT::Core ROOT::Hist
-  PRIVATE ${TBB_LIBRARIES} dfelibs Boost::filesystem)
+  PUBLIC ActsCore ActsFatras Boost::boost ROOT::Core ROOT::Hist TBB::tbb
+  PRIVATE Boost::filesystem dfelibs)
 target_compile_definitions(
   ActsExamplesFramework
-  # framework event data is based on a specific identifier
-  PUBLIC ACTS_CORE_IDENTIFIER_PLUGIN="${CMAKE_CURRENT_SOURCE_DIR}/include/ActsExamples/EventData/SimIdentifier.hpp"
   PRIVATE BOOST_FILESYSTEM_NO_DEPRECATED)
 # set per-target c++17 requirement that will be propagated to linked targets
 target_compile_features(

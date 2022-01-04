@@ -7,9 +7,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Material/IVolumeMaterial.hpp"
 #include "Acts/Material/Material.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
+
+#include <iosfwd>
 
 namespace Acts {
 
@@ -56,7 +60,7 @@ class ProtoVolumeMaterial : public IVolumeMaterial {
   ProtoVolumeMaterial& operator=(const ProtoVolumeMaterial& vmproxy) = default;
 
   /// Return the material
-  const Material material(const Vector3D& /*position*/) const final;
+  const Material material(const Vector3& /*position*/) const final;
 
   /// Output Method for std::ostream
   ///
@@ -70,7 +74,7 @@ class ProtoVolumeMaterial : public IVolumeMaterial {
 
 /// Return the material
 inline const Acts::Material Acts::ProtoVolumeMaterial::material(
-    const Acts::Vector3D& /*position*/) const {
+    const Acts::Vector3& /*position*/) const {
   return m_material;
 }
 /// Return the bin Utility

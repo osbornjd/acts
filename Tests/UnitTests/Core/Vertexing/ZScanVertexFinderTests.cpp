@@ -10,14 +10,14 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/FsmwMode1dFinder.hpp"
 #include "Acts/Vertexing/FullBilloirVertexFitter.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
@@ -32,7 +32,7 @@ namespace Acts {
 namespace Test {
 
 using Covariance = BoundSymMatrix;
-using Propagator = Propagator<EigenStepper<ConstantBField>>;
+using Propagator = Acts::Propagator<EigenStepper<>>;
 using Linearizer_t = HelicalTrackLinearizer<Propagator>;
 
 // Create a test context
@@ -77,10 +77,10 @@ BOOST_AUTO_TEST_CASE(zscan_finder_test) {
     std::mt19937 gen(mySeed);
 
     // Set up constant B-Field
-    ConstantBField bField(0.0, 0.0, 1_T);
+    auto bField = std::make_shared<ConstantBField>(Vector3{0.0, 0.0, 1_T});
 
     // Set up Eigenstepper
-    EigenStepper<ConstantBField> stepper(bField);
+    EigenStepper<> stepper(bField);
 
     // Set up propagator with void navigator
     auto propagator = std::make_shared<Propagator>(stepper);
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE(zscan_finder_test) {
 
     // Create perigee surface
     std::shared_ptr<PerigeeSurface> perigeeSurface =
-        Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+        Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
     // Create position of vertex and perigee surface
     double x = vXYDist(gen);
@@ -169,7 +169,7 @@ BOOST_AUTO_TEST_CASE(zscan_finder_test) {
 
     if (res.ok()) {
       BOOST_CHECK(!(*res).empty());
-      Vector3D result = (*res).back().position();
+      Vector3 result = (*res).back().position();
       CHECK_CLOSE_ABS(result[eZ], z, 1_mm);
     }
   }
@@ -202,10 +202,10 @@ BOOST_AUTO_TEST_CASE(zscan_finder_usertrack_test) {
     std::mt19937 gen(mySeed);
 
     // Set up constant B-Field
-    ConstantBField bField(0.0, 0.0, 1_T);
+    auto bField = std::make_shared<ConstantBField>(Vector3{0.0, 0.0, 1_T});
 
     // Set up Eigenstepper
-    EigenStepper<ConstantBField> stepper(bField);
+    EigenStepper<> stepper(bField);
 
     // Set up propagator with void navigator
     auto propagator = std::make_shared<Propagator>(stepper);
@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE(zscan_finder_usertrack_test) {
 
     // Create perigee surface
     std::shared_ptr<PerigeeSurface> perigeeSurface =
-        Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+        Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
     // Create position of vertex and perigee surface
     double x = vXYDist(gen);
@@ -296,7 +296,7 @@ BOOST_AUTO_TEST_CASE(zscan_finder_usertrack_test) {
 
     if (res.ok()) {
       BOOST_CHECK(!(*res).empty());
-      Vector3D result = (*res).back().position();
+      Vector3 result = (*res).back().position();
       CHECK_CLOSE_ABS(result[eZ], z, 1_mm);
     }
   }

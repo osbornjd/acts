@@ -14,13 +14,19 @@
 
 #include <TChain.h>
 #include <TFile.h>
+#include <TMath.h>
 
 ActsExamples::RootMaterialTrackReader::RootMaterialTrackReader(
-    const ActsExamples::RootMaterialTrackReader::Config& cfg)
-    : ActsExamples::IReader(), m_cfg(cfg), m_events(0), m_inputChain(nullptr) {
+    const Config& config, Acts::Logging::Level level)
+    : ActsExamples::IReader(),
+      m_logger{Acts::getDefaultLogger(name(), level)},
+      m_cfg(config),
+      m_events(0),
+      m_inputChain(nullptr) {
   m_inputChain = new TChain(m_cfg.treeName.c_str());
 
   // Set the branches
+  m_inputChain->SetBranchAddress("event_id", &m_eventId);
   m_inputChain->SetBranchAddress("v_x", &m_v_x);
   m_inputChain->SetBranchAddress("v_y", &m_v_y);
   m_inputChain->SetBranchAddress("v_z", &m_v_z);
@@ -44,6 +50,10 @@ ActsExamples::RootMaterialTrackReader::RootMaterialTrackReader(
   m_inputChain->SetBranchAddress("mat_Z", &m_step_Z);
   m_inputChain->SetBranchAddress("mat_rho", &m_step_rho);
 
+  if (m_cfg.fileList.empty()) {
+    throw std::invalid_argument{"No input files given"};
+  }
+
   // loop over the input files
   for (auto inputFile : m_cfg.fileList) {
     // add file to the input chain
@@ -52,8 +62,17 @@ ActsExamples::RootMaterialTrackReader::RootMaterialTrackReader(
                               << "'.");
   }
 
-  m_events = m_inputChain->GetEntries();
+  m_events = m_inputChain->GetMaximum("event_id") + 1;
   ACTS_DEBUG("The full chain has " << m_events << " entries.");
+
+  // If the events are not in order, get the entry numbers for ordered events
+  if (not m_cfg.orderedEvents) {
+    m_entryNumbers.resize(m_events);
+    m_inputChain->Draw("event_id", "", "goff");
+    // Sort to get the entry numbers of the ordered events
+    TMath::Sort(m_inputChain->GetEntries(), m_inputChain->GetV1(),
+                m_entryNumbers.data(), false);
+  }
 }
 
 ActsExamples::RootMaterialTrackReader::~RootMaterialTrackReader() {
@@ -69,7 +88,7 @@ ActsExamples::RootMaterialTrackReader::~RootMaterialTrackReader() {
 }
 
 std::string ActsExamples::RootMaterialTrackReader::name() const {
-  return m_cfg.name;
+  return "RootMaterialTrackReader";
 }
 
 std::pair<size_t, size_t>
@@ -87,18 +106,33 @@ ActsExamples::ProcessCode ActsExamples::RootMaterialTrackReader::read(
     // now read
 
     // The collection to be written
-    std::vector<Acts::RecordedMaterialTrack> mtrackCollection;
+    std::unordered_map<size_t, Acts::RecordedMaterialTrack> mtrackCollection;
 
-    for (size_t ib = 0; ib < m_cfg.batchSize; ++ib) {
-      // Read the correct entry: batch size * event_number + ib
-      m_inputChain->GetEntry(m_cfg.batchSize * context.eventNumber + ib);
-      ACTS_VERBOSE("Reading entry: " << m_cfg.batchSize * context.eventNumber +
-                                            ib);
+    // Find the start entry and the batch size for this event
+    std::string eventNumberStr = std::to_string(context.eventNumber);
+    std::string findStartEntry = "event_id<" + eventNumberStr;
+    std::string findBatchSize = "event_id==" + eventNumberStr;
+    size_t startEntry = m_inputChain->GetEntries(findStartEntry.c_str());
+    size_t batchSize = m_inputChain->GetEntries(findBatchSize.c_str());
+    ACTS_VERBOSE("The event has " << batchSize
+                                  << " entries with the start entry "
+                                  << startEntry);
+
+    // Loop over the entries for this event
+    for (size_t ib = 0; ib < batchSize; ++ib) {
+      // Read the correct entry: startEntry + ib
+      auto entry = startEntry + ib;
+      if (not m_cfg.orderedEvents and entry < m_entryNumbers.size()) {
+        entry = m_entryNumbers[entry];
+      }
+      ACTS_VERBOSE("Reading event: " << context.eventNumber
+                                     << " with stored entry: " << entry);
+      m_inputChain->GetEntry(entry);
 
       Acts::RecordedMaterialTrack rmTrack;
       // Fill the position and momentum
-      rmTrack.first.first = Acts::Vector3D(m_v_x, m_v_y, m_v_z);
-      rmTrack.first.second = Acts::Vector3D(m_v_px, m_v_py, m_v_pz);
+      rmTrack.first.first = Acts::Vector3(m_v_x, m_v_y, m_v_z);
+      rmTrack.first.second = Acts::Vector3(m_v_px, m_v_py, m_v_pz);
 
       // Fill the individual steps
       size_t msteps = m_step_length->size();
@@ -118,16 +152,16 @@ ActsExamples::ProcessCode ActsExamples::RootMaterialTrackReader::read(
         /// Fill the position & the material
         Acts::MaterialInteraction mInteraction;
         mInteraction.position =
-            Acts::Vector3D((*m_step_x)[is], (*m_step_y)[is], (*m_step_z)[is]);
-        mInteraction.direction = Acts::Vector3D(
-            (*m_step_dx)[is], (*m_step_dy)[is], (*m_step_dz)[is]);
+            Acts::Vector3((*m_step_x)[is], (*m_step_y)[is], (*m_step_z)[is]);
+        mInteraction.direction =
+            Acts::Vector3((*m_step_dx)[is], (*m_step_dy)[is], (*m_step_dz)[is]);
         mInteraction.materialSlab = Acts::MaterialSlab(
             Acts::Material::fromMassDensity(mX0, mL0, (*m_step_A)[is],
                                             (*m_step_Z)[is], (*m_step_rho)[is]),
             s);
         rmTrack.second.materialInteractions.push_back(std::move(mInteraction));
       }
-      mtrackCollection.push_back(std::move(rmTrack));
+      mtrackCollection[ib] = (std::move(rmTrack));
     }
 
     // Write to the collection to the EventStore

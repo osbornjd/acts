@@ -10,6 +10,8 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
@@ -24,8 +26,6 @@
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Tests/CommonHelpers/CylindricalTrackingGeometry.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <memory>
 
@@ -48,16 +48,16 @@ CylindricalTrackingGeometry cGeometry(tgContext);
 auto tGeometry = cGeometry();
 
 // create a navigator for this tracking geometry
-Navigator navigatorES(tGeometry);
-Navigator navigatorSL(tGeometry);
+Navigator navigatorES({tGeometry});
+Navigator navigatorSL({tGeometry});
 
 using BField = ConstantBField;
-using EigenStepper = EigenStepper<BField>;
+using EigenStepper = Acts::EigenStepper<>;
 using EigenPropagator = Propagator<EigenStepper, Navigator>;
 using StraightLinePropagator = Propagator<StraightLineStepper, Navigator>;
 
 const double Bz = 2_T;
-BField bField(0, 0, Bz);
+auto bField = std::make_shared<BField>(Vector3{0, 0, Bz});
 EigenStepper estepper(bField);
 EigenPropagator epropagator(std::move(estepper), std::move(navigatorES));
 
@@ -104,7 +104,7 @@ void runTest(const propagator_t& prop, double pT, double phi, double theta,
      0, 0, 0, 0, 0, 1_us;
   // clang-format on
   std::cout << cov.determinant() << std::endl;
-  CurvilinearTrackParameters start(Vector4D(0, 0, 0, time), phi, theta, q / p,
+  CurvilinearTrackParameters start(Vector4(0, 0, 0, time), phi, theta, q / p,
                                    cov);
 
   // Action list and abort list

@@ -8,13 +8,11 @@
 
 #include "Acts/Geometry/ProtoLayer.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Geometry/DetectorElementBase.hpp"
 #include "Acts/Geometry/Polyhedron.hpp"
-#include "Acts/Surfaces/AnnulusBounds.hpp"
-#include "Acts/Surfaces/CylinderBounds.hpp"
-#include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 
-#include <algorithm>
 #include <cmath>
 
 using Acts::VectorHelpers::perp;
@@ -72,10 +70,10 @@ void ProtoLayer::measure(const GeometryContext& gctx,
       // Take the thickness in account if necessary
       double thickness = element->thickness();
       // We need a translation along and opposite half thickness
-      Vector3D sfNormal = sf->normal(gctx, sf->center(gctx));
+      Vector3 sfNormal = sf->normal(gctx, sf->center(gctx));
       std::vector<double> deltaT = {-0.5 * thickness, 0.5 * thickness};
       for (const auto& dT : deltaT) {
-        Transform3D dtransform = Transform3D::Identity();
+        Transform3 dtransform = Transform3::Identity();
         dtransform.pretranslate(dT * sfNormal);
         extent.extend(sfPolyhedron.extent(dtransform));
       }

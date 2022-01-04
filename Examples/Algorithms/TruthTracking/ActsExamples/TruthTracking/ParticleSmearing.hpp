@@ -8,10 +8,11 @@
 
 #pragma once
 
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
 #include "ActsExamples/Framework/RandomNumbers.hpp"
 
+#include <array>
 #include <limits>
 #include <string>
 
@@ -19,9 +20,10 @@ namespace ActsExamples {
 
 /// Create track states by smearing truth particle information.
 ///
-/// A curvilinear track state is constructed at the vertex position for
-/// each input particle. They are stored in the same order as the input
-/// particles.
+/// Particles are smeared in the perigee frame anchored at their true vertex
+/// position. The `d0` and `z0` parameters are always defined within that
+/// perigee frame and not globally. The generated bound parameters are stored in
+/// the same order as the input particles.
 class ParticleSmearing final : public BareAlgorithm {
  public:
   struct Config {
@@ -30,30 +32,35 @@ class ParticleSmearing final : public BareAlgorithm {
     /// Output smeared tracks parameters collection.
     std::string outputTrackParameters;
     /// Constant term of the d0 resolution.
-    double sigmaD0 = 30 * Acts::UnitConstants::um;
+    double sigmaD0 = 20 * Acts::UnitConstants::um;
     /// Pt-dependent d0 resolution of the form sigma_d0 = A*exp(-1.*abs(B)*pt).
-    double sigmaD0PtA = 0 * Acts::UnitConstants::um;
-    double sigmaD0PtB = 1 / Acts::UnitConstants::GeV;
+    double sigmaD0PtA = 30 * Acts::UnitConstants::um;
+    double sigmaD0PtB = 0.3 / Acts::UnitConstants::GeV;
     /// Constant term of the z0 resolution.
-    double sigmaZ0 = 30 * Acts::UnitConstants::um;
+    double sigmaZ0 = 20 * Acts::UnitConstants::um;
     /// Pt-dependent z0 resolution of the form sigma_z0 = A*exp(-1.*abs(B)*pt).
-    double sigmaZ0PtA = 0 * Acts::UnitConstants::um;
-    double sigmaZ0PtB = 1 / Acts::UnitConstants::GeV;
+    double sigmaZ0PtA = 30 * Acts::UnitConstants::um;
+    double sigmaZ0PtB = 0.3 / Acts::UnitConstants::GeV;
     /// Time resolution.
-    double sigmaT0 = 5 * Acts::UnitConstants::ns;
+    double sigmaT0 = 1 * Acts::UnitConstants::ns;
     /// Phi angular resolution.
     double sigmaPhi = 1 * Acts::UnitConstants::degree;
     /// Theta angular resolution.
     double sigmaTheta = 1 * Acts::UnitConstants::degree;
     /// Relative momentum resolution.
-    double sigmaPRel = 0.001;
+    double sigmaPRel = 0.05;
+    /// Inflate the initial covariance matrix
+    std::array<double, 6> initialVarInflation = {1., 1., 1., 1., 1., 1.};
     /// Random numbers service.
-    std::shared_ptr<RandomNumbers> randomNumbers = nullptr;
+    std::shared_ptr<const RandomNumbers> randomNumbers = nullptr;
   };
 
-  ParticleSmearing(const Config& cfg, Acts::Logging::Level lvl);
+  ParticleSmearing(const Config& config, Acts::Logging::Level level);
 
   ProcessCode execute(const AlgorithmContext& ctx) const final override;
+
+  /// Get readonly access to the config parameters
+  const Config& config() const { return m_cfg; }
 
  private:
   Config m_cfg;

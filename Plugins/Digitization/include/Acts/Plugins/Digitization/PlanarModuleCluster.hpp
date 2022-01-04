@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -9,50 +9,47 @@
 #pragma once
 
 #include "Acts/EventData/Measurement.hpp"
-#include "Acts/EventData/MeasurementHelpers.hpp"
-
-/// Set the identifier PLUGIN
-#ifdef ACTS_CORE_IDENTIFIER_PLUGIN
-#include ACTS_CORE_IDENTIFIER_PLUGIN
-#else
-using Identifier = Acts::MinimalSourceLink;
-#endif
-
 #include "Acts/Plugins/Digitization/DigitizationCell.hpp"
 #include "Acts/Plugins/Digitization/DigitizationModule.hpp"
-#include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/ParameterDefinitions.hpp"
+#include "Acts/Plugins/Digitization/DigitizationSourceLink.hpp"
+
+#include <array>
+#include <cassert>
 
 namespace Acts {
 
-template <BoundIndices... params>
-using Measurement_t = Measurement<Identifier, BoundIndices, params...>;
+class PlanarModuleCluster : public Measurement<BoundIndices, 3> {
+  using Base = Measurement<BoundIndices, 3>;
 
-class PlanarModuleCluster
-    : public Measurement_t<BoundIndices::eBoundLoc0, BoundIndices::eBoundLoc1,
-                           BoundIndices::eBoundTime> {
+  static constexpr std::array<BoundIndices, 3> kIndices = {
+      eBoundLoc0, eBoundLoc1, eBoundTime};
+
  public:
   /// Constructor from DigitizationCells
   ///
-  /// @param [in] mSurface is the module surface
-  /// @param [in] cIdentifier is the channel identifier of the local position
+  /// @param [in] surface The surface the cluster is on
+  /// @param [in] sourceLink is the link to the truth information
   /// @param [in] cov is the covariance matrix
   /// @param [in] loc0 is the local position in the first coordinate
   /// @param [in] loc1 is the local position in the second coordinate
   /// @param [in] t Timestamp of the cluster
   /// @param [in] dCells is the vector of digitization cells
-  PlanarModuleCluster(std::shared_ptr<const Surface> mSurface,
-                      const Identifier& identifier, ActsSymMatrixD<3> cov,
-                      double loc0, double loc1, double t,
-                      std::vector<DigitizationCell> dCells,
+  /// @param [in] dModule an optional pointer to a digitization configuration
+  PlanarModuleCluster(std::shared_ptr<const Surface> surface,
+                      const DigitizationSourceLink& sourceLink,
+                      Base::CovarianceMatrix cov, double loc0, double loc1,
+                      double t, std::vector<DigitizationCell> dCells,
                       const DigitizationModule* dModule = nullptr)
-      : Measurement_t<BoundIndices::eBoundLoc0, BoundIndices::eBoundLoc1,
-                      BoundIndices::eBoundTime>(
-            std::move(mSurface),
-            identifier,  // original measurement
-            std::move(cov), loc0, loc1, t),
+      : Base(sourceLink, kIndices, Base::ParametersVector(loc0, loc1, t),
+             std::move(cov)),
+        m_surface(std::move(surface)),
         m_digitizationCells(std::move(dCells)),
-        m_digitizationModule(dModule) {}
+        m_digitizationModule(dModule) {
+    assert(m_surface);
+  }
+
+  /// Module surface.
+  const Surface& referenceObject() const { return *m_surface; }
 
   /// access to the digitization cells
   ///
@@ -65,6 +62,7 @@ class PlanarModuleCluster
   const DigitizationModule* digitizationModule() const;
 
  private:
+  std::shared_ptr<const Surface> m_surface;
   std::vector<DigitizationCell> m_digitizationCells;  /// the digitization cells
   const DigitizationModule* m_digitizationModule;  /// the digitization module
 };
@@ -78,4 +76,5 @@ inline const DigitizationModule* PlanarModuleCluster::digitizationModule()
     const {
   return m_digitizationModule;
 }
+
 }  // namespace Acts

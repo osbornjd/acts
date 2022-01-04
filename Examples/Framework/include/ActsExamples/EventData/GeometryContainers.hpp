@@ -13,6 +13,7 @@
 #include "ActsExamples/Utilities/Range.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <utility>
 
@@ -21,6 +22,7 @@
 
 namespace ActsExamples {
 namespace detail {
+
 // extract the geometry identifier from a variety of types
 struct GeometryIdGetter {
   // explicit geometry identifier are just forwarded
@@ -45,6 +47,12 @@ struct GeometryIdGetter {
       -> decltype(thing.geometryId(), Acts::GeometryIdentifier()) {
     return thing.geometryId();
   }
+  // support reference_wrappers around such types as well
+  template <typename T>
+  inline auto operator()(std::reference_wrapper<T> thing) const
+      -> decltype(thing.get().geometryId(), Acts::GeometryIdentifier()) {
+    return thing.get().geometryId();
+  }
 };
 
 struct CompareGeometryId {
@@ -56,6 +64,7 @@ struct CompareGeometryId {
     return GeometryIdGetter()(lhs) < GeometryIdGetter()(rhs);
   }
 };
+
 }  // namespace detail
 
 /// Store elements that know their detector geometry id, e.g. simulation hits.
@@ -106,6 +115,8 @@ inline Range<typename GeometryIdMultiset<T>::const_iterator> selectVolume(
       std::lower_bound(beg, container.end(), cmp, detail::CompareGeometryId{});
   return makeRange(beg, end);
 }
+
+/// Select all elements within the given volume.
 template <typename T>
 inline auto selectVolume(const GeometryIdMultiset<T>& container,
                          Acts::GeometryIdentifier id) {
@@ -130,6 +141,8 @@ inline Range<typename GeometryIdMultiset<T>::const_iterator> selectLayer(
       std::lower_bound(beg, container.end(), cmp, detail::CompareGeometryId{});
   return makeRange(beg, end);
 }
+
+// Select all elements within the given layer.
 template <typename T>
 inline auto selectLayer(const GeometryIdMultiset<T>& container,
                         Acts::GeometryIdentifier id) {
@@ -143,6 +156,8 @@ inline Range<typename GeometryIdMultiset<T>::const_iterator> selectModule(
   // module is the lowest level and defines a single geometry id value
   return makeRange(container.equal_range(geoId));
 }
+
+/// Select all elements for the given module / sensitive surface.
 template <typename T>
 inline auto selectModule(const GeometryIdMultiset<T>& container,
                          Acts::GeometryIdentifier::Value volume,
@@ -154,6 +169,40 @@ inline auto selectModule(const GeometryIdMultiset<T>& container,
           module));
 }
 
+/// Select all elements for the lowest non-zero identifier component.
+///
+/// Zero values of lower components are interpreted as wildcard search patterns
+/// that select all element at the given geometry hierarchy and below. This only
+/// applies to the lower components and not to intermediate zeros.
+///
+/// Examples:
+/// - volume=2,layer=0,module=3 -> select all elements in the module
+/// - volume=1,layer=2,module=0 -> select all elements in the layer
+/// - volume=3,layer=0,module=0 -> select all elements in the volume
+///
+/// @note An identifier with all components set to zero selects the whole input
+///   container.
+/// @note Boundary and approach surfaces do not really fit into the geometry
+///   hierarchy and must be set to zero for the selection. If they are set on an
+///   input identifier, the behaviour of this search method is undefined.
+template <typename T>
+inline Range<typename GeometryIdMultiset<T>::const_iterator>
+selectLowestNonZeroGeometryObject(const GeometryIdMultiset<T>& container,
+                                  Acts::GeometryIdentifier geoId) {
+  assert((geoId.boundary() == 0u) and "Boundary component must be zero");
+  assert((geoId.approach() == 0u) and "Approach component must be zero");
+
+  if (geoId.sensitive() != 0u) {
+    return selectModule(container, geoId);
+  } else if (geoId.layer() != 0u) {
+    return selectLayer(container, geoId);
+  } else if (geoId.volume() != 0u) {
+    return selectVolume(container, geoId);
+  } else {
+    return makeRange(container.begin(), container.end());
+  }
+}
+
 /// Iterate over groups of elements belonging to each module/ sensitive surface.
 template <typename T>
 inline GroupBy<typename GeometryIdMultiset<T>::const_iterator,
@@ -161,5 +210,36 @@ inline GroupBy<typename GeometryIdMultiset<T>::const_iterator,
 groupByModule(const GeometryIdMultiset<T>& container) {
   return makeGroupBy(container, detail::GeometryIdGetter());
 }
+
+/// The accessor for the GeometryIdMultiset container
+///
+/// It wraps up a few lookup methods to be used in the Combinatorial Kalman
+/// Filter
+template <typename T>
+struct GeometryIdMultisetAccessor {
+  using Container = GeometryIdMultiset<T>;
+  using Key = Acts::GeometryIdentifier;
+  using Value = typename GeometryIdMultiset<T>::value_type;
+  using Iterator = typename GeometryIdMultiset<T>::const_iterator;
+
+  // pointer to the container
+  const Container* container = nullptr;
+
+  // count the number of elements with requested geoId
+  size_t count(const Acts::GeometryIdentifier& geoId) const {
+    assert(container != nullptr);
+    return container->count(geoId);
+  }
+
+  // get the range of elements with requested geoId
+  std::pair<Iterator, Iterator> range(
+      const Acts::GeometryIdentifier& geoId) const {
+    assert(container != nullptr);
+    return container->equal_range(geoId);
+  }
+
+  // get the element using the iterator
+  const Value& at(const Iterator& it) const { return *it; }
+};
 
 }  // namespace ActsExamples

@@ -6,17 +6,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// AlgebraHelper.h, Acts project
-///////////////////////////////////////////////////////////////////
-
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Common.hpp"
+#include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/ParameterDefinitions.hpp"
 #include "Acts/Utilities/TypeTraits.hpp"
 
+#include <array>
 #include <bitset>
 #include <cassert>
 #include <cmath>
@@ -124,6 +122,26 @@ double theta(const Eigen::MatrixBase<Derived>& v) noexcept {
   return std::atan2(std::sqrt(v[0] * v[0] + v[1] * v[1]), v[2]);
 }
 
+/// @brief Fast evaluation of trigonomic functions.
+///
+/// @param direction for this evaluatoin
+///
+/// @return cos(phi), sin(phi), cos(theta), sin(theta), 1/sin(theta)
+static inline const std::array<ActsScalar, 5> evaluateTrigonomics(
+    const Vector3& direction) {
+  const ActsScalar x = direction(0);  // == cos(phi) * sin(theta)
+  const ActsScalar y = direction(1);  // == sin(phi) * sin(theta)
+  const ActsScalar z = direction(2);  // == cos(theta)
+  // can be turned into cosine/sine
+  const ActsScalar cosTheta = z;
+  const ActsScalar sinTheta = std::sqrt(x * x + y * y);
+  const ActsScalar invSinTheta = 1. / sinTheta;
+  const ActsScalar cosPhi = x * invSinTheta;
+  const ActsScalar sinPhi = y * invSinTheta;
+
+  return {cosPhi, sinPhi, cosTheta, sinTheta, invSinTheta};
+}
+
 /// Calculate the pseudorapidity for a vector.
 /// @tparam Derived Eigen derived concrete type
 /// @param v Any vector like Eigen type, static or dynamic
@@ -151,7 +169,7 @@ double eta(const Eigen::MatrixBase<Derived>& v) noexcept {
 ///
 /// For this method a 3D vector is required to guarantee all potential
 /// binning values.
-inline double cast(const Vector3D& position, BinningValue bval) {
+inline double cast(const Vector3& position, BinningValue bval) {
   switch (bval) {
     case binX:
       return position[0];
@@ -183,8 +201,8 @@ inline double cast(const Vector3D& position, BinningValue bval) {
 /// @param [in] m Matrix that will be used for cross products
 /// @param [in] v Vector for cross products
 /// @return Constructed matrix
-inline ActsMatrixD<3, 3> cross(const ActsMatrixD<3, 3>& m, const Vector3D& v) {
-  ActsMatrixD<3, 3> r;
+inline ActsMatrix<3, 3> cross(const ActsMatrix<3, 3>& m, const Vector3& v) {
+  ActsMatrix<3, 3> r;
   r.col(0) = m.col(0).cross(v);
   r.col(1) = m.col(1).cross(v);
   r.col(2) = m.col(2).cross(v);
@@ -193,7 +211,7 @@ inline ActsMatrixD<3, 3> cross(const ActsMatrixD<3, 3>& m, const Vector3D& v) {
 }
 
 /// Access the three-position components in a four-position vector.
-inline auto position(const Vector4D& pos4) {
+inline auto position(const Vector4& pos4) {
   return pos4.segment<3>(ePos0);
 }
 
@@ -230,12 +248,15 @@ inline double roundWithPrecision(double val, int precision) {
 }  // namespace detail
 
 /// Print out a matrix in a structured way.
+///
+/// @tparam derived_t Type of the matrix
 /// @param matrix The matrix to print
 /// @param precision Numeric output precision
 /// @param offset Offset in front of matrix lines
 /// @return The printed string
-inline std::string toString(const ActsMatrixXd& matrix, int precision = 4,
-                            const std::string& offset = "") {
+template <typename derived_t>
+inline std::string toString(const Eigen::MatrixBase<derived_t>& matrix,
+                            int precision = 4, const std::string& offset = "") {
   std::ostringstream sout;
 
   sout << std::setiosflags(std::ios::fixed) << std::setprecision(precision);
@@ -274,12 +295,12 @@ inline std::string toString(const ActsMatrixXd& matrix, int precision = 4,
 }
 
 /// Print out a translation in a structured way.
-/// @param matrix The translation to print
+/// @param translation The translation to print
 /// @param precision Numeric output precision
 /// @return The printed string
-inline std::string toString(const Acts::Translation3D& translation,
+inline std::string toString(const Acts::Translation3& translation,
                             int precision = 4) {
-  Acts::Vector3D trans;
+  Acts::Vector3 trans;
   trans[0] = translation.x();
   trans[1] = translation.y();
   trans[2] = translation.z();
@@ -287,11 +308,11 @@ inline std::string toString(const Acts::Translation3D& translation,
 }
 
 /// Print out a transform in a structured way.
-/// @param matrix The transform to print
+/// @param transform The transform to print
 /// @param precision Numeric output precision
 /// @param offset Offset in front of matrix lines
 /// @return The printed string
-inline std::string toString(const Acts::Transform3D& transform,
+inline std::string toString(const Acts::Transform3& transform,
                             int precision = 4, const std::string& offset = "") {
   std::ostringstream sout;
   sout << "Translation : " << toString(transform.translation(), precision)
@@ -353,8 +374,7 @@ std::vector<const T*> unpack_shared_vector(
 /// that is callable with @c Args
 template <template <size_t> class Callable, size_t N, size_t NMAX,
           typename... Args>
-decltype(Callable<N>::invoke(std::declval<Args>()...)) template_switch(
-    size_t v, Args&&... args) {
+auto template_switch(size_t v, Args&&... args) {
   if (v == N) {
     return Callable<N>::invoke(std::forward<Args>(args)...);
   }

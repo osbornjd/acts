@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -23,20 +23,28 @@ namespace ActsExamples {
 class TrackFinderPerformanceWriter final : public WriterT<ProtoTrackContainer> {
  public:
   struct Config {
-    /// True set of input particles.
-    std::string inputParticles;
-    /// True hit-particles mapping.
-    std::string inputHitParticlesMap;
-    /// Reconstructed input proto tracks.
+    /// Input reconstructed proto tracks collection.
     std::string inputProtoTracks;
-    /// Output directory.
-    std::string outputDir;
-    /// Output filename
-    std::string outputFilename = "performance_track_finder.root";
+    /// Input hit-particles map collection.
+    std::string inputMeasurementParticlesMap;
+    /// Input particles collection.
+    std::string inputParticles;
+    /// Output filename.
+    std::string filePath = "performance_track_finder.root";
+    /// Output file mode
+    std::string fileMode = "RECREATE";
+    /// Output tree name for the tracks
+    std::string treeNameTracks = "track_finder_tracks";
+    /// Output tree name for the particles
+    std::string treeNameParticles = "track_finder_particles";
   };
 
-  TrackFinderPerformanceWriter(Config cfg, Acts::Logging::Level lvl);
-  ~TrackFinderPerformanceWriter();
+  /// Constructor
+  /// @param config the configuration
+  /// @param level The log level
+  TrackFinderPerformanceWriter(Config config, Acts::Logging::Level level);
+
+  ~TrackFinderPerformanceWriter() final override;
 
   ProcessCode endRun() final override;
 

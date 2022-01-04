@@ -8,6 +8,7 @@
 
 #include "Acts/Plugins/DD4hep/DD4hepLayerBuilder.hpp"
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/CylinderLayer.hpp"
 #include "Acts/Geometry/DiscLayer.hpp"
 #include "Acts/Geometry/GenericApproachDescriptor.hpp"
@@ -25,7 +26,6 @@
 #include "Acts/Surfaces/SurfaceArray.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinnedArrayXD.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <boost/algorithm/string.hpp>
 
@@ -77,13 +77,15 @@ const Acts::LayerVector Acts::DD4hepLayerBuilder::endcapLayers(
           detElement.placement().ptr()->GetVolume()->GetShape();
       // create the proto layer
       ProtoLayer pl(gctx, layerSurfaces);
-      if (detExtension->hasValue("r", "envelope") &&
-          detExtension->hasValue("z", "envelope")) {
+      if (detExtension->hasValue("r_min", "envelope") &&
+          detExtension->hasValue("r_max", "envelope") &&
+          detExtension->hasValue("z_min", "envelope") &&
+          detExtension->hasValue("z_max", "envelope")) {
         // set the values of the proto layer in case enevelopes are handed over
-        pl.envelope[Acts::binR] = {detExtension->getValue("r", "envelope"),
-                                   detExtension->getValue("r", "envelope")};
-        pl.envelope[Acts::binZ] = {detExtension->getValue("z", "envelope"),
-                                   detExtension->getValue("z", "envelope")};
+        pl.envelope[Acts::binR] = {detExtension->getValue("r_min", "envelope"),
+                                   detExtension->getValue("r_max", "envelope")};
+        pl.envelope[Acts::binZ] = {detExtension->getValue("z_min", "envelope"),
+                                   detExtension->getValue("z_max", "envelope")};
       } else if (geoShape != nullptr) {
         TGeoTubeSeg* tube = dynamic_cast<TGeoTubeSeg*>(geoShape);
         if (tube == nullptr) {
@@ -126,6 +128,7 @@ const Acts::LayerVector Acts::DD4hepLayerBuilder::endcapLayers(
                                      std::abs(zMax - pl.max(Acts::binZ))};
           pl.envelope[Acts::binR] = {std::abs(rMin - pl.min(Acts::binR)),
                                      std::abs(rMax - pl.max(Acts::binR))};
+          pl.extent.ranges[Acts::binR] = {rMin, rMax};
         }
       } else {
         throw std::logic_error(
@@ -136,6 +139,23 @@ const Acts::LayerVector Acts::DD4hepLayerBuilder::endcapLayers(
       }
 
       std::shared_ptr<Layer> endcapLayer = nullptr;
+
+      // Check if DD4hep pre-defines the surface binning
+      bool hasSurfaceBinning = detExtension->hasCategory("surface_binning");
+      size_t nPhi = 1;
+      size_t nR = 1;
+      if (hasSurfaceBinning) {
+        if (detExtension->hasValue("n_phi", "surface_binning")) {
+          nPhi = static_cast<size_t>(
+              detExtension->getValue("n_phi", "surface_binning"));
+        }
+        if (detExtension->hasValue("n_r", "surface_binning")) {
+          nR = static_cast<size_t>(
+              detExtension->getValue("n_r", "surface_binning"));
+        }
+        hasSurfaceBinning = nR * nPhi > 1;
+      }
+
       // In case the layer is sensitive
       if (detElement.volume().isSensitive()) {
         // Create the sensitive surface
@@ -152,7 +172,12 @@ const Acts::LayerVector Acts::DD4hepLayerBuilder::endcapLayers(
         endcapLayer = DiscLayer::create(transform, dBounds, std::move(sArray),
                                         thickness, nullptr, Acts::active);
 
+      } else if (hasSurfaceBinning) {
+        // This method uses the binning from DD4hep/xml
+        endcapLayer = m_cfg.layerCreator->discLayer(
+            gctx, layerSurfaces, nR, nPhi, pl, transform, nullptr);
       } else {
+        // This method determines the binning automatically
         endcapLayer = m_cfg.layerCreator->discLayer(
             gctx, layerSurfaces, m_cfg.bTypeR, m_cfg.bTypePhi, pl, transform,
             nullptr);
@@ -199,13 +224,16 @@ const Acts::LayerVector Acts::DD4hepLayerBuilder::centralLayers(
           detElement.placement().ptr()->GetVolume()->GetShape();
       // create the proto layer
       ProtoLayer pl(gctx, layerSurfaces);
-      if (detExtension->hasValue("r", "envelope") &&
-          detExtension->hasValue("z", "envelope")) {
+
+      if (detExtension->hasValue("r_min", "envelope") &&
+          detExtension->hasValue("r_max", "envelope") &&
+          detExtension->hasValue("z_min", "envelope") &&
+          detExtension->hasValue("z_max", "envelope")) {
         // set the values of the proto layer in case enevelopes are handed over
-        pl.envelope[Acts::binR] = {detExtension->getValue("r", "envelope"),
-                                   detExtension->getValue("r", "envelope")};
-        pl.envelope[Acts::binZ] = {detExtension->getValue("z", "envelope"),
-                                   detExtension->getValue("z", "envelope")};
+        pl.envelope[Acts::binR] = {detExtension->getValue("r_min", "envelope"),
+                                   detExtension->getValue("r_max", "envelope")};
+        pl.envelope[Acts::binZ] = {detExtension->getValue("z_min", "envelope"),
+                                   detExtension->getValue("z_max", "envelope")};
       } else if (geoShape != nullptr) {
         TGeoTubeSeg* tube = dynamic_cast<TGeoTubeSeg*>(geoShape);
         if (tube == nullptr)
@@ -323,16 +351,16 @@ Acts::DD4hepLayerBuilder::createSensitiveSurface(
   return dd4hepDetElement->surface().getSharedPtr();
 }
 
-Acts::Transform3D Acts::DD4hepLayerBuilder::convertTransform(
+Acts::Transform3 Acts::DD4hepLayerBuilder::convertTransform(
     const TGeoMatrix* tGeoTrans) const {
   // get the placement and orientation in respect to its mother
   const Double_t* rotation = tGeoTrans->GetRotationMatrix();
   const Double_t* translation = tGeoTrans->GetTranslation();
   return TGeoPrimitivesHelper::makeTransform(
-      Acts::Vector3D(rotation[0], rotation[3], rotation[6]),
-      Acts::Vector3D(rotation[1], rotation[4], rotation[7]),
-      Acts::Vector3D(rotation[2], rotation[5], rotation[8]),
-      Acts::Vector3D(translation[0] * UnitConstants::cm,
-                     translation[1] * UnitConstants::cm,
-                     translation[2] * UnitConstants::cm));
+      Acts::Vector3(rotation[0], rotation[3], rotation[6]),
+      Acts::Vector3(rotation[1], rotation[4], rotation[7]),
+      Acts::Vector3(rotation[2], rotation[5], rotation[8]),
+      Acts::Vector3(translation[0] * UnitConstants::cm,
+                    translation[1] * UnitConstants::cm,
+                    translation[2] * UnitConstants::cm));
 }

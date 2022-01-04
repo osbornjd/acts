@@ -11,27 +11,30 @@
 // Workaround for building on clang+libstdc++
 #include "Acts/Utilities/detail/ReferenceWrapperAnyCompat.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
-#include "Acts/Material/AccumulatedVolumeMaterial.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Propagator/MaterialInteractor.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/StraightLineStepper.hpp"
-#include "Acts/Propagator/SurfaceCollector.hpp"
-#include "Acts/Propagator/VolumeCollector.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Surfaces/Surface.hpp"
+#include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/detail/Axis.hpp"
-#include "Acts/Utilities/detail/Grid.hpp"
+
+#include <map>
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace Acts {
 
-/// list of point used in the mapping of a volume
-using RecordedMaterialVolumePoint =
-    std::vector<std::pair<Acts::MaterialSlab, std::vector<Acts::Vector3D>>>;
+class ISurfaceMaterial;
+class IVolumeMaterial;
+class TrackingGeometry;
 
 //
 /// @brief VolumeMaterialMapper
@@ -74,8 +77,7 @@ class VolumeMaterialMapper {
   /// Nested State struct which is used for the mapping prococess
   struct State {
     /// Constructor of the Sate with contexts
-    State(std::reference_wrapper<const GeometryContext> gctx,
-          std::reference_wrapper<const MagneticFieldContext> mctx)
+    State(const GeometryContext& gctx, const MagneticFieldContext& mctx)
         : geoContext(gctx), magFieldContext(mctx) {}
 
     /// The recorded material per geometry ID
@@ -106,13 +108,15 @@ class VolumeMaterialMapper {
   ///
   /// @param cfg Configuration struct
   /// @param propagator The straight line propagator
-  /// @param log The logger
+  /// @param slogger The logger
   VolumeMaterialMapper(const Config& cfg, StraightLinePropagator propagator,
                        std::unique_ptr<const Logger> slogger = getDefaultLogger(
                            "VolumeMaterialMapper", Logging::INFO));
 
   /// @brief helper method that creates the cache for the mapping
   ///
+  /// @param[in] gctx The geometry context to use
+  /// @param[in] mctx The magnetic field context to use
   /// @param[in] tGeometry The geometry which should be mapped
   ///
   /// This method takes a TrackingGeometry,
@@ -166,13 +170,13 @@ class VolumeMaterialMapper {
   ///
   /// @param mState is the map to be filled
   /// @param volume is the surface to be checked for a Proxy
-  void checkAndInsert(State& /*mState*/, const TrackingVolume& volume) const;
+  void checkAndInsert(State& mState, const TrackingVolume& volume) const;
 
   /// @brief check and insert
   ///
   /// @param mState is the map to be filled
-  /// @param volume is the surface to be checked for a Proxy
-  void collectMaterialSurfaces(State& /*mState*/,
+  /// @param tVolume is the surface to collect from
+  void collectMaterialSurfaces(State& mState,
                                const TrackingVolume& tVolume) const;
 
   /// Create extra material point for the mapping
@@ -182,8 +186,8 @@ class VolumeMaterialMapper {
   /// @param position position of the original hit
   /// @param direction direction of the track
   void createExtraHits(RecordedMaterialVolumePoint& matPoint,
-                       Acts::MaterialSlab properties, Vector3D position,
-                       Vector3D direction) const;
+                       Acts::MaterialSlab properties, Vector3 position,
+                       Vector3 direction) const;
 
   /// Standard logger method
   const Logger& logger() const { return *m_logger; }

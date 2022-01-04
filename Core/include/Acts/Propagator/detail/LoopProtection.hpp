@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 
 namespace Acts {
@@ -29,8 +29,16 @@ struct LoopProtection {
     // Estimate the loop protection limit
     if (state.options.loopProtection) {
       // Get the field at the start position
-      Vector3D field =
+      auto fieldRes =
           stepper.getField(state.stepping, stepper.position(state.stepping));
+      if (!fieldRes.ok()) {
+        // there's no great way to return the error here, so resort to warning
+        // and not applying the loop protection in this case
+        ACTS_WARNING(
+            "Field lookup was unsuccessful, this is very likely an error");
+        return;
+      }
+      Vector3 field = *fieldRes;
       const double B = field.norm();
       if (B != 0.) {
         // Transverse component at start is taken for the loop protection
@@ -42,7 +50,7 @@ struct LoopProtection {
             state.options.abortList.template get<path_arborter_t>();
         double loopLimit = state.options.loopFraction * helixPath;
         double pathLimit = pathAborter.internalLimit;
-        if (loopLimit * loopLimit < pathLimit * pathLimit) {
+        if (std::abs(loopLimit) < std::abs(pathLimit)) {
           pathAborter.internalLimit = loopLimit;
 
           ACTS_VERBOSE("Path aborter limit set to "

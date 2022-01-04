@@ -14,8 +14,6 @@
 
 #include <iostream>
 
-namespace po = boost::program_options;
-
 namespace ActsExamples {
 
 namespace Options {
@@ -25,36 +23,32 @@ namespace Options {
 /// @tparam aopt_t Type of the options object (from BOOST)
 ///
 /// @param opt The options object, where string based options are attached
-template <typename aopt_t>
-void addObjWriterOptions(aopt_t& opt) {
+void addObjWriterOptions(boost::program_options::options_description& opt) {
+  namespace po = boost::program_options;
   opt.add_options()("obj-precision", po::value<int>()->default_value(6),
                     "Floating number output precission.")(
       "obj-scalor", po::value<double>()->default_value(1.),
       "Optional scaling from Acts units to ouput units.")(
       "obj-container-view",
-      po::value<read_series>()->multitoken()->default_value(
-          {0, 220, 220, 220, 0}),
+      po::value<Integers<5>>()->default_value({{0, 220, 220, 220, 0}}),
       "View configuration of container volumes (vis/novis, r, g, b, trimesh).")(
       "obj-volume-view",
-      po::value<read_series>()->multitoken()->default_value(
-          {1, 220, 220, 0, 0}),
+      po::value<Integers<5>>()->default_value({{1, 220, 220, 0, 0}}),
       "View configuration of navigation volumes (vis/novis, r, g, b, "
       "trimesh).")(
       "obj-layer-view",
-      po::value<read_series>()->multitoken()->default_value(
-          {1, 100, 180, 240, 0}),
+      po::value<Integers<5>>()->default_value({{1, 100, 180, 240, 0}}),
       "View configuration of layer structures (vis/novis, r, g, b, trimesh).")(
       "obj-sensitive-view",
-      po::value<read_series>()->multitoken()->default_value(
-          {1, 0, 180, 240, 0}),
+      po::value<Integers<5>>()->default_value({{1, 0, 180, 240, 0}}),
       "View configuration of sensitive surfaces (vis/novis, r, g, b, "
-      "trimesh).")("obj-passive-view",
-                   po::value<read_series>()->multitoken()->default_value(
-                       {1, 240, 280, 0, 0}),
-                   "View configuration of sensitive surfaces (vis/novis, r, g, "
-                   "b, trimesh).")(
+      "trimesh).")(
+      "obj-passive-view",
+      po::value<Integers<5>>()->default_value({{1, 240, 280, 0, 0}}),
+      "View configuration of sensitive surfaces (vis/novis, r, g, "
+      "b, trimesh).")(
       "obj-grid-view",
-      po::value<read_series>()->multitoken()->default_value({1, 220, 0, 0, 0}),
+      po::value<Integers<5>>()->default_value({{1, 220, 0, 0, 0}}),
       "View configuration of grid structures (vis/novis, r, g, b, trimesh).")(
       "obj-grid-offset", po::value<double>()->default_value(0.),
       "View offset of grid values.")("obj-grid-thickness",
@@ -63,19 +57,18 @@ void addObjWriterOptions(aopt_t& opt) {
 }
 
 /// read the evgen options and return a Config file
-template <class amap_t>
 ActsExamples::ObjTrackingGeometryWriter::Config
 readObjTrackingGeometryWriterConfig(
-    const amap_t& vm, const std::string& name,
-    Acts::Logging::Level loglevel = Acts::Logging::INFO) {
-  ActsExamples::ObjTrackingGeometryWriter::Config objTgConfig(name, loglevel);
+    const boost::program_options::variables_map& vm) {
+  namespace po = boost::program_options;
+  ActsExamples::ObjTrackingGeometryWriter::Config objTgConfig;
 
   objTgConfig.outputPrecision = vm["obj-precision"].template as<int>();
   objTgConfig.outputScalor = vm["obj-scalor"].template as<double>();
 
   auto setView = [&](const std::string& vname,
                      Acts::ViewConfig& viewCfg) -> void {
-    read_series cview = vm[vname].template as<read_series>();
+    auto cview = vm[vname].template as<Integers<5>>();
     if (not cview.empty()) {
       if (cview[0] == 0) {
         viewCfg.visible = false;

@@ -1,15 +1,21 @@
 add_library(
   ActsExamplesIoRoot SHARED
+  src/RootMeasurementWriter.cpp
   src/RootMaterialDecorator.cpp
   src/RootMaterialWriter.cpp
   src/RootMaterialTrackReader.cpp
   src/RootMaterialTrackWriter.cpp
   src/RootPlanarClusterWriter.cpp
   src/RootParticleWriter.cpp
+  src/RootParticleReader.cpp
   src/RootPropagationStepsWriter.cpp
   src/RootSimHitWriter.cpp
   src/RootTrackParameterWriter.cpp
-  src/RootTrajectoryWriter.cpp
+  src/RootTrajectoryStatesWriter.cpp
+  src/RootTrajectorySummaryReader.cpp
+  src/RootTrajectorySummaryWriter.cpp
+  src/RootVertexPerformanceWriter.cpp
+  src/RootBFieldWriter.cpp
 )
 target_include_directories(
   ActsExamplesIoRoot
@@ -17,8 +23,8 @@ target_include_directories(
 target_link_libraries(
   ActsExamplesIoRoot
   PUBLIC
-    ActsCore ActsPluginDigitization ActsPluginIdentification
-    ActsExamplesFramework ActsExamplesPropagation ActsExamplesTruthTracking
+    ActsCore ActsPluginDigitization ActsPluginIdentification ActsExamplesDigitization
+    ActsExamplesFramework ActsExamplesPropagation ActsExamplesTruthTracking ActsExamplesMaterialMapping
     Threads::Threads
   PRIVATE ROOT::Core ROOT::Hist ROOT::Tree)
 

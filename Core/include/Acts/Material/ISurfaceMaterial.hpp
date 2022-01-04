@@ -7,14 +7,19 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Common.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <memory>
 #include <vector>
 
 namespace Acts {
+
+/// This enum describes the type of surface material mapping
+enum MappingType { PreMapping = -1, Default = 0, PostMapping = 1, Sensor = 2 };
 
 /// @class ISurfaceMaterial
 ///
@@ -33,6 +38,13 @@ class ISurfaceMaterial {
   /// @param splitFactor is the splitting ratio between pre/post update
   ISurfaceMaterial(double splitFactor) : m_splitFactor(splitFactor) {}
 
+  /// Constructor
+  ///
+  /// @param splitFactor is the splitting ratio between pre/post update
+  /// @param mappingType is the type of surface mapping associated to the surface
+  ISurfaceMaterial(double splitFactor, Acts::MappingType mappingType)
+      : m_splitFactor(splitFactor), m_mappingType(mappingType) {}
+
   /// Destructor
   virtual ~ISurfaceMaterial() = default;
 
@@ -47,7 +59,7 @@ class ISurfaceMaterial {
   /// @param lp is the local position used for the (eventual) lookup
   ///
   /// @return const MaterialSlab
-  virtual const MaterialSlab& materialSlab(const Vector2D& lp) const = 0;
+  virtual const MaterialSlab& materialSlab(const Vector2& lp) const = 0;
 
   /// Return method for full material description of the Surface
   /// - from the global coordinates
@@ -55,19 +67,23 @@ class ISurfaceMaterial {
   /// @param gp is the global position used for the (eventual) lookup
   ///
   /// @return const MaterialSlab
-  virtual const MaterialSlab& materialSlab(const Vector3D& gp) const = 0;
+  virtual const MaterialSlab& materialSlab(const Vector3& gp) const = 0;
 
   /// Direct access via bins to the MaterialSlab
   ///
-  /// @param ib0 is the material bin in dimension 0
-  /// @param ib1 is the material bin in dimension 1
-  virtual const MaterialSlab& materialSlab(size_t ib0, size_t ib1) const = 0;
+  /// @param bin0 is the material bin in dimension 0
+  /// @param bin1 is the material bin in dimension 1
+  virtual const MaterialSlab& materialSlab(size_t bin0, size_t bin1) const = 0;
 
   /// Update pre factor
   ///
   /// @param pDir is the navigation direction through the surface
   /// @param mStage is the material update directive (onapproach, full, onleave)
   double factor(NavigationDirection pDir, MaterialUpdateStage mStage) const;
+
+  /// Return the type of surface material mapping
+  ///
+  MappingType mappingType() const { return m_mappingType; }
 
   /// Return method for fully scaled material description of the Surface
   /// - from local coordinate on the surface
@@ -77,7 +93,7 @@ class ISurfaceMaterial {
   /// @param mStage is the material update directive (onapproach, full, onleave)
   ///
   /// @return MaterialSlab
-  MaterialSlab materialSlab(const Vector2D& lp, NavigationDirection pDir,
+  MaterialSlab materialSlab(const Vector2& lp, NavigationDirection pDir,
                             MaterialUpdateStage mStage) const;
 
   /// Return method for full material description of the Surface
@@ -88,7 +104,7 @@ class ISurfaceMaterial {
   /// @param mStage is the material update directive (onapproach, full, onleave)
   ///
   /// @return MaterialSlab
-  MaterialSlab materialSlab(const Vector3D& gp, NavigationDirection pDir,
+  MaterialSlab materialSlab(const Vector3& gp, NavigationDirection pDir,
                             MaterialUpdateStage mStage) const;
 
   /// @brief output stream operator
@@ -108,6 +124,8 @@ class ISurfaceMaterial {
 
  protected:
   double m_splitFactor{1.};  //!< the split factor in favour of oppositePre
+  MappingType m_mappingType{
+      Acts::MappingType::Default};  //!< Use the default mapping type by default
 };
 
 inline double ISurfaceMaterial::factor(NavigationDirection pDir,
@@ -119,7 +137,7 @@ inline double ISurfaceMaterial::factor(NavigationDirection pDir,
 }
 
 inline MaterialSlab ISurfaceMaterial::materialSlab(
-    const Vector2D& lp, NavigationDirection pDir,
+    const Vector2& lp, NavigationDirection pDir,
     MaterialUpdateStage mStage) const {
   // The plain material properties associated to this bin
   MaterialSlab plainMatProp = materialSlab(lp);
@@ -135,7 +153,7 @@ inline MaterialSlab ISurfaceMaterial::materialSlab(
 }
 
 inline MaterialSlab ISurfaceMaterial::materialSlab(
-    const Vector3D& gp, NavigationDirection pDir,
+    const Vector3& gp, NavigationDirection pDir,
     MaterialUpdateStage mStage) const {
   // The plain material properties associated to this bin
   MaterialSlab plainMatProp = materialSlab(gp);

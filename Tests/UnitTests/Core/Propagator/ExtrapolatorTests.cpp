@@ -10,6 +10,8 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
@@ -24,8 +26,6 @@
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Tests/CommonHelpers/CylindricalTrackingGeometry.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 namespace bdata = boost::unit_test::data;
 namespace tt = boost::test_tools;
@@ -48,14 +48,14 @@ CylindricalTrackingGeometry cGeometry(tgContext);
 auto tGeometry = cGeometry();
 
 // Get the navigator and provide the TrackingGeometry
-Navigator navigator(tGeometry);
+Navigator navigator({tGeometry});
 
 using BFieldType = ConstantBField;
-using EigenStepperType = EigenStepper<BFieldType>;
+using EigenStepperType = EigenStepper<>;
 using EigenPropagatorType = Propagator<EigenStepperType, Navigator>;
 using Covariance = BoundSymMatrix;
 
-BFieldType bField(0, 0, 2_T);
+auto bField = std::make_shared<BFieldType>(Vector3{0, 0, 2_T});
 EigenStepperType estepper(bField);
 EigenPropagatorType epropagator(std::move(estepper), std::move(navigator));
 
@@ -102,7 +102,7 @@ BOOST_DATA_TEST_CASE(
   cov << 10_mm, 0, 0.123, 0, 0.5, 0, 0, 10_mm, 0, 0.162, 0, 0, 0.123, 0, 0.1, 0,
       0, 0, 0, 0.162, 0, 0.1, 0, 0, 0.5, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0,
       0, 0;
-  CurvilinearTrackParameters start(Vector4D(0, 0, 0, time), phi, theta, p, q,
+  CurvilinearTrackParameters start(Vector4(0, 0, 0, time), phi, theta, p, q,
                                    cov);
 
   PropagatorOptions<> options(tgContext, mfContext, getDummyLogger());
@@ -145,7 +145,7 @@ BOOST_DATA_TEST_CASE(
   cov << 10_mm, 0, 0.123, 0, 0.5, 0, 0, 10_mm, 0, 0.162, 0, 0, 0.123, 0, 0.1, 0,
       0, 0, 0, 0.162, 0, 0.1, 0, 0, 0.5, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0,
       0, 0;
-  CurvilinearTrackParameters start(Vector4D(0, 0, 0, time), phi, theta, p, q,
+  CurvilinearTrackParameters start(Vector4(0, 0, 0, time), phi, theta, p, q,
                                    cov);
 
   // A PlaneSelector for the SurfaceCollector
@@ -212,7 +212,7 @@ BOOST_DATA_TEST_CASE(
   cov << 10_mm, 0, 0.123, 0, 0.5, 0, 0, 10_mm, 0, 0.162, 0, 0, 0.123, 0, 0.1, 0,
       0, 0, 0, 0.162, 0, 0.1, 0, 0, 0.5, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0,
       0, 0;
-  CurvilinearTrackParameters start(Vector4D(0, 0, 0, time), phi, theta, p, q,
+  CurvilinearTrackParameters start(Vector4(0, 0, 0, time), phi, theta, p, q,
                                    cov);
 
   PropagatorOptions<ActionList<MaterialInteractor>> options(
@@ -260,7 +260,7 @@ BOOST_DATA_TEST_CASE(
   cov << 10_mm, 0, 0.123, 0, 0.5, 0, 0, 10_mm, 0, 0.162, 0, 0, 0.123, 0, 0.1, 0,
       0, 0, 0, 0.162, 0, 0.1, 0, 0, 0.5, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0,
       0, 0;
-  CurvilinearTrackParameters start(Vector4D(0, 0, 0, time), phi, theta, p, q,
+  CurvilinearTrackParameters start(Vector4(0, 0, 0, time), phi, theta, p, q,
                                    cov);
 
   // Action list and abort list
@@ -272,8 +272,10 @@ BOOST_DATA_TEST_CASE(
   const auto& status = epropagator.propagate(start, options).value();
   // this test assumes state.options.loopFraction = 0.5
   // maximum momentum allowed
-  double pmax = options.pathLimit *
-                bField.getField(start.position(tgContext)).norm() / M_PI;
+  auto bCache = bField->makeCache(mfContext);
+  double pmax =
+      options.pathLimit *
+      bField->getField(start.position(tgContext), bCache).value().norm() / M_PI;
   if (p < pmax) {
     BOOST_CHECK_LT(status.pathLength, options.pathLimit);
   } else {

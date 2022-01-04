@@ -8,10 +8,10 @@
 
 #include "ActsExamples/Io/Root/RootMaterialTrackWriter.hpp"
 
-#include <Acts/Geometry/GeometryIdentifier.hpp>
-#include <Acts/Surfaces/CylinderBounds.hpp>
-#include <Acts/Surfaces/RadialBounds.hpp>
-#include <Acts/Utilities/Helpers.hpp>
+#include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "Acts/Surfaces/CylinderBounds.hpp"
+#include "Acts/Surfaces/RadialBounds.hpp"
+#include "Acts/Utilities/Helpers.hpp"
 
 #include <ios>
 #include <iostream>
@@ -25,11 +25,10 @@ using Acts::VectorHelpers::perp;
 using Acts::VectorHelpers::phi;
 
 ActsExamples::RootMaterialTrackWriter::RootMaterialTrackWriter(
-    const ActsExamples::RootMaterialTrackWriter::Config& cfg,
+    const ActsExamples::RootMaterialTrackWriter::Config& config,
     Acts::Logging::Level level)
-    : WriterT(cfg.collection, "RootMaterialTrackWriter", level),
-      m_cfg(cfg),
-      m_outputFile(cfg.rootFile) {
+    : WriterT(config.collection, "RootMaterialTrackWriter", level),
+      m_cfg(config) {
   // An input collection name and tree name must be specified
   if (m_cfg.collection.empty()) {
     throw std::invalid_argument("Missing input collection");
@@ -38,12 +37,11 @@ ActsExamples::RootMaterialTrackWriter::RootMaterialTrackWriter(
   }
 
   // Setup ROOT I/O
+  m_outputFile = TFile::Open(m_cfg.filePath.c_str(), m_cfg.fileMode.c_str());
   if (m_outputFile == nullptr) {
-    m_outputFile = TFile::Open(m_cfg.filePath.c_str(), m_cfg.fileMode.c_str());
-    if (m_outputFile == nullptr) {
-      throw std::ios_base::failure("Could not open '" + m_cfg.filePath);
-    }
+    throw std::ios_base::failure("Could not open '" + m_cfg.filePath);
   }
+
   m_outputFile->cd();
   m_outputTree =
       new TTree(m_cfg.treeName.c_str(), "TTree from RootMaterialTrackWriter");
@@ -51,6 +49,7 @@ ActsExamples::RootMaterialTrackWriter::RootMaterialTrackWriter(
     throw std::bad_alloc();
 
   // Set the branches
+  m_outputTree->Branch("event_id", &m_eventId);
   m_outputTree->Branch("v_x", &m_v_x);
   m_outputTree->Branch("v_y", &m_v_y);
   m_outputTree->Branch("v_z", &m_v_z);
@@ -96,26 +95,27 @@ ActsExamples::RootMaterialTrackWriter::RootMaterialTrackWriter(
   }
 }
 
-ActsExamples::RootMaterialTrackWriter::~RootMaterialTrackWriter() {
-  m_outputFile->Close();
-}
+ActsExamples::RootMaterialTrackWriter::~RootMaterialTrackWriter() {}
 
 ActsExamples::ProcessCode ActsExamples::RootMaterialTrackWriter::endRun() {
   // write the tree and close the file
   ACTS_INFO("Writing ROOT output File : " << m_cfg.filePath);
   m_outputFile->cd();
   m_outputTree->Write();
+  m_outputFile->Close();
   return ActsExamples::ProcessCode::SUCCESS;
 }
 
 ActsExamples::ProcessCode ActsExamples::RootMaterialTrackWriter::writeT(
     const AlgorithmContext& ctx,
-    const std::vector<Acts::RecordedMaterialTrack>& materialTracks) {
+    const std::unordered_map<size_t, Acts::RecordedMaterialTrack>&
+        materialTracks) {
   // Exclusive access to the tree while writing
   std::lock_guard<std::mutex> lock(m_writeMutex);
 
+  m_eventId = ctx.eventNumber;
   // Loop over the material tracks and write them out
-  for (auto& mtrack : materialTracks) {
+  for (auto& [idTrack, mtrack] : materialTracks) {
     // Clearing the vector first
     m_step_sx.clear();
     m_step_sy.clear();
@@ -198,19 +198,22 @@ ActsExamples::ProcessCode ActsExamples::RootMaterialTrackWriter::writeT(
 
     // an now loop over the material
     for (auto& mint : mtrack.second.materialInteractions) {
+      auto direction = mint.direction.normalized();
+
       // The material step position information
       m_step_x.push_back(mint.position.x());
       m_step_y.push_back(mint.position.y());
       m_step_z.push_back(mint.position.z());
-      m_step_dx.push_back(mint.direction.x());
-      m_step_dy.push_back(mint.direction.y());
-      m_step_dz.push_back(mint.direction.z());
+      m_step_dx.push_back(direction.x());
+      m_step_dy.push_back(direction.y());
+      m_step_dz.push_back(direction.z());
 
       if (m_cfg.prePostStep) {
-        Acts::Vector3D prePos =
-            mint.position - 0.5 * mint.pathCorrection * mint.direction;
-        Acts::Vector3D posPos =
-            mint.position + 0.5 * mint.pathCorrection * mint.direction;
+        Acts::Vector3 prePos =
+            mint.position - 0.5 * mint.pathCorrection * direction;
+        Acts::Vector3 posPos =
+            mint.position + 0.5 * mint.pathCorrection * direction;
+
         m_step_sx.push_back(prePos.x());
         m_step_sy.push_back(prePos.y());
         m_step_sz.push_back(prePos.z());

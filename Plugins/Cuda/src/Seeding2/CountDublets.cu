@@ -9,6 +9,7 @@
 // CUDA plugin include(s).
 #include "Acts/Plugins/Cuda/Seeding2/Details/CountDublets.hpp"
 #include "Acts/Plugins/Cuda/Seeding2/Details/Types.hpp"
+
 #include "../Utilities/ErrorCheck.cuh"
 
 // CUDA include(s).
@@ -120,9 +121,7 @@ DubletCounts countDublets(
 
   // Copy the sum(s) back to the host.
   auto dubletCountsHost = make_host_array<DubletCounts>(numBlocks);
-  ACTS_CUDA_ERROR_CHECK(
-      cudaMemcpy(dubletCountsHost.get(), dubletCountsDevice.get(),
-                 numBlocks * sizeof(DubletCounts), cudaMemcpyDeviceToHost));
+  copyToHost(dubletCountsHost, dubletCountsDevice, numBlocks);
 
   // Perform the final summation on the host. Assuming that the number of
   // middle space points is not so large that it would make sense to do the

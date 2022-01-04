@@ -8,7 +8,7 @@
 
 #include "ActsExamples/TruthTracking/TruthTrackFinder.hpp"
 
-#include "ActsExamples/EventData/IndexContainers.hpp"
+#include "ActsExamples/EventData/Index.hpp"
 #include "ActsExamples/EventData/ProtoTrack.hpp"
 #include "ActsExamples/EventData/SimParticle.hpp"
 #include "ActsExamples/Framework/WhiteBoard.hpp"
@@ -20,12 +20,13 @@
 
 using namespace ActsExamples;
 
-TruthTrackFinder::TruthTrackFinder(const Config& cfg, Acts::Logging::Level lvl)
-    : BareAlgorithm("TruthTrackFinder", lvl), m_cfg(cfg) {
+TruthTrackFinder::TruthTrackFinder(const Config& config,
+                                   Acts::Logging::Level level)
+    : BareAlgorithm("TruthTrackFinder", level), m_cfg(config) {
   if (m_cfg.inputParticles.empty()) {
     throw std::invalid_argument("Missing input truth particles collection");
   }
-  if (m_cfg.inputHitParticlesMap.empty()) {
+  if (m_cfg.inputMeasurementParticlesMap.empty()) {
     throw std::invalid_argument("Missing input hit-particles map collection");
   }
   if (m_cfg.outputProtoTracks.empty()) {
@@ -40,7 +41,7 @@ ProcessCode TruthTrackFinder::execute(const AlgorithmContext& ctx) const {
   const auto& particles =
       ctx.eventStore.get<SimParticleContainer>(m_cfg.inputParticles);
   const auto& hitParticlesMap =
-      ctx.eventStore.get<HitParticlesMap>(m_cfg.inputHitParticlesMap);
+      ctx.eventStore.get<HitParticlesMap>(m_cfg.inputMeasurementParticlesMap);
   // compute particle_id -> {hit_id...} map from the
   // hit_id -> {particle_id...} map on the fly.
   const auto& particleHitsMap = invertIndexMultimap(hitParticlesMap);
@@ -49,11 +50,12 @@ ProcessCode TruthTrackFinder::execute(const AlgorithmContext& ctx) const {
   ProtoTrackContainer tracks;
   tracks.reserve(particles.size());
 
-  // create prototracks for all input particles
+  ACTS_VERBOSE("Create prototracks for " << particles.size() << " particles");
   for (const auto& particle : particles) {
     // find the corresponding hits for this particle
     const auto& hits =
         makeRange(particleHitsMap.equal_range(particle.particleId()));
+    ACTS_VERBOSE(" - Prototrack from " << hits.size() << " hits");
     // fill hit indices to create the proto track
     ProtoTrack track;
     track.reserve(hits.size());

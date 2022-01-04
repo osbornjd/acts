@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
@@ -14,7 +15,6 @@
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Tests/CommonHelpers/BenchmarkTools.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <iostream>
 
@@ -69,11 +69,12 @@ int main(int argc, char* argv[]) {
                            << "GeV in a " << BzInT << "T B-field");
 
   using BField_type = ConstantBField;
-  using Stepper_type = AtlasStepper<BField_type>;
+  using Stepper_type = AtlasStepper;
   using Propagator_type = Propagator<Stepper_type>;
   using Covariance = BoundSymMatrix;
 
-  BField_type bField(0, 0, BzInT * UnitConstants::T);
+  auto bField =
+      std::make_shared<BField_type>(Vector3{0, 0, BzInT * UnitConstants::T});
   Stepper_type atlas_stepper(std::move(bField));
   Propagator_type propagator(std::move(atlas_stepper));
 
@@ -94,7 +95,7 @@ int main(int argc, char* argv[]) {
   if (withCov) {
     optCov = cov;
   }
-  CurvilinearTrackParameters pars(Vector4D::Zero(), 0_degree, 90_degree,
+  CurvilinearTrackParameters pars(Vector4::Zero(), 0_degree, 90_degree,
                                   ptInGeV * UnitConstants::GeV, 1_e, optCov);
 
   double totalPathLength = 0;

@@ -8,15 +8,20 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/ApproachDescriptor.hpp"
-#include "Acts/Geometry/BoundarySurfaceT.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
+#include "Acts/Surfaces/BoundaryCheck.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 
-#include <algorithm>
+#include <memory>
+#include <vector>
 
 namespace Acts {
+
+class Layer;
+class Surface;
 
 /// @class GenericApproachDescriptor
 ///
@@ -57,8 +62,8 @@ class GenericApproachDescriptor : public ApproachDescriptor {
   ///
   /// @return : a SurfaceIntersection
   ObjectIntersection<Surface> approachSurface(
-      const GeometryContext& gctx, const Vector3D& position,
-      const Vector3D& direction, const BoundaryCheck& bcheck) const override;
+      const GeometryContext& gctx, const Vector3& position,
+      const Vector3& direction, const BoundaryCheck& bcheck) const override;
 
   /// return all contained surfaces of this approach descriptor
   const std::vector<const Surface*>& containedSurfaces() const override;

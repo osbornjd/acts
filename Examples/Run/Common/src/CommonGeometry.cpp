@@ -10,8 +10,8 @@
 #include "ActsExamples/Geometry/MaterialWiper.hpp"
 #include "ActsExamples/Io/Root/RootMaterialDecorator.hpp"
 #include <Acts/Material/IMaterialDecorator.hpp>
-#include <Acts/Plugins/Json/JsonGeometryConverter.hpp>
 #include <Acts/Plugins/Json/JsonMaterialDecorator.hpp>
+#include <Acts/Plugins/Json/MaterialMapJsonConverter.hpp>
 #include <Acts/Utilities/Logger.hpp>
 
 #include <string>
@@ -43,18 +43,19 @@ build(const boost::program_options::variables_map& vm,
     // Retrieve the filename
     auto fileName = vm["mat-input-file"].template as<std::string>();
     // json or root based decorator
-    if (fileName.find(".json") != std::string::npos) {
+    if (fileName.find(".json") != std::string::npos ||
+        fileName.find(".cbor") != std::string::npos) {
       // Set up the converter first
-      Acts::JsonGeometryConverter::Config jsonGeoConvConfig;
+      Acts::MaterialMapJsonConverter::Config jsonGeoConvConfig;
       // Set up the json-based decorator
       matDeco = std::make_shared<const Acts::JsonMaterialDecorator>(
-          jsonGeoConvConfig, fileName);
+          jsonGeoConvConfig, fileName, Acts::Logging::INFO);
     } else if (fileName.find(".root") != std::string::npos) {
       // Set up the root-based decorator
       ActsExamples::RootMaterialDecorator::Config rootMatDecConfig;
       rootMatDecConfig.fileName = fileName;
       matDeco = std::make_shared<const ActsExamples::RootMaterialDecorator>(
-          rootMatDecConfig);
+          rootMatDecConfig, Acts::Logging::INFO);
     }
   }
 

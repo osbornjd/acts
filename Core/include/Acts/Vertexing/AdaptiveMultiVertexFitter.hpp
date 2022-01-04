@@ -8,9 +8,9 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Utilities/AnnealingUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Vertexing/AMVFInfo.hpp"
@@ -51,8 +51,10 @@ class AdaptiveMultiVertexFitter {
  public:
   /// @brief The fitter state
   struct State {
-    State(const Acts::MagneticFieldContext& mctx)
-        : ipState(mctx), linearizerState(mctx) {}
+    State(const MagneticFieldProvider& field,
+          const Acts::MagneticFieldContext& magContext)
+        : ipState(field.makeCache(magContext)),
+          linearizerState(field.makeCache(magContext)) {}
     // Vertex collection to be fitted
     std::vector<Vertex<InputTrack_t>*> vertexCollection;
 
@@ -252,6 +254,7 @@ class AdaptiveMultiVertexFitter {
   /// in order to later faster estimate compatibilities of track
   /// with different vertices
   ///
+  /// @param state The state to operate on
   /// @param vtx The vertex object
   /// @param vertexingOptions Vertexing options
   Result<void> prepareVertexForFit(

@@ -8,11 +8,13 @@
 
 #pragma once
 
+#include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Plugins/Digitization/PlanarModuleCluster.hpp"
 #include "ActsExamples/EventData/GeometryContainers.hpp"
 #include "ActsExamples/Framework/WriterT.hpp"
 
 #include <limits>
+#include <memory>
 #include <string>
 
 namespace ActsExamples {
@@ -40,18 +42,23 @@ class CsvPlanarClusterWriter final
     /// Which cluster collection to write.
     std::string inputClusters;
     /// Which simulated (truth) hits collection to use.
-    std::string inputSimulatedHits;
+    std::string inputSimHits;
     /// Where to place output files
     std::string outputDir;
     /// Number of decimal digits for floating point precision in output.
     size_t outputPrecision = std::numeric_limits<float>::max_digits10;
+    /// Tracking geometry required to access global-to-local transforms.
+    std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry;
   };
 
   /// Construct the cluster writer.
   ///
-  /// @params cfg is the configuration object
-  /// @params lvl is the logging level
-  CsvPlanarClusterWriter(const Config& cfg, Acts::Logging::Level lvl);
+  /// @param config is the configuration object
+  /// @param level is the logging level
+  CsvPlanarClusterWriter(const Config& config, Acts::Logging::Level level);
+
+  /// Readonly access to the config
+  const Config& config() const { return m_cfg; }
 
  protected:
   /// Type-specific write implementation.

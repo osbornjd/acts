@@ -7,16 +7,20 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+
+#include <iosfwd>
+#include <vector>
 
 namespace Acts {
 
 /// @class BinnedSurfaceMaterial
 ///
-/// It extends the SurfaceMaterial base class and is an array pf
+/// It extends the @c ISurfaceMaterial base class and is an array pf
 /// MaterialSlab. This is not memory optimised as every bin
 /// holds one material property object.
 
@@ -36,9 +40,11 @@ class BinnedSurfaceMaterial : public ISurfaceMaterial {
   /// @param binUtility defines the binning structure on the surface (copied)
   /// @param fullProperties is the vector of properties as recorded (moved)
   /// @param splitFactor is the pre/post splitting directive
+  /// @param mappingType is the type of surface mapping associated to the surface
   BinnedSurfaceMaterial(const BinUtility& binUtility,
                         MaterialSlabVector fullProperties,
-                        double splitFactor = 0.);
+                        double splitFactor = 0.,
+                        MappingType mappingType = MappingType::Default);
 
   /// Explicit constructor with only full MaterialSlab,
   /// for two-dimensional binning.
@@ -51,9 +57,11 @@ class BinnedSurfaceMaterial : public ISurfaceMaterial {
   /// @param binUtility defines the binning structure on the surface (copied)
   /// @param fullProperties is the vector of properties as recorded (moved)
   /// @param splitFactor is the pre/post splitting directive
+  /// @param mappingType is the type of surface mapping associated to the surface
   BinnedSurfaceMaterial(const BinUtility& binUtility,
                         MaterialSlabMatrix fullProperties,
-                        double splitFactor = 0.);
+                        double splitFactor = 0.,
+                        MappingType mappingType = MappingType::Default);
 
   /// Copy Move Constructor
   ///
@@ -82,16 +90,16 @@ class BinnedSurfaceMaterial : public ISurfaceMaterial {
   /// Return the BinUtility
   const BinUtility& binUtility() const;
 
-  /// @copydoc SurfaceMaterial::fullMaterial
+  /// @brief Retrieve the entire material slab matrix
   const MaterialSlabMatrix& fullMaterial() const;
 
-  /// @copydoc SurfaceMaterial::materialSlab(const Vector2D&)
-  const MaterialSlab& materialSlab(const Vector2D& lp) const final;
+  /// @copydoc ISurfaceMaterial::materialSlab(const Vector2&) const
+  const MaterialSlab& materialSlab(const Vector2& lp) const final;
 
-  /// @copydoc SurfaceMaterial::materialSlab(const Vector3D&)
-  const MaterialSlab& materialSlab(const Vector3D& gp) const final;
+  /// @copydoc ISurfaceMaterial::materialSlab(const Vector3&) const
+  const MaterialSlab& materialSlab(const Vector3& gp) const final;
 
-  /// @copydoc SurfaceMaterial::materialSlab(size_t, size_t)
+  /// @copydoc ISurfaceMaterial::materialSlab(size_t, size_t) const
   const MaterialSlab& materialSlab(size_t bin0, size_t bin1) const final;
 
   /// Output Method for std::ostream, to be overloaded by child classes

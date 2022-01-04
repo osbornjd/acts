@@ -8,9 +8,11 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Material/IVolumeMaterial.hpp"
 #include "Acts/Material/Material.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+
+#include <iosfwd>
 
 namespace Acts {
 
@@ -20,9 +22,6 @@ namespace Acts {
 /// homogeneous material in a volume
 class HomogeneousVolumeMaterial : public IVolumeMaterial {
  public:
-  /// Default Constructor - defaulted
-  HomogeneousVolumeMaterial() = default;
-
   /// Explicit constructor
   ///
   /// @param material is the material held by this
@@ -55,8 +54,9 @@ class HomogeneousVolumeMaterial : public IVolumeMaterial {
   /// Access to actual material
   ///
   /// @param position is the request position for the material call
+  /// @note @p position is ignored
   /// @todo interface to change including 'cell'
-  const Material material(const Vector3D& /*position*/) const final;
+  const Material material(const Vector3& position) const final;
 
   /// Output Method for std::ostream
   ///
@@ -68,7 +68,7 @@ class HomogeneousVolumeMaterial : public IVolumeMaterial {
 };
 
 inline const Material HomogeneousVolumeMaterial::material(
-    const Vector3D& /*position*/) const {
+    const Vector3& /*position*/) const {
   return (m_material);
 }
 

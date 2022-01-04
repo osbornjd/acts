@@ -74,8 +74,7 @@ class DirectNavigator {
       if (not r.initialized) {
         // Initialize the surface sequence
         state.navigation.navSurfaces = navSurfaces;
-        state.navigation.navSurfaceIter =
-            state.navigation.navSurfaces.begin();
+        state.navigation.navSurfaceIter = state.navigation.navSurfaces.begin();
         r.initialized = true;
       }
     }
@@ -104,11 +103,11 @@ class DirectNavigator {
     /// Navigation state - external interface: the current surface
     const Surface* currentSurface = nullptr;
     /// Navigation state - external interface: the target surface
-    const Surface* targetSurface = nullptr;  
+    const Surface* targetSurface = nullptr;
     /// Navigation state - starting layer
     const Layer* startLayer = nullptr;
     /// Navigation state - target layer
-    const Layer* targetLayer = nullptr; 
+    const Layer* targetLayer = nullptr;
     /// Navigation state: the start volume
     const TrackingVolume* startVolume = nullptr;
     /// Navigation state: the current volume
@@ -120,6 +119,26 @@ class DirectNavigator {
     bool targetReached = false;
     /// Navigation state - external interface: a break has been detected
     bool navigationBreak = false;
+
+    /// Reset state
+    ///
+    /// @param ssurface is the new starting surface
+    /// @param tsurface is the target surface
+    void reset(const GeometryContext& /*geoContext*/, const Vector3& /*pos*/,
+               const Vector3& /*dir*/, NavigationDirection /*navDir*/,
+               const Surface* ssurface, const Surface* tsurface) {
+      // Reset everything except the navSurfaces
+      State newState = State();
+      newState.navSurfaces = this->navSurfaces;
+      *this = newState;
+
+      // Reset others
+      navSurfaceIter =
+          std::find(navSurfaces.begin(), navSurfaces.end(), ssurface);
+      startSurface = ssurface;
+      currentSurface = ssurface;
+      targetSurface = tsurface;
+    }
   };
 
   /// @brief Navigator status call
@@ -144,8 +163,7 @@ class DirectNavigator {
                  << " surfaces remain to try.");
 
     // Check if we are on surface
-    if (state.navigation.navSurfaceIter !=
-        state.navigation.navSurfaces.end()) {
+    if (state.navigation.navSurfaceIter != state.navigation.navSurfaces.end()) {
       // Establish the surface status
       auto surfaceStatus = stepper.updateSurfaceStatus(
           state.stepping, **state.navigation.navSurfaceIter, false);
@@ -190,8 +208,7 @@ class DirectNavigator {
                  << " out of " << state.navigation.navSurfaces.size()
                  << " surfaces remain to try.");
 
-    if (state.navigation.navSurfaceIter !=
-        state.navigation.navSurfaces.end()) {
+    if (state.navigation.navSurfaceIter != state.navigation.navSurfaces.end()) {
       // Establish & update the surface status
       auto surfaceStatus = stepper.updateSurfaceStatus(
           state.stepping, **state.navigation.navSurfaceIter, false);

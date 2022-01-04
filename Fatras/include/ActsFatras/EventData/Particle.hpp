@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2018-2021 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,7 +8,8 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Common.hpp"
 #include "Acts/Utilities/PdgParticle.hpp"
 #include "ActsFatras/EventData/Barcode.hpp"
 #include "ActsFatras/EventData/ProcessType.hpp"
@@ -19,12 +20,14 @@
 
 namespace ActsFatras {
 
-/// Simulation particle information and kinematic state.
+/// Particle identity information and kinematic state.
+///
+/// Also stores some simulation-specific properties.
 class Particle {
  public:
-  using Scalar = double;
-  using Vector3 = Acts::ActsVector<Scalar, 3>;
-  using Vector4 = Acts::ActsVector<Scalar, 4>;
+  using Scalar = Acts::ActsScalar;
+  using Vector3 = Acts::ActsVector<3>;
+  using Vector4 = Acts::ActsVector<4>;
 
   /// Construct a default particle with invalid identity.
   Particle() = default;
@@ -65,6 +68,10 @@ class Particle {
 
   /// Set the process type that generated this particle.
   Particle &setProcess(ProcessType proc) { return m_process = proc, *this; }
+  /// Set the particle ID.
+  Particle &setParticleId(Barcode barcode) {
+    return m_particleId = barcode, *this;
+  }
   /// Set the space-time position four-vector.
   Particle &setPosition4(const Vector4 &pos4) {
     m_position4 = pos4;
@@ -99,10 +106,14 @@ class Particle {
     return *this;
   }
   /// Set the absolute momentum.
-  Particle &setAbsMomentum(Scalar absMomentum) {
+  Particle &setAbsoluteMomentum(Scalar absMomentum) {
     m_absMomentum = absMomentum;
     return *this;
   }
+
+  /// Set the particle charge.
+  Particle &setCharge(Scalar charge) { return m_charge = charge, *this; }
+
   /// Change the energy by the given amount.
   ///
   /// Energy loss corresponds to a negative change. If the updated energy
@@ -130,13 +141,13 @@ class Particle {
   constexpr Scalar mass() const { return m_mass; }
 
   /// Space-time position four-vector.
-  constexpr const Vector4 &position4() const { return m_position4; }
+  constexpr const Vector4 &fourPosition() const { return m_position4; }
   /// Three-position, i.e. spatial coordinates without the time.
   auto position() const { return m_position4.segment<3>(Acts::ePos0); }
   /// Time coordinate.
   Scalar time() const { return m_position4[Acts::eTime]; }
   /// Energy-momentum four-vector.
-  Vector4 momentum4() const {
+  Vector4 fourMomentum() const {
     Vector4 mom4;
     // stored direction is always normalized
     mom4[Acts::eMom0] = m_absMomentum * m_unitDirection[Acts::ePos0];
@@ -152,7 +163,7 @@ class Particle {
     return m_absMomentum * m_unitDirection.segment<2>(Acts::eMom0).norm();
   }
   /// Absolute momentum.
-  constexpr Scalar absMomentum() const { return m_absMomentum; }
+  constexpr Scalar absoluteMomentum() const { return m_absMomentum; }
   /// Total energy, i.e. norm of the four-momentum.
   Scalar energy() const { return std::hypot(m_mass, m_absMomentum); }
 
@@ -161,32 +172,31 @@ class Particle {
   /// Check if the particle is dead, i.e is at rest.
   constexpr bool operator!() const { return m_absMomentum <= Scalar(0); }
 
-  /// Set the material that the particle has passed.
+  // simulation specific properties
+
+  /// Set the proper time in the particle rest frame.
   ///
-  /// @param pathX0 passed material measured in radiation lengths
-  /// @param pathL0 passed thickness measured in interaction lengths
-  constexpr Particle &setMaterialPassed(Scalar pathX0, Scalar pathL0) {
-    m_pathX0 = pathX0;
-    m_pathL0 = pathL0;
+  /// @param properTime passed proper time in the rest frame
+  constexpr Particle &setProperTime(Scalar properTime) {
+    m_properTime = properTime;
     return *this;
   }
-  /// Set the material limits.
+  /// Proper time in the particle rest frame.
+  constexpr Scalar properTime() const { return m_properTime; }
+
+  /// Set the accumulated material measured in radiation/interaction lengths.
   ///
-  /// @param limitX0 maximum radiation lengths the particle can pass
-  /// @param limitL0 maximum interaction lengths the particle can pass
-  constexpr Particle &setMaterialLimits(Scalar limitX0, Scalar limitL0) {
-    m_limitX0 = limitX0;
-    m_limitL0 = limitL0;
+  /// @param pathInX0 accumulated material measured in radiation lengths
+  /// @param pathInL0 accumulated material measured in interaction lengths
+  constexpr Particle &setMaterialPassed(Scalar pathInX0, Scalar pathInL0) {
+    m_pathInX0 = pathInX0;
+    m_pathInL0 = pathInL0;
     return *this;
   }
-  /// The passed material measured in radiation lengths.
-  constexpr Scalar pathInX0() const { return m_pathX0; }
-  /// The passed material measured in interaction lengths.
-  constexpr Scalar pathInL0() const { return m_pathL0; }
-  /// The maximum radation length the particle is allowed to pass.
-  constexpr Scalar pathLimitX0() const { return m_limitX0; }
-  /// The maximum interaction length the particle is allowed to pass.
-  constexpr Scalar pathLimitL0() const { return m_limitL0; }
+  /// Accumulated path within material measured in radiation lengths.
+  constexpr Scalar pathInX0() const { return m_pathInX0; }
+  /// Accumulated path within material measured in interaction lengths.
+  constexpr Scalar pathInL0() const { return m_pathInL0; }
 
  private:
   // identity, i.e. things that do not change over the particle lifetime.
@@ -203,18 +213,11 @@ class Particle {
   Vector3 m_unitDirection = Vector3::UnitZ();
   Scalar m_absMomentum = Scalar(0);
   Vector4 m_position4 = Vector4::Zero();
-  // simulation-specific X0/L0 information and limits
-  // these values are here to simplify the simulation of (nuclear) interactions.
-  // instead of checking at every surface whether an interaction should occur we
-  // can draw an overall limit once. the relevant interaction only needs to
-  // be executed once the limit is reached.
-  // this information is not really particle-specific and should probably be
-  // handled separately. for now, storing it directly here is the simplest
-  // solution.
-  Scalar m_pathX0 = Scalar(0);
-  Scalar m_pathL0 = Scalar(0);
-  Scalar m_limitX0 = std::numeric_limits<Scalar>::max();
-  Scalar m_limitL0 = std::numeric_limits<Scalar>::max();
+  // proper time in the particle rest frame
+  Scalar m_properTime = Scalar(0);
+  // accumulated material
+  Scalar m_pathInX0 = Scalar(0);
+  Scalar m_pathInL0 = Scalar(0);
 };
 
 std::ostream &operator<<(std::ostream &os, const Particle &particle);

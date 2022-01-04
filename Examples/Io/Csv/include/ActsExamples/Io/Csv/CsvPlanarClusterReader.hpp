@@ -46,18 +46,18 @@ class CsvPlanarClusterReader final : public IReader {
     /// For each cluster/ hit index the original hit id stored on file.
     std::string outputHitIds;
     /// Output hit-particles mapping collection.
-    std::string outputHitParticlesMap;
+    std::string outputMeasurementParticlesMap;
     /// Output simulated (truth) hits collection.
-    std::string outputSimulatedHits;
+    std::string outputSimHits;
     /// Tracking geometry required to access global-to-local transforms.
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry;
   };
 
   /// Construct the cluster reader.
   ///
-  /// @params cfg is the configuration object
-  /// @params lvl is the logging level
-  CsvPlanarClusterReader(const Config& cfg, Acts::Logging::Level lvl);
+  /// @param config is the configuration object
+  /// @param level is the logging level
+  CsvPlanarClusterReader(const Config& config, Acts::Logging::Level level);
 
   std::string name() const final override;
 
@@ -67,9 +67,11 @@ class CsvPlanarClusterReader final : public IReader {
   /// Read out data from the input stream.
   ProcessCode read(const ActsExamples::AlgorithmContext& ctx) final override;
 
+  /// Readonly access to the config
+  const Config& config() const { return m_cfg; }
+
  private:
   Config m_cfg;
-  std::unordered_map<Acts::GeometryIdentifier, const Acts::Surface*> m_surfaces;
   std::pair<size_t, size_t> m_eventsRange;
   std::unique_ptr<const Acts::Logger> m_logger;
 

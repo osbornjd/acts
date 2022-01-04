@@ -9,10 +9,10 @@
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/detail/TransformationFreeToBound.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/UnitVectors.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <cmath>
 #include <limits>
@@ -23,7 +23,7 @@ using namespace Acts;
 using namespace Acts::UnitLiterals;
 
 namespace {
-constexpr auto eps = std::numeric_limits<BoundScalar>::epsilon();
+constexpr auto eps = std::numeric_limits<ActsScalar>::epsilon();
 }
 
 BOOST_AUTO_TEST_SUITE(TransformFreeToBound)
@@ -37,10 +37,10 @@ BOOST_DATA_TEST_CASE(
   const auto qOverP = q / p;
 
   GeometryContext geoCtx;
-  Vector2D loc(l0, l1);
-  Vector3D dir = makeDirectionUnitFromPhiTheta(phi, theta);
+  Vector2 loc(l0, l1);
+  Vector3 dir = makeDirectionUnitFromPhiTheta(phi, theta);
   // transform reference position
-  Vector3D pos = surface->localToGlobal(geoCtx, loc, dir);
+  Vector3 pos = surface->localToGlobal(geoCtx, loc, dir);
 
   // convert free parameters to bound parameters
   {
@@ -57,7 +57,7 @@ BOOST_DATA_TEST_CASE(
     fv[eFreeDir2] = dir[eMom2];
     fv[eFreeQOverP] = qOverP;
     BoundVector bv =
-        detail::transformFreeToBoundParameters(fv, *surface, geoCtx);
+        detail::transformFreeToBoundParameters(fv, *surface, geoCtx).value();
     CHECK_CLOSE_OR_SMALL(bv[eBoundLoc0], l0, eps, eps);
     CHECK_CLOSE_OR_SMALL(bv[eBoundLoc1], l1, eps, eps);
     CHECK_CLOSE_OR_SMALL(bv[eBoundTime], time, eps, eps);
@@ -65,19 +65,51 @@ BOOST_DATA_TEST_CASE(
     CHECK_CLOSE_OR_SMALL(bv[eBoundTheta], theta, eps, eps);
     CHECK_CLOSE_OR_SMALL(bv[eBoundQOverP], qOverP, eps, eps);
   }
+
+  // Assert failure when trying to convert a position that is not on-surface.
+  {
+    Vector3 posOff = pos + surface->normal(geoCtx, loc) * 0.5;
+    BOOST_TEST_INFO("Transform free parameters vector onto surface "
+                    << surface->name());
+
+    FreeVector fv = FreeVector::Zero();
+    fv[eFreePos0] = posOff[ePos0];
+    fv[eFreePos1] = posOff[ePos1];
+    fv[eFreePos2] = posOff[ePos2];
+    fv[eFreeTime] = time;
+    fv[eFreeDir0] = dir[eMom0];
+    fv[eFreeDir1] = dir[eMom1];
+    fv[eFreeDir2] = dir[eMom2];
+    fv[eFreeQOverP] = qOverP;
+    auto res = detail::transformFreeToBoundParameters(fv, *surface, geoCtx);
+    BOOST_CHECK(!res.ok());
+  }
+
   // convert separate components to bound parameters
   {
     BOOST_TEST_INFO("Transform free parameters components onto surface "
                     << surface->name());
 
     BoundVector bv = detail::transformFreeToBoundParameters(
-        pos, time, dir, qOverP, *surface, geoCtx);
+                         pos, time, dir, qOverP, *surface, geoCtx)
+                         .value();
     CHECK_CLOSE_OR_SMALL(bv[eBoundLoc0], l0, eps, eps);
     CHECK_CLOSE_OR_SMALL(bv[eBoundLoc1], l1, eps, eps);
     CHECK_CLOSE_OR_SMALL(bv[eBoundTime], time, eps, eps);
     CHECK_CLOSE_OR_SMALL(bv[eBoundPhi], phi, eps, eps);
     CHECK_CLOSE_OR_SMALL(bv[eBoundTheta], theta, eps, eps);
     CHECK_CLOSE_OR_SMALL(bv[eBoundQOverP], qOverP, eps, eps);
+  }
+
+  // Assert failure when trying to convert a position that is not on-surface.
+  {
+    BOOST_TEST_INFO("Transform free parameters components onto surface "
+                    << surface->name());
+
+    Vector3 posOff = pos + surface->normal(geoCtx, loc) * 0.5;
+    auto res = detail::transformFreeToBoundParameters(posOff, time, dir, qOverP,
+                                                      *surface, geoCtx);
+    BOOST_CHECK(!res.ok());
   }
 }
 
@@ -89,7 +121,7 @@ BOOST_DATA_TEST_CASE(GlobalToCurvilinearParameters,
   const auto qOverP = q / p;
 
   GeometryContext geoCtx;
-  Vector3D dir = makeDirectionUnitFromPhiTheta(phi, theta);
+  Vector3 dir = makeDirectionUnitFromPhiTheta(phi, theta);
 
   // convert w/ direction
   {

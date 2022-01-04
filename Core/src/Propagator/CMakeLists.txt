@@ -1,7 +1,11 @@
-target_sources_local(
+target_sources(
   ActsCore
   PRIVATE
+    CovarianceTransport.cpp
+    EigenStepperError.cpp
+    PropagatorError.cpp
     StraightLineStepper.cpp
     detail/PointwiseMaterialInteraction.cpp
     detail/CovarianceEngine.cpp
+    detail/JacobianEngine.cpp
 )

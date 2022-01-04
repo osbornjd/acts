@@ -8,6 +8,7 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
@@ -20,7 +21,6 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Tests/CommonHelpers/CubicTrackingGeometry.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <cmath>
 #include <random>
@@ -68,7 +68,7 @@ struct StepWiseActor {
     auto surface = state.navigation.currentSurface;
     if (surface and surface->associatedDetectorElement()) {
       // Create a bound state and log the jacobian
-      auto boundState = stepper.boundState(state.stepping, *surface);
+      auto boundState = stepper.boundState(state.stepping, *surface).value();
       result.jacobians.push_back(std::move(std::get<Jacobian>(boundState)));
       result.paths.push_back(std::get<double>(boundState));
     }
@@ -105,14 +105,15 @@ BOOST_AUTO_TEST_CASE(kalman_extrapolator) {
   auto detector = cGeometry();
 
   // The Navigator through the detector geometry
-  Navigator navigator(detector);
-  navigator.resolvePassive = false;
-  navigator.resolveMaterial = true;
-  navigator.resolveSensitive = true;
+  Navigator::Config cfg{detector};
+  cfg.resolvePassive = false;
+  cfg.resolveMaterial = true;
+  cfg.resolveSensitive = true;
+  Navigator navigator(cfg);
 
   // Configure propagation with deactivated B-field
-  ConstantBField bField(Vector3D(0., 0., 0.));
-  using Stepper = EigenStepper<ConstantBField>;
+  auto bField = std::make_shared<ConstantBField>(Vector3(0., 0., 0.));
+  using Stepper = EigenStepper<>;
   Stepper stepper(bField);
   using Propagator = Propagator<Stepper, Navigator>;
   Propagator propagator(stepper, navigator);
@@ -123,7 +124,7 @@ BOOST_AUTO_TEST_CASE(kalman_extrapolator) {
       0, 0, 0, 0.162, 0, 0.1, 0, 0, 0.5, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0,
       0, 0;
   // The start parameters
-  CurvilinearTrackParameters start(Vector4D(-3_m, 0, 0, 42_ns), 0_degree,
+  CurvilinearTrackParameters start(Vector4(-3_m, 0, 0, 42_ns), 0_degree,
                                    90_degree, 1_GeV, 1_e, cov);
 
   // Create the ActionList and AbortList

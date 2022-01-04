@@ -30,6 +30,14 @@ auto Acts::IterativeVertexFinder<vfitter_t, sfinder_t>::find(
     // retrieve the seed vertex as the last element in
     // the seed vertexCollection
     Vertex<InputTrack_t>& seedVertex = *seedRes;
+
+    if (seedVertex.fullPosition()[eZ] ==
+        vertexingOptions.vertexConstraint.position().z()) {
+      ACTS_DEBUG(
+          "No seed found anymore. Break and stop primary vertex finding.");
+      break;
+    }
+
     /// End seeding
     /// Now take only tracks compatible with current seed
     // Tracks used for the fit in this iteration
@@ -215,10 +223,10 @@ Acts::IterativeVertexFinder<vfitter_t, sfinder_t>::getCompatibility(
   auto linTrack = std::move(*result);
 
   // Calculate reduced weight
-  SymMatrix2D weightReduced =
+  SymMatrix2 weightReduced =
       linTrack.covarianceAtPCA.template block<2, 2>(0, 0);
 
-  SymMatrix2D errorVertexReduced =
+  SymMatrix2 errorVertexReduced =
       (linTrack.positionJacobian *
        (vertex.fullCovariance() * linTrack.positionJacobian.transpose()))
           .template block<2, 2>(0, 0);
@@ -226,7 +234,7 @@ Acts::IterativeVertexFinder<vfitter_t, sfinder_t>::getCompatibility(
   weightReduced = weightReduced.inverse();
 
   // Calculate compatibility / chi2
-  Vector2D trackParameters2D =
+  Vector2 trackParameters2D =
       linTrack.parametersAtPCA.template block<2, 1>(0, 0);
   double compatibility =
       trackParameters2D.dot(weightReduced * trackParameters2D);

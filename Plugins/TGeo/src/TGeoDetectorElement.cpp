@@ -8,16 +8,18 @@
 
 #include "Acts/Plugins/TGeo/TGeoDetectorElement.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Plugins/TGeo/TGeoSurfaceConverter.hpp"
 #include "Acts/Surfaces/AnnulusBounds.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
+#include "Acts/Surfaces/DiscBounds.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
+#include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Surfaces/TrapezoidBounds.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -89,6 +91,32 @@ Acts::TGeoDetectorElement::TGeoDetectorElement(
   if (m_surface != nullptr) {
     m_surface->assignSurfaceMaterial(std::move(material));
   }
+}
+
+Acts::TGeoDetectorElement::TGeoDetectorElement(
+    const Identifier& identifier, const TGeoNode& tGeoNode,
+    const Transform3& tgTransform, std::shared_ptr<const PlanarBounds> tgBounds,
+    double tgThickness)
+    : Acts::IdentifiedDetectorElement(),
+      m_detElement(&tGeoNode),
+      m_transform(tgTransform),
+      m_identifier(identifier),
+      m_bounds(tgBounds),
+      m_thickness(tgThickness) {
+  m_surface = Surface::makeShared<PlaneSurface>(tgBounds, *this);
+}
+
+Acts::TGeoDetectorElement::TGeoDetectorElement(
+    const Identifier& identifier, const TGeoNode& tGeoNode,
+    const Transform3& tgTransform, std::shared_ptr<const DiscBounds> tgBounds,
+    double tgThickness)
+    : Acts::IdentifiedDetectorElement(),
+      m_detElement(&tGeoNode),
+      m_transform(tgTransform),
+      m_identifier(identifier),
+      m_bounds(tgBounds),
+      m_thickness(tgThickness) {
+  m_surface = Surface::makeShared<DiscSurface>(tgBounds, *this);
 }
 
 Acts::TGeoDetectorElement::~TGeoDetectorElement() = default;

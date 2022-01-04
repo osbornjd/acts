@@ -6,13 +6,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// RootMaterialWriter.h
-///////////////////////////////////////////////////////////////////
-
 #pragma once
 
 #include "ActsExamples/Framework/ProcessCode.hpp"
+#include "ActsExamples/MaterialMapping/IMaterialWriter.hpp"
+#include <Acts/Definitions/Algebra.hpp>
 #include <Acts/Geometry/GeometryIdentifier.hpp>
 #include <Acts/Geometry/TrackingGeometry.hpp>
 #include <Acts/Geometry/TrackingVolume.hpp>
@@ -20,11 +18,12 @@
 #include <Acts/Material/ISurfaceMaterial.hpp>
 #include <Acts/Material/IVolumeMaterial.hpp>
 #include <Acts/Surfaces/Surface.hpp>
-#include <Acts/Utilities/Definitions.hpp>
 #include <Acts/Utilities/Logger.hpp>
 
 #include <map>
 #include <mutex>
+
+class TFile;
 
 namespace Acts {
 using SurfaceMaterialMap =
@@ -40,7 +39,7 @@ namespace ActsExamples {
 ///
 /// This reads in material maps for surfaces and volumes
 /// from a root file
-class RootMaterialWriter {
+class RootMaterialWriter : public IMaterialWriter {
  public:
   /// @class Config
   ///
@@ -61,8 +60,10 @@ class RootMaterialWriter {
     /// Steering to handle volume data
     bool processVolumes = true;
 
-    /// The name of the output tree
-    std::string folderNameBase = "Material";
+    /// The name of the output surface tree
+    std::string folderSurfaceNameBase = "SurfaceMaterial";
+    /// The name of the output volume tree
+    std::string folderVolumeNameBase = "VolumeMaterial";
     /// The volume identification string
     std::string voltag = "_vol";
     /// The boundary identification string
@@ -96,33 +97,24 @@ class RootMaterialWriter {
     /// The rho tag
     std::string rhotag = "rho";
     /// The name of the output file
-    std::string fileName = "material-maps.root";
-    /// The default logger
-    std::shared_ptr<const Acts::Logger> logger;
-    // The name of the writer
-    std::string name = "";
-
-    /// Constructor
-    ///
-    /// @param lname Name of the writer tool
-    /// @param lvl The output logging level
-    Config(const std::string& lname = "RootMaterialWriter",
-           Acts::Logging::Level lvl = Acts::Logging::INFO)
-        : logger(Acts::getDefaultLogger(lname, lvl)), name(lname) {}
+    std::string filePath = "material-maps.root";
+    /// The file mode
+    std::string fileMode = "RECREATE";
   };
 
   /// Constructor
   ///
-  /// @param cfg The configuration struct
-  RootMaterialWriter(const Config& cfg);
+  /// @param config The configuration struct
+  /// @param level The log level
+  RootMaterialWriter(const Config& config, Acts::Logging::Level level);
 
   /// Virtual destructor
-  ~RootMaterialWriter() = default;
+  ~RootMaterialWriter();
 
   /// Write out the material map
   ///
   /// @param detMaterial is the SurfaceMaterial and VolumeMaterial maps
-  void write(const Acts::DetectorMaterialMaps& detMaterial);
+  void writeMaterial(const Acts::DetectorMaterialMaps& detMaterial) override;
 
   /// Write out the material map from Geometry
   ///
@@ -147,8 +139,13 @@ class RootMaterialWriter {
   /// The config class
   Config m_cfg;
 
+  /// The logger instance
+  std::unique_ptr<const Acts::Logger> m_logger;
+
   /// Private access to the logging instance
-  const Acts::Logger& logger() const { return *m_cfg.logger; }
+  const Acts::Logger& logger() const { return *m_logger; }
+
+  TFile* m_outputFile{nullptr};
 };
 
 }  // namespace ActsExamples

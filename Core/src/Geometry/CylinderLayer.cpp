@@ -8,18 +8,21 @@
 
 #include "Acts/Geometry/CylinderLayer.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/AbstractVolume.hpp"
 #include "Acts/Geometry/BoundarySurfaceFace.hpp"
+#include "Acts/Geometry/BoundarySurfaceT.hpp"
 #include "Acts/Geometry/CylinderVolumeBounds.hpp"
 #include "Acts/Geometry/GenericApproachDescriptor.hpp"
-#include "Acts/Surfaces/CylinderBounds.hpp"
-#include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Surfaces/Surface.hpp"
+#include "Acts/Utilities/Helpers.hpp"
+
+#include <vector>
 
 using Acts::VectorHelpers::phi;
 
 Acts::CylinderLayer::CylinderLayer(
-    const Transform3D& transform,
+    const Transform3& transform,
     const std::shared_ptr<const CylinderBounds>& cBounds,
     std::unique_ptr<SurfaceArray> surfaceArray, double thickness,
     std::unique_ptr<ApproachDescriptor> ades, LayerType laytyp)

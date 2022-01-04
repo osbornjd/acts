@@ -139,10 +139,10 @@ class GaussianTrackDensity {
   /// @param trackList All input tracks
   /// @param extractParameters Function extracting BoundTrackParameters from
   /// InputTrack
-  void addTracks(State& state,
-                 const std::vector<const input_track_t*>& trackList,
-                 const std::function<BoundTrackParameters(input_track_t)>&
-                     extractParameters) const;
+  Result<void> addTracks(
+      State& state, const std::vector<const input_track_t*>& trackList,
+      const std::function<BoundTrackParameters(input_track_t)>&
+          extractParameters) const;
 
   /// @brief Evaluate the density function and its two first
   /// derivatives at the specified coordinate along the beamline
@@ -159,6 +159,9 @@ class GaussianTrackDensity {
   /// @param newZ The new z value
   /// @param newValue The new value at z position
   /// @param newSecondDerivative The new second derivative
+  /// @param maxZ Maximum z value, will be compared against @p newZ
+  /// @param maxValue Maximum value
+  /// @param maxSecondDerivative Maximum of the second derivative
   /// @return The max z position, the max value at z position, the max second
   /// derivative
   std::tuple<double, double, double> updateMaximum(
@@ -197,5 +200,6 @@ class GaussianTrackDensity {
   };
 };
 
-#include "Acts/Vertexing/GaussianTrackDensity.ipp"
 }  // namespace Acts
+
+#include "Acts/Vertexing/GaussianTrackDensity.ipp"

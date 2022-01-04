@@ -9,6 +9,7 @@
 #pragma once
 
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
+#include "ActsExamples/Utilities/OptionsFwd.hpp"
 
 namespace ActsExamples {
 
@@ -31,13 +32,15 @@ class TruthSeedSelector final : public BareAlgorithm {
     /// The input truth particles that should be used to create proto tracks.
     std::string inputParticles;
     /// The input hit-particles map collection.
-    std::string inputHitParticlesMap;
+    std::string inputMeasurementParticlesMap;
     /// The output proto tracks collection.
     std::string outputParticles;
     /// Maximum distance from the origin in the transverse plane
+    double rhoMin = 0.;
     double rhoMax = std::numeric_limits<double>::max();
-    /// Maximum absolute distance from the origin along z
-    double absZMax = std::numeric_limits<double>::max();
+    /// Minimum/Maximum absolute distance from the origin along z
+    double zMin = std::numeric_limits<double>::lowest();
+    double zMax = std::numeric_limits<double>::max();
     // Truth particle kinematic cuts
     double phiMin = std::numeric_limits<double>::lowest();
     double phiMax = std::numeric_limits<double>::max();
@@ -55,9 +58,18 @@ class TruthSeedSelector final : public BareAlgorithm {
     size_t nHitsMax = std::numeric_limits<size_t>::max();
   };
 
-  TruthSeedSelector(const Config& cfg, Acts::Logging::Level lvl);
+  TruthSeedSelector(const Config& config, Acts::Logging::Level level);
 
   ProcessCode execute(const AlgorithmContext& ctx) const override final;
+
+  /// Add options for the particle selector.
+  static void addOptions(Options::Description& desc);
+
+  /// Construct particle selector config from user variables.
+  static Config readConfig(const Options::Variables& vars);
+
+  /// Get readonly access to the config parameters
+  const Config& config() const { return m_cfg; }
 
  private:
   Config m_cfg;

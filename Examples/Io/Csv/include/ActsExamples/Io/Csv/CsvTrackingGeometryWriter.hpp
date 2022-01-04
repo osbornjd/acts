@@ -40,15 +40,23 @@ class CsvTrackingGeometryWriter : public IWriter {
     std::string outputDir;
     /// Number of decimal digits for floating point precision in output.
     std::size_t outputPrecision = std::numeric_limits<float>::max_digits10;
+    /// Write sensitive surfaces
+    bool writeSensitive = true;
+    /// Write boundary surfaces
+    bool writeBoundary = false;
+    /// Write the surface grid information
+    bool writeSurfaceGrid = true;
+    /// Write the layer volume representation
+    bool writeLayerVolume = true;
     /// Whether to write the per-event file.
     bool writePerEvent = false;
   };
 
   /// Construct the geometry writer.
   ///
-  /// @param cfg is the configuration object
-  /// @param lvl is the logging level
-  CsvTrackingGeometryWriter(const Config& cfg, Acts::Logging::Level lvl);
+  /// @param config is the configuration object
+  /// @param level is the logging level
+  CsvTrackingGeometryWriter(const Config& config, Acts::Logging::Level level);
 
   std::string name() const final override;
 

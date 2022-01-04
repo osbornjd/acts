@@ -8,46 +8,17 @@
 
 #pragma once
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
+#include "Acts/Material/MaterialInteraction.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Propagator/detail/PointwiseMaterialInteraction.hpp"
 #include "Acts/Propagator/detail/VolumeMaterialInteraction.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <sstream>
 
 namespace Acts {
-
-/// @brief The Material interaction struct
-/// It records the surface  and the passed material
-/// This is only nessecary recorded when configured
-struct MaterialInteraction {
-  /// The particle position at the interaction.
-  Vector3D position = Vector3D(0., 0., 0);
-  /// The particle time at the interaction.
-  double time = 0.0;
-  /// The particle direction at the interaction.
-  Vector3D direction = Vector3D(0., 0., 0);
-  /// The momentum change due to the interaction.
-  double deltaP = 0.0;
-  /// Expected phi variance due to the interactions.
-  double sigmaPhi2 = 0.0;
-  /// Expected theta variance due to the interactions.
-  double sigmaTheta2 = 0.0;
-  /// Expected q/p variance due to the interactions.
-  double sigmaQoP2 = 0.0;
-  /// The surface where the interaction occured.
-  const Surface* surface = nullptr;
-  /// The volume where the interaction occured.
-  const TrackingVolume* volume = nullptr;
-  /// Update the volume step to implment the proper step size
-  bool updatedVolumeStep = false;
-  /// The path correction factor due to non-zero incidence on the surface.
-  double pathCorrection = 1.;
-  /// The effective, passed material properties including the path correction.
-  MaterialSlab materialSlab;
-};
 
 /// Material interactor propagator action.
 ///
@@ -60,18 +31,7 @@ struct MaterialInteractor {
   /// Whether to record all material interactions.
   bool recordInteractions = false;
 
-  /// Simple result struct to be returned
-  /// It mainly acts as an internal state which is
-  /// created for every propagation/extrapolation step
-  struct Result {
-    // The accumulated materialInX0
-    double materialInX0 = 0.;
-    /// The accumulated materialInL0
-    double materialInL0 = 0.;
-    /// This one is only filled when recordInteractions is switched on
-    std::vector<MaterialInteraction> materialInteractions;
-  };
-  using result_type = Result;
+  using result_type = RecordedMaterial;
 
   /// @brief Interaction with detector material for the ActionList
   /// of the Propagator
@@ -139,10 +99,13 @@ struct MaterialInteractor {
       // To integrate process noise, we need to transport
       // the covariance to the current position in space
       if (d.performCovarianceTransport) {
-        stepper.covarianceTransport(state.stepping);
+        stepper.transportCovarianceToCurvilinear(state.stepping);
       }
+      // Change the noise updater depending on the navigation direction
+      NoiseUpdateMode mode =
+          (state.stepping.navDir == forward) ? addNoise : removeNoise;
       // Apply the material interactions
-      d.updateState(state, stepper);
+      d.updateState(state, stepper, mode);
       // Record the result
       recordResult(d, result);
     } else if (recordInteractions && volume and volume->volumeMaterial()) {
@@ -209,14 +172,15 @@ struct MaterialInteractor {
 
   /// @brief This function update the previous material step
   ///
-  /// @param [in] d Data cache container
+  /// @param [in,out] state The state object
+  /// @param [in] stepper The stepper instance
   /// @param [in, out] result Result storage
   template <typename propagator_state_t, typename stepper_t>
   void UpdateResult(propagator_state_t& state, const stepper_t& stepper,
                     result_type& result) const {
     // Update the previous interaction
-    Vector3D shift = stepper.position(state.stepping) -
-                     result.materialInteractions.back().position;
+    Vector3 shift = stepper.position(state.stepping) -
+                    result.materialInteractions.back().position;
     double momentum = stepper.direction(state.stepping).norm();
     result.materialInteractions.back().deltaP =
         momentum - result.materialInteractions.back().direction.norm();
@@ -229,14 +193,5 @@ struct MaterialInteractor {
         result.materialInteractions.back().materialSlab.thicknessInL0();
   }
 };  // namespace Acts
-
-/// Using some short hands for Recorded Material
-using RecordedMaterial = MaterialInteractor::Result;
-
-/// And recorded material track
-/// - this is start:  position, start momentum
-///   and the Recorded material
-using RecordedMaterialTrack =
-    std::pair<std::pair<Acts::Vector3D, Acts::Vector3D>, RecordedMaterial>;
 
 }  // namespace Acts

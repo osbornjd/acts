@@ -7,16 +7,18 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Geometry/ApproachDescriptor.hpp"
 #include "Acts/Geometry/Layer.hpp"
+#include "Acts/Surfaces/ConeBounds.hpp"
 #include "Acts/Surfaces/ConeSurface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Surfaces/SurfaceArray.hpp"
 
 #include <algorithm>
+#include <memory>
 
 namespace Acts {
-
-class ConeBounds;
-class ApproachDescriptor;
 
 /// @class ConeLayer
 ///
@@ -37,7 +39,7 @@ class ConeLayer : virtual public ConeSurface, public Layer {
   ///
   /// @return is a shared pointer to a layer
   static MutableLayerPtr create(
-      const Transform3D& transform, std::shared_ptr<const ConeBounds> cbounds,
+      const Transform3& transform, std::shared_ptr<const ConeBounds> cbounds,
       std::unique_ptr<SurfaceArray> surfaceArray, double thickness = 0.,
       std::unique_ptr<ApproachDescriptor> ad = nullptr,
       LayerType laytyp = Acts::active) {
@@ -68,7 +70,7 @@ class ConeLayer : virtual public ConeSurface, public Layer {
   /// @param laytyp is the layer type
   ///
   /// @todo chage od and ad to unique_ptr
-  ConeLayer(const Transform3D& transform,
+  ConeLayer(const Transform3& transform,
             std::shared_ptr<const ConeBounds> cbounds,
             std::unique_ptr<SurfaceArray> surfaceArray, double thickness = 0.,
             std::unique_ptr<ApproachDescriptor> ade = nullptr,
@@ -78,7 +80,7 @@ class ConeLayer : virtual public ConeSurface, public Layer {
   ///
   /// @param cla is the source clone layer
   /// @param shift is the additional shift applied after copying
-  ConeLayer(const ConeLayer& cla, const Transform3D& shift);
+  ConeLayer(const ConeLayer& cla, const Transform3& shift);
 };
 
 }  // namespace Acts

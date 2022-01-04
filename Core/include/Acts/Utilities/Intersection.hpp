@@ -11,29 +11,41 @@
 ///////////////////////////////////////////////////////////////////
 
 #pragma once
+#include "Acts/Definitions/Algebra.hpp"
+
 #include <limits>
-
-#include "Definitions.hpp"
-
 namespace Acts {
+
+/// Status enum
+enum class IntersectionStatus : int {
+  missed = 0,
+  unreachable = 0,
+  reachable = 1,
+  onSurface = 2
+};
+
+/// Ostream-operator for the IntersectionStatus enum
+inline std::ostream& operator<<(std::ostream& os, IntersectionStatus status) {
+  constexpr static std::array<const char*, 3> names = {
+      {"missed/unreachable", "reachable", "onSurface"}};
+
+  os << names[static_cast<std::size_t>(status)];
+  return os;
+}
 
 ///  @struct Intersection
 ///
 ///  Intersection struct used for position
 template <unsigned int DIM>
 struct Intersection {
-  /// Nested Status enum
-  enum class Status : int {
-    missed = 0,
-    unreachable = 0,
-    reachable = 1,
-    onSurface = 2
-  };
+  /// Status enum
+  using Status = IntersectionStatus;
 
   /// Position of the intersection
-  ActsVector<double, DIM> position = ActsVector<double, DIM>::Zero();
+  ActsVector<DIM> position = ActsVector<DIM>::Zero();
   /// Signed path length to the intersection (if valid)
-  double pathLength{std::numeric_limits<double>::infinity()};
+  typename ActsVector<DIM>::Scalar pathLength{
+      std::numeric_limits<double>::infinity()};
   /// The Status of the intersection
   Status status{Status::unreachable};
 
@@ -41,9 +53,8 @@ struct Intersection {
   ///
   /// @param sinter is the position of the intersection
   /// @param slength is the path length to the intersection
-  /// @param svalid is a boolean indicating if intersection is valid
-  Intersection(const ActsVector<double, DIM>& sinter, double slength,
-               Status sstatus)
+  /// @param sstatus is an enum indicating the status of the intersection
+  Intersection(const ActsVector<DIM>& sinter, double slength, Status sstatus)
       : position(sinter), pathLength(slength), status(sstatus) {}
 
   /// Default constructor
@@ -108,7 +119,6 @@ class ObjectIntersection {
   ///
   /// @param sInter is the intersection
   /// @param sObject is the object to be instersected
-  /// @param sRepresentation is the object represenatation
   template <typename T = representation_t,
             std::enable_if_t<std::is_same<T, object_t>::value, int> = 0>
   ObjectIntersection(const Intersection3D& sInter, const object_t* sObject)

@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2020-2021 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -9,11 +9,10 @@
 #pragma once
 
 #include "Acts/Geometry/GeometryHierarchyMap.hpp"
+#include "Acts/Plugins/Json/ActsJson.hpp"
 
 #include <stdexcept>
 #include <string>
-
-#include <nlohmann/json.hpp>
 
 namespace Acts {
 

@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 
 #include <cmath>
 #include <limits>
@@ -24,9 +24,9 @@ namespace Acts {
 /// @note The input arguments intentionally use the same template type so that
 ///       a compile error occurs if inconsistent input types are used. Avoids
 ///       unexpected implicit type conversions and forces the user to
-///       explicitely cast missmatched input types.
+///       explicitely cast mismatched input types.
 template <typename T>
-inline ActsVector<T, 3> makeDirectionUnitFromPhiEta(T phi, T eta) {
+inline Eigen::Matrix<T, 3, 1> makeDirectionUnitFromPhiEta(T phi, T eta) {
   const auto coshEtaInv = 1 / std::cosh(eta);
   return {
       std::cos(phi) * coshEtaInv,
@@ -43,9 +43,9 @@ inline ActsVector<T, 3> makeDirectionUnitFromPhiEta(T phi, T eta) {
 /// @note The input arguments intentionally use the same template type so that
 ///       a compile error occurs if inconsistent input types are used. Avoids
 ///       unexpected implicit type conversions and forces the user to
-///       explicitely cast missmatched input types.
+///       explicitely cast mismatched input types.
 template <typename T>
-inline ActsVector<T, 3> makeDirectionUnitFromPhiTheta(T phi, T theta) {
+inline Eigen::Matrix<T, 3, 1> makeDirectionUnitFromPhiTheta(T phi, T theta) {
   const auto cosTheta = std::cos(theta);
   const auto sinTheta = std::sin(theta);
   return {

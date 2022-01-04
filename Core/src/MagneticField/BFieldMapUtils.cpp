@@ -10,23 +10,25 @@
 
 #include "Acts/MagneticField/SolenoidBField.hpp"
 #include "Acts/Utilities/Helpers.hpp"
-#include "Acts/Utilities/detail/Axis.hpp"
 #include "Acts/Utilities/detail/Grid.hpp"
 
-#include <iostream>
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <tuple>
 
 using Acts::VectorHelpers::perp;
 using Acts::VectorHelpers::phi;
 
-Acts::InterpolatedBFieldMapper<
-    Acts::detail::Grid<Acts::Vector2D, Acts::detail::EquidistantAxis,
+Acts::InterpolatedBFieldMap<
+    Acts::detail::Grid<Acts::Vector2, Acts::detail::EquidistantAxis,
                        Acts::detail::EquidistantAxis>>
-Acts::fieldMapperRZ(const std::function<size_t(std::array<size_t, 2> binsRZ,
-                                               std::array<size_t, 2> nBinsRZ)>&
-                        localToGlobalBin,
-                    std::vector<double> rPos, std::vector<double> zPos,
-                    std::vector<Acts::Vector2D> bField, double lengthUnit,
-                    double BFieldUnit, bool firstQuadrant) {
+Acts::fieldMapRZ(const std::function<size_t(std::array<size_t, 2> binsRZ,
+                                            std::array<size_t, 2> nBinsRZ)>&
+                     localToGlobalBin,
+                 std::vector<double> rPos, std::vector<double> zPos,
+                 std::vector<Acts::Vector2> bField, double lengthUnit,
+                 double BFieldUnit, bool firstQuadrant) {
   // [1] Create Grid
   // sort the values
   std::sort(rPos.begin(), rPos.end());
@@ -66,7 +68,7 @@ Acts::fieldMapperRZ(const std::function<size_t(std::array<size_t, 2> binsRZ,
 
   // Create the grid
   using Grid_t =
-      Acts::detail::Grid<Acts::Vector2D, Acts::detail::EquidistantAxis,
+      Acts::detail::Grid<Acts::Vector2, Acts::detail::EquidistantAxis,
                          Acts::detail::EquidistantAxis>;
   Grid_t grid(std::make_tuple(std::move(rAxis), std::move(zAxis)));
 
@@ -95,18 +97,18 @@ Acts::fieldMapperRZ(const std::function<size_t(std::array<size_t, 2> binsRZ,
       }
     }
   }
-  grid.setExteriorBins(Acts::Vector2D::Zero());
+  grid.setExteriorBins(Acts::Vector2::Zero());
 
   // [3] Create the transformation for the position
   // map (x,y,z) -> (r,z)
-  auto transformPos = [](const Acts::Vector3D& pos) {
-    return Acts::Vector2D(perp(pos), pos.z());
+  auto transformPos = [](const Acts::Vector3& pos) {
+    return Acts::Vector2(perp(pos), pos.z());
   };
 
   // [4] Create the transformation for the bfield
   // map (Br,Bz) -> (Bx,By,Bz)
-  auto transformBField = [](const Acts::Vector2D& field,
-                            const Acts::Vector3D& pos) {
+  auto transformBField = [](const Acts::Vector2& field,
+                            const Acts::Vector3& pos) {
     double r_sin_theta_2 = pos.x() * pos.x() + pos.y() * pos.y();
     double cos_phi, sin_phi;
     if (r_sin_theta_2 > std::numeric_limits<double>::min()) {
@@ -117,25 +119,24 @@ Acts::fieldMapperRZ(const std::function<size_t(std::array<size_t, 2> binsRZ,
       cos_phi = 1.;
       sin_phi = 0.;
     }
-    return Acts::Vector3D(field.x() * cos_phi, field.x() * sin_phi, field.y());
+    return Acts::Vector3(field.x() * cos_phi, field.x() * sin_phi, field.y());
   };
 
   // [5] Create the mapper & BField Service
   // create field mapping
-  return Acts::InterpolatedBFieldMapper<Grid_t>(transformPos, transformBField,
-                                                std::move(grid));
+  return Acts::InterpolatedBFieldMap<Grid_t>(
+      {transformPos, transformBField, std::move(grid)});
 }
 
-Acts::InterpolatedBFieldMapper<Acts::detail::Grid<
-    Acts::Vector3D, Acts::detail::EquidistantAxis,
-    Acts::detail::EquidistantAxis, Acts::detail::EquidistantAxis>>
-Acts::fieldMapperXYZ(
-    const std::function<size_t(std::array<size_t, 3> binsXYZ,
-                               std::array<size_t, 3> nBinsXYZ)>&
-        localToGlobalBin,
-    std::vector<double> xPos, std::vector<double> yPos,
-    std::vector<double> zPos, std::vector<Acts::Vector3D> bField,
-    double lengthUnit, double BFieldUnit, bool firstOctant) {
+Acts::InterpolatedBFieldMap<Acts::detail::Grid<
+    Acts::Vector3, Acts::detail::EquidistantAxis, Acts::detail::EquidistantAxis,
+    Acts::detail::EquidistantAxis>>
+Acts::fieldMapXYZ(const std::function<size_t(std::array<size_t, 3> binsXYZ,
+                                             std::array<size_t, 3> nBinsXYZ)>&
+                      localToGlobalBin,
+                  std::vector<double> xPos, std::vector<double> yPos,
+                  std::vector<double> zPos, std::vector<Acts::Vector3> bField,
+                  double lengthUnit, double BFieldUnit, bool firstOctant) {
   // [1] Create Grid
   // Sort the values
   std::sort(xPos.begin(), xPos.end());
@@ -192,7 +193,7 @@ Acts::fieldMapperXYZ(
                                       nBinsZ);
   // Create the grid
   using Grid_t =
-      Acts::detail::Grid<Acts::Vector3D, Acts::detail::EquidistantAxis,
+      Acts::detail::Grid<Acts::Vector3, Acts::detail::EquidistantAxis,
                          Acts::detail::EquidistantAxis,
                          Acts::detail::EquidistantAxis>;
   Grid_t grid(
@@ -229,30 +230,30 @@ Acts::fieldMapperXYZ(
       }
     }
   }
-  grid.setExteriorBins(Acts::Vector3D::Zero());
+  grid.setExteriorBins(Acts::Vector3::Zero());
 
   // [3] Create the transformation for the position
   // map (x,y,z) -> (r,z)
-  auto transformPos = [](const Acts::Vector3D& pos) { return pos; };
+  auto transformPos = [](const Acts::Vector3& pos) { return pos; };
 
   // [4] Create the transformation for the bfield
   // map (Bx,By,Bz) -> (Bx,By,Bz)
-  auto transformBField = [](const Acts::Vector3D& field,
-                            const Acts::Vector3D& /*pos*/) { return field; };
+  auto transformBField = [](const Acts::Vector3& field,
+                            const Acts::Vector3& /*pos*/) { return field; };
 
   // [5] Create the mapper & BField Service
   // create field mapping
-  return Acts::InterpolatedBFieldMapper<Grid_t>(transformPos, transformBField,
-                                                std::move(grid));
+  return Acts::InterpolatedBFieldMap<Grid_t>(
+      {transformPos, transformBField, std::move(grid)});
 }
 
-Acts::InterpolatedBFieldMapper<
-    Acts::detail::Grid<Acts::Vector2D, Acts::detail::EquidistantAxis,
+Acts::InterpolatedBFieldMap<
+    Acts::detail::Grid<Acts::Vector2, Acts::detail::EquidistantAxis,
                        Acts::detail::EquidistantAxis>>
-Acts::solenoidFieldMapper(std::pair<double, double> rlim,
-                          std::pair<double, double> zlim,
-                          std::pair<size_t, size_t> nbins,
-                          const SolenoidBField& field) {
+Acts::solenoidFieldMap(std::pair<double, double> rlim,
+                       std::pair<double, double> zlim,
+                       std::pair<size_t, size_t> nbins,
+                       const SolenoidBField& field) {
   double rMin, rMax, zMin, zMax;
   std::tie(rMin, rMax) = rlim;
   std::tie(zMin, zMax) = zlim;
@@ -272,20 +273,20 @@ Acts::solenoidFieldMapper(std::pair<double, double> rlim,
 
   // Create the grid
   using Grid_t =
-      Acts::detail::Grid<Acts::Vector2D, Acts::detail::EquidistantAxis,
+      Acts::detail::Grid<Acts::Vector2, Acts::detail::EquidistantAxis,
                          Acts::detail::EquidistantAxis>;
   Grid_t grid(std::make_tuple(std::move(rAxis), std::move(zAxis)));
 
   // Create the transformation for the position
   // map (x,y,z) -> (r,z)
-  auto transformPos = [](const Acts::Vector3D& pos) {
-    return Acts::Vector2D(perp(pos), pos.z());
+  auto transformPos = [](const Acts::Vector3& pos) {
+    return Acts::Vector2(perp(pos), pos.z());
   };
 
   // Create the transformation for the bfield
   // map (Br,Bz) -> (Bx,By,Bz)
-  auto transformBField = [](const Acts::Vector2D& bfield,
-                            const Acts::Vector3D& pos) {
+  auto transformBField = [](const Acts::Vector2& bfield,
+                            const Acts::Vector3& pos) {
     double r_sin_theta_2 = pos.x() * pos.x() + pos.y() * pos.y();
     double cos_phi, sin_phi;
     if (r_sin_theta_2 > std::numeric_limits<double>::min()) {
@@ -296,8 +297,8 @@ Acts::solenoidFieldMapper(std::pair<double, double> rlim,
       cos_phi = 1.;
       sin_phi = 0.;
     }
-    return Acts::Vector3D(bfield.x() * cos_phi, bfield.x() * sin_phi,
-                          bfield.y());
+    return Acts::Vector3(bfield.x() * cos_phi, bfield.x() * sin_phi,
+                         bfield.y());
   };
 
   // iterate over all bins, set their value to the solenoid value
@@ -312,7 +313,7 @@ Acts::solenoidFieldMapper(std::pair<double, double> rlim,
         // regular bin, get lower left boundary
         Grid_t::point_t lowerLeft = grid.lowerLeftBinEdge(index);
         // do lookup
-        Vector2D B = field.getField(Vector2D(lowerLeft[0], lowerLeft[1]));
+        Vector2 B = field.getField(Vector2(lowerLeft[0], lowerLeft[1]));
         grid.atLocalBins(index) = B;
       }
     }
@@ -320,7 +321,7 @@ Acts::solenoidFieldMapper(std::pair<double, double> rlim,
 
   // Create the mapper & BField Service
   // create field mapping
-  Acts::InterpolatedBFieldMapper<Grid_t> mapper(transformPos, transformBField,
-                                                std::move(grid));
-  return mapper;
+  Acts::InterpolatedBFieldMap<Grid_t> map(
+      {transformPos, transformBField, std::move(grid)});
+  return map;
 }

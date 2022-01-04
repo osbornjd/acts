@@ -8,21 +8,23 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/Volume.hpp"
 #include "Acts/Geometry/VolumeBounds.hpp"
 #include "Acts/Utilities/BoundingBox.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
-#include <cmath>
+#include <array>
+#include <iomanip>
+#include <memory>
+#include <ostream>
+#include <vector>
 
 namespace Acts {
 
-class Surface;
 class CylinderBounds;
 class ConeBounds;
 class RadialBounds;
 class PlanarBounds;
-class Volume;
 
 /// @class ConeVolumeBounds
 ///
@@ -48,11 +50,11 @@ class ConeVolumeBounds : public VolumeBounds {
   /// Constructor - for general cone-cone setups
   ///
   /// @param innerAlpha The opening angle of the inner cone (0 if no cone)
-  /// @param innerOffsetZ The tip  z position in of the inner cone, w.r.t center
+  /// @param innerTipZ The tip  z position in of the inner cone, w.r.t center
   /// @param outerAlpha  The opening angle of the outer cone (0 if no cone)
   /// @param outerOffsetZ The tip  z position in of the outer cone, w.r.t center
   /// @param halflengthZ The minimum z value of the inner and outer cones
-  /// @param avergePhi The phi orientation of the sector
+  /// @param averagePhi The phi orientation of the sector
   /// @param halfPhiSector The opening angle phi sector
   ConeVolumeBounds(double innerAlpha, double innerTipZ, double outerAlpha,
                    double outerOffsetZ, double halflengthZ, double averagePhi,
@@ -64,7 +66,7 @@ class ConeVolumeBounds : public VolumeBounds {
   /// @param alpha  The opening angle of the cone (0 if no cone)
   /// @param offsetZ The tip  z position in of the cone, w.r.t center
   /// @param halflengthZ The minimum z value of the inner and outer cones
-  /// @param avergePhi The phi orientation of the sector (defaulted to 0)
+  /// @param averagePhi The phi orientation of the sector (defaulted to 0)
   /// @param halfPhiSector The opening angle phi sector
   ///
   /// @note depending on cylinderR > coneR it is constructing a cone with
@@ -98,7 +100,7 @@ class ConeVolumeBounds : public VolumeBounds {
   ///
   /// @param pos is the position in volume frame to be checked
   /// @param tol is the absolute tolerance to be applied
-  bool inside(const Vector3D& pos, double tol = 0.) const final;
+  bool inside(const Vector3& pos, double tol = 0.) const final;
 
   /// Oriented surfaces, i.e. the decomposed boundary surfaces and the
   /// according navigation direction into the volume given the normal
@@ -111,15 +113,15 @@ class ConeVolumeBounds : public VolumeBounds {
   ///
   /// @return a vector of surfaces bounding this volume
   OrientedSurfaces orientedSurfaces(
-      const Transform3D& transform = Transform3D::Identity()) const final;
+      const Transform3& transform = Transform3::Identity()) const final;
 
   /// Construct bounding box for this shape
   /// @param trf Optional transform
   /// @param envelope Optional envelope to add / subtract from min/max
   /// @param entity Entity to associate this bounding box with
   /// @return Constructed bounding box
-  Volume::BoundingBox boundingBox(const Transform3D* trf = nullptr,
-                                  const Vector3D& envelope = {0, 0, 0},
+  Volume::BoundingBox boundingBox(const Transform3* trf = nullptr,
+                                  const Vector3& envelope = {0, 0, 0},
                                   const Volume* entity = nullptr) const final;
 
   /// Access to the bound values

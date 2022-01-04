@@ -48,13 +48,15 @@ ActsExamples::ProcessCode ActsExamples::EventGenerator::read(
     auto& generate = m_cfg.generators[iGenerate];
 
     // generate the primary vertices from this generator
-    for (size_t n = generate.multiplicity(rng); 0 < n; --n) {
+    for (size_t n = (*generate.multiplicity)(rng); 0 < n; --n) {
       nPrimaryVertices += 1;
 
       // generate primary vertex position
-      auto vertexPosition = generate.vertex(rng);
+      auto vertexPosition = (*generate.vertex)(rng);
       // generate particles associated to this vertex
-      auto vertexParticles = generate.particles(rng);
+      auto vertexParticles = (*generate.particles)(rng);
+
+      ACTS_VERBOSE("Generate vertex at " << vertexPosition.transpose());
 
       auto updateParticleInPlace = [&](ActsFatras::Particle& particle) {
         // only set the primary vertex, leave everything else as-is
@@ -64,7 +66,8 @@ ActsExamples::ProcessCode ActsExamples::EventGenerator::read(
         const auto pid = ActsFatras::Barcode(particle.particleId())
                              .setVertexPrimary(nPrimaryVertices);
         // move particle to the vertex
-        const auto pos4 = (vertexPosition + particle.position4()).eval();
+        const auto pos4 = (vertexPosition + particle.fourPosition()).eval();
+        ACTS_VERBOSE(" - particle at " << pos4.transpose());
         // `withParticleId` returns a copy because it changes the identity
         particle = particle.withParticleId(pid).setPosition4(pos4);
       };

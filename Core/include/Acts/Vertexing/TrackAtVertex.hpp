@@ -43,7 +43,6 @@ struct TrackAtVertex {
 
   /// @brief Constructor with default chi2
   ///
-  /// @param chi2perTrack Chi2 of track
   /// @param paramsAtVertex Fitted perigee parameter
   /// @param originalTrack Original perigee parameter
   TrackAtVertex(const BoundTrackParameters& paramsAtVertex,
@@ -79,6 +78,9 @@ struct TrackAtVertex {
 
   /// The linearized state of the track at vertex
   LinearizedTrack linearizedState;
+
+  /// Is already linearized
+  bool isLinearized = false;
 };
 
 }  // namespace Acts

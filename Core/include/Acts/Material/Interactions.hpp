@@ -8,10 +8,8 @@
 
 #pragma once
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
-#include "Acts/Utilities/Units.hpp"
-
-#include <utility>
 
 namespace Acts {
 
@@ -34,13 +32,13 @@ float computeEnergyLossBethe(const MaterialSlab& slab, int pdg, float m,
                              float qOverP, float q = UnitConstants::e);
 /// Derivative of the Bethe energy loss with respect to q/p.
 ///
-/// @see computeEnergyLossBethe for parameters description
+/// @copydoc computeEnergyLossBethe
 float deriveEnergyLossBetheQOverP(const MaterialSlab& slab, int pdg, float m,
                                   float qOverP, float q = UnitConstants::e);
 
 /// Compute the most propable energy loss due to ionisation and excitation.
 ///
-/// @see computeEnergyLossBethe for parameters description
+/// @copydoc computeEnergyLossBethe
 ///
 /// This computes the most probable energy loss -dE(x) through a material of
 /// the given properties and thickness as described by the mode of the
@@ -50,7 +48,7 @@ float computeEnergyLossLandau(const MaterialSlab& slab, int pdg, float m,
                               float qOverP, float q = UnitConstants::e);
 /// Derivative of the most probable ionisation energy loss with respect to q/p.
 ///
-/// @see computeEnergyLossBethe for parameters description
+/// @copydoc computeEnergyLossBethe
 float deriveEnergyLossLandauQOverP(const MaterialSlab& slab, int pdg, float m,
                                    float qOverP, float q = UnitConstants::e);
 
@@ -65,7 +63,7 @@ float computeEnergyLossLandauSigma(const MaterialSlab& slab, int pdg, float m,
                                    float qOverP, float q = UnitConstants::e);
 /// Compute q/p Gaussian-equivalent sigma due to ionisation loss fluctuations.
 ///
-/// @see computeEnergyLossBethe for parameters description
+/// @copydoc computeEnergyLossBethe
 float computeEnergyLossLandauSigmaQOverP(const MaterialSlab& slab, int pdg,
                                          float m, float qOverP,
                                          float q = UnitConstants::e);
@@ -85,7 +83,7 @@ float computeEnergyLossRadiative(const MaterialSlab& slab, int pdg, float m,
                                  float qOverP, float q = UnitConstants::e);
 /// Derivative of the mean radiative energy loss with respect to q/p.
 ///
-/// @see computeEnergyLossRadiative for parameters description
+/// @copydoc computeEnergyLossRadiative
 float deriveEnergyLossRadiativeQOverP(const MaterialSlab& slab, int pdg,
                                       float m, float qOverP,
                                       float q = UnitConstants::e);
@@ -105,18 +103,18 @@ float computeEnergyLossMean(const MaterialSlab& slab, int pdg, float m,
                             float qOverP, float q = UnitConstants::e);
 /// Derivative of the combined mean energy loss with respect to q/p.
 ///
-/// @see computeEnergyLossMean for parameters description.
+/// @copydoc computeEnergyLossMean
 float deriveEnergyLossMeanQOverP(const MaterialSlab& slab, int pdg, float m,
                                  float qOverP, float q = UnitConstants::e);
 
 /// Compute the combined most probably energy loss.
 ///
-/// @see computeEnergyLossMean for parameters description.
+/// @copydoc computeEnergyLossMean
 float computeEnergyLossMode(const MaterialSlab& slab, int pdg, float m,
                             float qOverP, float q = UnitConstants::e);
 /// Derivative of the combined most probable energy loss with respect to q/p.
 ///
-/// @see computeEnergyLossMean for parameters description.
+/// @copydoc computeEnergyLossMean
 float deriveEnergyLossModeQOverP(const MaterialSlab& slab, int pdg, float m,
                                  float qOverP, float q = UnitConstants::e);
 

@@ -11,6 +11,8 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 
+#include <algorithm>
+
 void Acts::GenericApproachDescriptor::registerLayer(const Layer& lay) {
   // go through the surfaces
   for (auto& sf : m_surfaceCache) {
@@ -21,8 +23,8 @@ void Acts::GenericApproachDescriptor::registerLayer(const Layer& lay) {
 
 Acts::ObjectIntersection<Acts::Surface>
 Acts::GenericApproachDescriptor::approachSurface(
-    const GeometryContext& gctx, const Vector3D& position,
-    const Vector3D& direction, const BoundaryCheck& bcheck) const {
+    const GeometryContext& gctx, const Vector3& position,
+    const Vector3& direction, const BoundaryCheck& bcheck) const {
   std::vector<ObjectIntersection<Surface>> sIntersections;
   sIntersections.reserve(m_surfaceCache.size());
   for (auto& sf : m_surfaceCache) {

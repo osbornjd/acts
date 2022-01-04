@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
 #include "Acts/Visualization/ViewConfig.hpp"
 
@@ -35,7 +35,7 @@ class ObjVisualization3D : public IVisualization3D {
   using ValueType = T;
 
   /// Type of a vertex based on the value type
-  using VertexType = ActsVector<ValueType, 3>;
+  using VertexType = Eigen::Matrix<ValueType, 3, 1>;
 
   /// Type of a line
   using LineType = std::pair<size_t, size_t>;
@@ -47,25 +47,24 @@ class ObjVisualization3D : public IVisualization3D {
       : m_outputPrecision(prec), m_outputScalor(scale) {}
 
   /// @copydoc Acts::IVisualization3D::vertex()
-  void vertex(const Vector3D& vtx, ColorRGB color = {0, 0, 0}) final;
+  void vertex(const Vector3& vtx, ColorRGB color = {0, 0, 0}) final;
 
   /// @copydoc Acts::IVisualization3D::line()
-  void line(const Vector3D& a, const Vector3D& b,
+  void line(const Vector3& a, const Vector3& b,
             ColorRGB color = {0, 0, 0}) final;
 
   /// @copydoc Acts::IVisualization3D::face()
-  void face(const std::vector<Vector3D>& vtxs,
-            ColorRGB color = {0, 0, 0}) final;
+  void face(const std::vector<Vector3>& vtxs, ColorRGB color = {0, 0, 0}) final;
 
   /// @copydoc Acts::IVisualization3D::faces()
-  void faces(const std::vector<Vector3D>& vtxs,
+  void faces(const std::vector<Vector3>& vtxs,
              const std::vector<FaceType>& faces,
              ColorRGB color = {0, 0, 0}) final;
 
-  /// @copydoc Acts::IVisualization3D::write()
+  /// @copydoc Acts::IVisualization3D::write(const std::string&) const
   void write(const std::string& path) const final;
 
-  /// @copydoc Acts::IVisualization3D::write()
+  /// @copydoc Acts::IVisualization3D::write(std::ostream&) const
   void write(std::ostream& os) const final;
 
   /// Write the object and the material file
@@ -90,6 +89,8 @@ class ObjVisualization3D : public IVisualization3D {
   std::map<size_t, ColorRGB> m_faceColors;
 };
 
+#ifndef DOXYGEN
 #include "detail/ObjVisualization3D.ipp"
+#endif
 
 }  // namespace Acts

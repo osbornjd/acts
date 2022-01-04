@@ -8,25 +8,28 @@
 
 #pragma once
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Geometry/IConfinedTrackingVolumeBuilder.hpp"
-#include "Acts/Geometry/ILayerBuilder.hpp"
 #include "Acts/Geometry/ITrackingVolumeBuilder.hpp"
 #include "Acts/Geometry/ITrackingVolumeHelper.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
 
+#include <algorithm>
 #include <array>
 #include <limits>
+#include <memory>
+#include <ostream>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace Acts {
 
-class TrackingVolume;
-class VolumeBounds;
 class IVolumeMaterial;
 class ISurfaceMaterial;
+class ILayerBuilder;
+class IConfinedTrackingVolumeBuilder;
 
 /// @enum WrappingCondition
 enum WrappingCondition {
@@ -353,6 +356,15 @@ struct WrappingConfig {
           // set the Central Wrapping
           wCondition = CentralWrapping;
           wConditionScreen = "[centrally inserted]";
+        } else if ((existingVolumeConfig.rMax > containerVolumeConfig.rMin &&
+                    existingVolumeConfig.rMin < containerVolumeConfig.rMin) ||
+                   (existingVolumeConfig.rMax > containerVolumeConfig.rMax &&
+                    existingVolumeConfig.rMin < containerVolumeConfig.rMax)) {
+          // The volumes are overlapping this shouldn't be happening return an
+          // error
+          throw std::invalid_argument(
+              "Volumes are overlapping, this shouldn't be happening. Please "
+              "check your geometry building.");
         }
 
         // check if gaps are needed
@@ -402,7 +414,7 @@ struct WrappingConfig {
     // for screen output
     std::stringstream sl;
     if (containerVolumeConfig) {
-      sl << "New contaienr built with       configuration: "
+      sl << "New container built with       configuration: "
          << containerVolumeConfig.toString() << '\n';
     }
     // go throug the new new ones first
@@ -538,6 +550,7 @@ class CylinderVolumeBuilder : public ITrackingVolumeBuilder {
   ///
   /// @param [in] gctx the geometry context for this building
   /// @param [in] lVector is the vector of layers that are parsed
+  /// @param [in] mtvVector Vector of mutable tracking volumes to analyze
   ///
   /// @return a VolumeConfig representing this layer
   VolumeConfig analyzeContent(

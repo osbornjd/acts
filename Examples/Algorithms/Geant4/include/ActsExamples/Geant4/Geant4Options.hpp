@@ -8,13 +8,9 @@
 
 #pragma once
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "ActsExamples/Utilities/OptionsFwd.hpp"
-
-#include "GeantinoRecording.hpp"
-
-using namespace Acts::UnitLiterals;
 
 namespace ActsExamples {
 
@@ -24,16 +20,6 @@ namespace Options {
 ///
 /// @param desc The option descrion forward
 void addGeant4Options(Description& desc);
-
-/// Read the Geatn4 options and @return a GeantinoRecording::Config
-///
-/// @tparam vmap_t is the Type of the Parameter map to be read out
-///
-/// @param variables is the parameter map for the options
-///
-/// @returns a Config object for the GeantinoRecording
-GeantinoRecording::Config readGeantinoRecordingConfig(
-    const Variables& variables);
 
 }  // namespace Options
 }  // namespace ActsExamples

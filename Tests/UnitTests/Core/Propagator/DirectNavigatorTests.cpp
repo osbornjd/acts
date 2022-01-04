@@ -40,16 +40,16 @@ CylindricalTrackingGeometry cGeometry(tgContext);
 auto tGeometry = cGeometry();
 
 // Create a navigator for this tracking geometry
-Navigator navigator(tGeometry);
+Navigator navigator({tGeometry});
 DirectNavigator dnavigator;
 
 using BField = ConstantBField;
-using Stepper = EigenStepper<BField>;
+using Stepper = EigenStepper<>;
 using ReferencePropagator = Propagator<Stepper, Navigator>;
 using DirectPropagator = Propagator<Stepper, DirectNavigator>;
 
 const double Bz = 2_T;
-BField bField(0, 0, Bz);
+auto bField = std::make_shared<BField>(Vector3{0, 0, Bz});
 Stepper estepper(bField);
 Stepper dstepper(bField);
 
@@ -87,7 +87,7 @@ void runTest(const rpropagator_t& rprop, const dpropagator_t& dprop, double pT,
 
   // Define start parameters from ranom input
   double p = pT / sin(theta);
-  CurvilinearTrackParameters start(Vector4D(0, 0, 0, time), phi, theta,
+  CurvilinearTrackParameters start(Vector4(0, 0, 0, time), phi, theta,
                                    dcharge / p);
 
   using EndOfWorld = EndOfWorldReached;

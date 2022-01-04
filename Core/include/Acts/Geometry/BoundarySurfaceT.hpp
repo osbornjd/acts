@@ -7,11 +7,11 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/BoundarySurfaceFace.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/Volume.hpp"
 #include "Acts/Utilities/BinnedArray.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <memory>
 
@@ -101,12 +101,11 @@ class BoundarySurfaceT {
   /// @param gctx The current geometry context object, e.g. alignment
   /// @param pos The global position on surface
   /// @param mom The direction on the surface
-  /// @param dir is an aditional direction corrective
+  /// @param pdir is an aditional direction corrective
   ///
   /// @return The attached volume at that position
   virtual const volume_t* attachedVolume(const GeometryContext& gctx,
-                                         const Vector3D& pos,
-                                         const Vector3D& mom,
+                                         const Vector3& pos, const Vector3& mom,
                                          NavigationDirection pdir) const;
 
   /// templated onBoundary method
@@ -126,7 +125,6 @@ class BoundarySurfaceT {
   /// Helper method: attach a Volume to this BoundarySurfaceT
   /// this is done during the geometry construction.
   ///
-  /// @param gctx The current geometry context object, e.g. alignment
   /// @param volume The volume to be attached
   /// @param navDir The navigation direction for attaching
   void attachVolume(const volume_t* volume, NavigationDirection navDir);
@@ -181,7 +179,7 @@ void BoundarySurfaceT<volume_t>::attachVolumeArray(
 
 template <class volume_t>
 const volume_t* BoundarySurfaceT<volume_t>::attachedVolume(
-    const GeometryContext& gctx, const Vector3D& pos, const Vector3D& mom,
+    const GeometryContext& gctx, const Vector3& pos, const Vector3& mom,
     NavigationDirection navDir) const {
   const volume_t* attVolume = nullptr;
   // dot product with normal vector to distinguish inside/outside

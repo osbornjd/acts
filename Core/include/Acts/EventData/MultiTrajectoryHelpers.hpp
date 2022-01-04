@@ -21,7 +21,6 @@ namespace Acts {
 namespace MultiTrajectoryHelpers {
 
 /// @brief Struct for brief trajectory summary info
-/// @TODO: add nSharedHits
 ///
 struct TrajectoryState {
   size_t nStates = 0;
@@ -29,7 +28,14 @@ struct TrajectoryState {
   size_t nOutliers = 0;
   size_t nHoles = 0;
   double chi2Sum = 0;
+  std::vector<double> measurementChi2 = {};
+  std::vector<double> outlierChi2 = {};
   size_t NDF = 0;
+  std::vector<unsigned int> measurementVolume = {};
+  std::vector<unsigned int> measurementLayer = {};
+  std::vector<unsigned int> outlierVolume = {};
+  std::vector<unsigned int> outlierLayer = {};
+  size_t nSharedHits = 0;
 };
 
 // Container for trajectory summary info at a specific volume
@@ -44,20 +50,31 @@ using VolumeTrajectoryStateContainer =
 /// @param entryIndex The entry index of trajectory to investigate
 ///
 /// @return The trajectory summary info
-template <typename source_link_t>
-TrajectoryState trajectoryState(
-    const Acts::MultiTrajectory<source_link_t>& multiTraj,
-    const size_t& entryIndex) {
+inline TrajectoryState trajectoryState(const Acts::MultiTrajectory& multiTraj,
+                                       const size_t& entryIndex) {
   TrajectoryState trajState;
   multiTraj.visitBackwards(entryIndex, [&](const auto& state) {
+    // Get the volume Id of this surface
+    const auto& geoID = state.referenceSurface().geometryId();
+    const auto& volume = geoID.volume();
+    const auto& layer = geoID.layer();
     trajState.nStates++;
-    trajState.chi2Sum += state.chi2();
     trajState.NDF += state.calibratedSize();
     auto typeFlags = state.typeFlags();
     if (typeFlags.test(Acts::TrackStateFlag::MeasurementFlag)) {
+      if (typeFlags.test(Acts::TrackStateFlag::SharedHitFlag)) {
+        trajState.nSharedHits++;
+      }
       trajState.nMeasurements++;
+      trajState.measurementChi2.push_back(state.chi2());
+      trajState.measurementVolume.push_back(volume);
+      trajState.measurementLayer.push_back(layer);
+      trajState.chi2Sum += state.chi2();
     } else if (typeFlags.test(Acts::TrackStateFlag::OutlierFlag)) {
       trajState.nOutliers++;
+      trajState.outlierChi2.push_back(state.chi2());
+      trajState.outlierVolume.push_back(volume);
+      trajState.outlierLayer.push_back(layer);
     } else if (typeFlags.test(Acts::TrackStateFlag::HoleFlag)) {
       trajState.nHoles++;
     }
@@ -76,16 +93,15 @@ TrajectoryState trajectoryState(
 ///
 /// @return The trajectory summary info at different sub-detectors (i.e.
 /// different volumes)
-template <typename source_link_t>
-VolumeTrajectoryStateContainer trajectoryState(
-    const Acts::MultiTrajectory<source_link_t>& multiTraj,
-    const size_t& entryIndex,
+inline VolumeTrajectoryStateContainer trajectoryState(
+    const Acts::MultiTrajectory& multiTraj, const size_t& entryIndex,
     const std::vector<GeometryIdentifier::Value>& volumeIds) {
   VolumeTrajectoryStateContainer trajStateContainer;
   multiTraj.visitBackwards(entryIndex, [&](const auto& state) {
     // Get the volume Id of this surface
     const auto& geoID = state.referenceSurface().geometryId();
     const auto& volume = geoID.volume();
+    const auto& layer = geoID.layer();
     // Check if the track info for this sub-detector is requested
     auto it = std::find(volumeIds.begin(), volumeIds.end(), volume);
     if (it == volumeIds.end()) {
@@ -94,13 +110,22 @@ VolumeTrajectoryStateContainer trajectoryState(
     // The trajectory state for this volume
     auto& trajState = trajStateContainer[volume];
     trajState.nStates++;
-    trajState.chi2Sum += state.chi2();
     trajState.NDF += state.calibratedSize();
     auto typeFlags = state.typeFlags();
     if (typeFlags.test(Acts::TrackStateFlag::MeasurementFlag)) {
+      if (typeFlags.test(Acts::TrackStateFlag::SharedHitFlag)) {
+        trajState.nSharedHits++;
+      }
       trajState.nMeasurements++;
+      trajState.measurementChi2.push_back(state.chi2());
+      trajState.measurementVolume.push_back(volume);
+      trajState.measurementLayer.push_back(layer);
+      trajState.chi2Sum += state.chi2();
     } else if (typeFlags.test(Acts::TrackStateFlag::OutlierFlag)) {
       trajState.nOutliers++;
+      trajState.outlierChi2.push_back(state.chi2());
+      trajState.outlierVolume.push_back(volume);
+      trajState.outlierLayer.push_back(layer);
     } else if (typeFlags.test(Acts::TrackStateFlag::HoleFlag)) {
       trajState.nHoles++;
     }

@@ -11,13 +11,15 @@
 // Workaround for building on clang+libstdc++
 #include "Acts/Utilities/detail/ReferenceWrapperAnyCompat.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Utilities/Result.hpp"
 
 #include <cmath>
 #include <functional>
+#include <variant>
 
 namespace Acts {
 
@@ -39,7 +41,7 @@ namespace detail {
 /// @param [in, out] transportJacobian Global jacobian since the last reset
 /// @param [in, out] derivatives Path length derivatives of the free, nominal
 /// parameters
-/// @param [in, out] jacobianLocalToGlobal Projection jacobian of the last bound
+/// @param [in, out] jacToGlobal Projection jacobian of the last bound
 /// parametrisation to free parameters
 /// @param [in] parameters Free, nominal parametrisation
 /// @param [in] covTransport Decision whether the covariance transport should be
@@ -51,12 +53,12 @@ namespace detail {
 ///   - the parameters at the surface
 ///   - the stepwise jacobian towards it (from last bound)
 ///   - and the path length (from start - for ordering)
-std::tuple<BoundTrackParameters, BoundMatrix, double> boundState(
-    std::reference_wrapper<const GeometryContext> geoContext,
-    BoundSymMatrix& covarianceMatrix, BoundMatrix& jacobian,
-    FreeMatrix& transportJacobian, FreeVector& derivatives,
-    BoundToFreeMatrix& jacobianLocalToGlobal, const FreeVector& parameters,
-    bool covTransport, double accumulatedPath, const Surface& surface);
+Result<std::tuple<BoundTrackParameters, BoundMatrix, double>> boundState(
+    const GeometryContext& geoContext, BoundSymMatrix& covarianceMatrix,
+    BoundMatrix& jacobian, FreeMatrix& transportJacobian,
+    FreeVector& derivatives, BoundToFreeMatrix& jacToGlobal,
+    const FreeVector& parameters, bool covTransport, double accumulatedPath,
+    const Surface& surface);
 
 /// Create and return a curvilinear state at the current position
 ///
@@ -67,7 +69,7 @@ std::tuple<BoundTrackParameters, BoundMatrix, double> boundState(
 /// @param [in, out] transportJacobian Global jacobian since the last reset
 /// @param [in, out] derivatives Path length derivatives of the free, nominal
 /// parameters
-/// @param [in, out] jacobianLocalToGlobal Projection jacobian of the last bound
+/// @param [in, out] jacToGlobal Projection jacobian of the last bound
 /// parametrisation to free parameters
 /// @param [in] parameters Free, nominal parametrisation
 /// @param [in] covTransport Decision whether the covariance transport should be
@@ -81,46 +83,48 @@ std::tuple<BoundTrackParameters, BoundMatrix, double> boundState(
 std::tuple<CurvilinearTrackParameters, BoundMatrix, double> curvilinearState(
     BoundSymMatrix& covarianceMatrix, BoundMatrix& jacobian,
     FreeMatrix& transportJacobian, FreeVector& derivatives,
-    BoundToFreeMatrix& jacobianLocalToGlobal, const FreeVector& parameters,
+    BoundToFreeMatrix& jacToGlobal, const FreeVector& parameters,
     bool covTransport, double accumulatedPath);
 
-/// @brief Method for on-demand transport of the covariance to a new frame at
-/// current position in parameter space
+/// @brief Method for on-demand covariance transport of a bound/curvilinear to
+/// another bound representation.
 ///
 /// @param [in] geoContext The geometry context
-/// @param [in, out] covarianceMatrix The covariance matrix of the state
-/// @param [in, out] jacobian Full jacobian since the last reset
-/// @param [in, out] transportJacobian Global jacobian since the last reset
-/// @param [in, out] derivatives Path length derivatives of the free, nominal
-/// parameters
-/// @param [in, out] jacobianLocalToGlobal Projection jacobian of the last bound
+/// @param [in, out] boundCovariance The covariance matrix of the state
+/// @param [in, out] fullTransportJacobian Full jacobian since the last reset
+/// @param [in, out] freeTransportJacobian Global jacobian since the last reset
+/// @param [in, out] freeToPathDerivatives Path length derivatives
+/// @param [in, out] boundToFreeJacobian Projection jacobian of the last bound
 /// parametrisation to free parameters
-/// @param [in] parameters Free, nominal parametrisation
+/// @param [in] freeParameters Free, nominal parametrisation
 /// @param [in] surface is the surface to which the covariance is
 ///        forwarded to
-/// @note No check is done if the position is actually on the surface
-void covarianceTransport(
-    std::reference_wrapper<const GeometryContext> geoContext,
-    BoundSymMatrix& covarianceMatrix, BoundMatrix& jacobian,
-    FreeMatrix& transportJacobian, FreeVector& derivatives,
-    BoundToFreeMatrix& jacobianLocalToGlobal, const FreeVector& parameters,
-    const Surface& surface);
-
-/// @brief Method for on-demand transport of the covariance to a new frame at
-/// current position in parameter space
 ///
-/// @param [in, out] covarianceMatrix The covariance matrix of the state
-/// @param [in, out] jacobian Full jacobian since the last reset
-/// @param [in, out] transportJacobian Global jacobian since the last reset
-/// @param [in, out] derivatives Path length derivatives of the free, nominal
-/// parameters
-/// @param [in, out] jacobianLocalToGlobal Projection jacobian of the last bound
+/// @note No check is done if the position is actually on the surface
+///
+void transportCovarianceToBound(
+    const GeometryContext& geoContext, BoundSymMatrix& boundCovariance,
+    BoundMatrix& fullTransportJacobian, FreeMatrix& freeTransportJacobian,
+    FreeVector& freeToPathDerivatives, BoundToFreeMatrix& boundToFreeJacobian,
+    const FreeVector& freeParameters, const Surface& surface);
+
+/// @brief Method for on-demand covariance transport of a bound/curvilinear
+/// to a new curvilinear representation.
+///
+/// @param [in, out] boundCovariance The covariance matrix of the state
+/// @param [in, out] fullTransportJacobian Full jacobian since the last reset
+/// @param [in, out] freeTransportJacobian Global jacobian since the last reset
+/// @param [in, out] freeToPathDerivatives Path length derivatives
+/// @param [in, out] boundToFreeJacobian Projection jacobian of the last bound
 /// parametrisation to free parameters
 /// @param [in] direction Normalised direction vector
-void covarianceTransport(BoundSymMatrix& covarianceMatrix,
-                         BoundMatrix& jacobian, FreeMatrix& transportJacobian,
-                         FreeVector& derivatives,
-                         BoundToFreeMatrix& jacobianLocalToGlobal,
-                         const Vector3D& direction);
+///
+void transportCovarianceToCurvilinear(BoundSymMatrix& boundCovariance,
+                                      BoundMatrix& fullTransportJacobian,
+                                      FreeMatrix& freeTransportJacobian,
+                                      FreeVector& freeToPathDerivatives,
+                                      BoundToFreeMatrix& boundToFreeJacobian,
+                                      const Vector3& direction);
+
 }  // namespace detail
 }  // namespace Acts
