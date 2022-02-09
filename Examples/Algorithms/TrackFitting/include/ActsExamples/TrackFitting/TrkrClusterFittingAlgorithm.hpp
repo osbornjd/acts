@@ -33,7 +33,7 @@ namespace ActsExamples {
  * This class contains the information required to run the Kalman fitter
  * with the TrkrClusterSourceLinks. Based on ActsExamples::FittingAlgorithm
  */
-class TrkrClusterFittingAlgorithm final : public BareAlgorithm
+class TrkrClusterFittingAlgorithm 
 {
  public:
   /// Construct some aliases to be used for the fitting results
