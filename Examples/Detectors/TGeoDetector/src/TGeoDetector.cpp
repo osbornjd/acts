@@ -483,7 +483,7 @@ auto TGeoDetector::finalize(
   }
   // Enable dump from full config
   else if (not(vm["geo-tgeo-dump-jsonconfig"].as<std::string>().compare(
-                   "tgeo_empty_cofig.json") == 0)) {
+                   "tgeo_empty_config.json") == 0)) {
     readTGeoLayerBuilderConfigs(vm, config);
     writeTGeoDetectorConfig(vm, config);
   } else {
