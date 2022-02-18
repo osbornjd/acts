@@ -1,11 +1,12 @@
 #pragma once
 
-#include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/MeasurementHelpers.hpp"
 #include "Acts/EventData/SourceLink.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 
 #include "ActsExamples/EventData/GeometryContainers.hpp"
+#include "ActsExamples/EventData/Measurement.hpp"
+
 #include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
 
@@ -63,23 +64,20 @@ class TrkrClusterSourceLink final : public Acts::SourceLink
     return *m_surface;
   }
   
-  /// Create Acts::FittableMeasurement from information in SourceLink
-  Acts::Measurement<Acts::BoundIndices,2> operator*() const
+  /// Create Acts::Measurement from information in SourceLink
+  ActsExamples::Measurement getMeasurement() const
   {
     Acts::ActsVector<2> par;
-    Acts::ActsSymMatrix<2> cov = m_cov.topLeftCorner<2,2>();
+    Acts::ActsSymMatrix<2> cov = Acts::ActsSymMatrix<2>::Zero();
+    cov(0,0) = m_cov(0,0);
+    cov(1,1) = m_cov(1,1); 
     std::array<Acts::BoundIndices,2> indices;
     indices[0] = Acts::BoundIndices::eBoundLoc0;
     indices[1] = Acts::BoundIndices::eBoundLoc1;
     par[0] = m_loc(0);
     par[1] = m_loc(1);
-    return Acts::Measurement<Acts::BoundIndices,
-			     2>
-      (*this,
-       indices,
-       par,
-       cov
-       );
+    return Acts::Measurement<Acts::BoundIndices, 2>
+      (*this, indices, par, cov);
   }
   
   uint64_t cluskey() const
