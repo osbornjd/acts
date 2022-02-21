@@ -24,13 +24,10 @@ class TrkrClusterSourceLink final : public Acts::SourceLink
   /// make the measurement. Acts requires the surface be available in this class
   TrkrClusterSourceLink(Acts::GeometryIdentifier gid,
 			uint64_t cluskey,
-			std::shared_ptr<const Acts::Surface> surface,
 			Acts::BoundVector loc,
 			Acts::BoundMatrix cov)
     : SourceLink(gid) 
     , m_cluskey(cluskey)
-    , m_surface(surface)
-    , m_geoId(surface->geometryId())
     , m_loc(loc)
     , m_cov(cov)
 {
@@ -48,20 +45,10 @@ class TrkrClusterSourceLink final : public Acts::SourceLink
   {
     return m_loc;
   }
+
   const Acts::BoundMatrix covariance() const
   {
     return m_cov;
-  }
-
-  const Acts::GeometryIdentifier geoId() const 
-  {
-    return m_geoId;
-  }
-
-  /// Needs referenceSurface function to satisfy SourceLinkConcept
-  const Acts::Surface& referenceSurface() const 
-  {
-    return *m_surface;
   }
   
   /// Create Acts::Measurement from information in SourceLink
@@ -86,20 +73,16 @@ class TrkrClusterSourceLink final : public Acts::SourceLink
   }
 
 
-private:
+ private:
 
-  /// Hitindex corresponding to hitID and the corresponding 
-  /// surface to which it belongs to
+  /// Hitindex corresponding to TrkrDefs::cluskey
   uint64_t m_cluskey;
-  std::shared_ptr<const Acts::Surface> m_surface;
-  Acts::GeometryIdentifier m_geoId;
-
+ 
   /// Local x and y position for cluster
   Acts::BoundVector m_loc;
   /// Cluster covariance matrix
   Acts::BoundMatrix m_cov;
 
-  /// Needs equality operator defined to satisfy SourceLinkConcept
   /// Equate the cluster keys
   friend constexpr bool
   operator==(const TrkrClusterSourceLink& lhs, const TrkrClusterSourceLink& rhs)
@@ -107,10 +90,15 @@ private:
     return lhs.m_cluskey == rhs.m_cluskey;
   }
 
+  friend constexpr bool operator!=(const TrkrClusterSourceLink& lhs,
+				   const TrkrClusterSourceLink& rhs) {
+    return not(lhs == rhs);
+  }
+
 };
 
   // Construct a container for TrkrSourceLinks
-  using TrkrClusterSourceLinkContainer = GeometryIdMultiset<TrkrClusterSourceLink>;
-
+  using TrkrClusterSourceLinkContainer = GeometryIdMultiset<std::reference_wrapper<TrkrClusterSourceLink>>;
+  using TrkrClusterSourceLinkAccessor = GeometryIdMultisetAccessor<std::reference_wrapper<TrkrClusterSourceLink>>;
 }
 
