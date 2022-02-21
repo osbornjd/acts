@@ -29,7 +29,9 @@ class IndexSourceLink final : public Acts::SourceLink {
  public:
   /// Construct from geometry identifier and index.
   constexpr IndexSourceLink(Acts::GeometryIdentifier gid, Index idx)
-      : SourceLink(gid), m_index(idx) {}
+    : SourceLink(gid), m_index(idx), m_cluskey(0) {}
+  constexpr IndexSourceLink(Acts::GeometryIdentifier gid, Index idx, uint64_t cluskey)
+    : SourceLink(gid), m_index(idx), m_cluskey(cluskey) {}
 
   // Construct an invalid source link. Must be default constructible to
   /// satisfy SourceLinkConcept.
@@ -41,14 +43,16 @@ class IndexSourceLink final : public Acts::SourceLink {
 
   /// Access the index.
   constexpr Index index() const { return m_index; }
-
+  constexpr uint64_t cluskey() const { return m_cluskey; }
  private:
   Index m_index;
+  uint64_t m_cluskey;
 
   friend constexpr bool operator==(const IndexSourceLink& lhs,
                                    const IndexSourceLink& rhs) {
     return (lhs.geometryId() == rhs.geometryId()) and
-           (lhs.m_index == rhs.m_index);
+           (lhs.m_index == rhs.m_index) and
+           (lhs.m_cluskey == rhs.m_cluskey);
   }
   friend constexpr bool operator!=(const IndexSourceLink& lhs,
                                    const IndexSourceLink& rhs) {
