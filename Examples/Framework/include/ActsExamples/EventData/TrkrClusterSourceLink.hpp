@@ -6,6 +6,7 @@
 
 #include "ActsExamples/EventData/GeometryContainers.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
+#include "ActsExamples/EventData/Index.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
@@ -20,14 +21,17 @@ class TrkrClusterSourceLink final : public Acts::SourceLink
 {
  public:
 
-  /// Instantiate with a hitid, associated surface, and values that actually
-  /// make the measurement. Acts requires the surface be available in this class
+  /// Instantiate with a gid, cluster key, and values that actually
+  /// make the measurement. An index is also provided that corresponds to
+  /// the measurement look up table
   TrkrClusterSourceLink(Acts::GeometryIdentifier gid,
+			Index index,
 			uint64_t cluskey,
 			Acts::BoundVector loc,
 			Acts::BoundMatrix cov)
     : SourceLink(gid) 
     , m_cluskey(cluskey)
+    , m_index(index)
     , m_loc(loc)
     , m_cov(cov)
 {
@@ -45,12 +49,17 @@ class TrkrClusterSourceLink final : public Acts::SourceLink
   {
     return m_loc;
   }
-
+  constexpr Index index() const { return m_index; }
   const Acts::BoundMatrix covariance() const
   {
     return m_cov;
   }
-  
+    
+  uint64_t cluskey() const
+  {
+    return m_cluskey;
+  }
+
   /// Create Acts::Measurement from information in SourceLink
   ActsExamples::Measurement getMeasurement() const
   {
@@ -66,18 +75,17 @@ class TrkrClusterSourceLink final : public Acts::SourceLink
     return Acts::Measurement<Acts::BoundIndices, 2>
       (*this, indices, par, cov);
   }
-  
-  uint64_t cluskey() const
-  {
-    return m_cluskey;
-  }
+
 
 
  private:
 
   /// Hitindex corresponding to TrkrDefs::cluskey
   uint64_t m_cluskey;
- 
+
+  /// Index that allows map lookup for measurement info from calibrator
+  Index m_index;
+
   /// Local x and y position for cluster
   Acts::BoundVector m_loc;
   /// Cluster covariance matrix

@@ -13,7 +13,7 @@
 #include "ActsExamples/EventData/Index.hpp"
 
 #include <cassert>
-
+#include <iostream>
 namespace ActsExamples {
 
 /// A source link that stores just an index.

@@ -3,7 +3,6 @@ add_library(
   src/TrackFittingOptions.cpp
   src/SurfaceSortingAlgorithm.cpp
   src/TrackFittingAlgorithm.cpp
-  src/TrkrClusterFittingAlgorithmFitterFunction.cpp
   src/TrackFittingAlgorithmFunction.cpp)
 target_include_directories(
   ActsExamplesTrackFitting
