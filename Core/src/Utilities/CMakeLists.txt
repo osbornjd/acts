@@ -1,6 +1,7 @@
-target_sources_local(
+target_sources(
   ActsCore
   PRIVATE
     AnnealingUtility.cpp
+    BinUtility.cpp
     Logger.cpp
 )

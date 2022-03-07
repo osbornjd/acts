@@ -7,10 +7,10 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/ParameterDefinitions.hpp"
 
 #include <cmath>
 
@@ -69,9 +69,6 @@ class TrapezoidBounds : public PlanarBounds {
   /// intersects
   /// with the negative @f$ y @f$ - axis of the local frame.
   ///
-  /// @param lpos is the local position to be checked (Cartesian local frame)
-  /// @param bcheck is the boundary check directive
-  ///
   /// <br>
   /// The cases are:<br>
   /// (0) @f$ y @f$ or @f$ x @f$ bounds are 0 || 0<br>
@@ -108,7 +105,7 @@ class TrapezoidBounds : public PlanarBounds {
   /// @param bcheck boundary check directive
   ///
   /// @return boolean indicator for the success of this operation
-  bool inside(const Vector2D& lposition,
+  bool inside(const Vector2& lposition,
               const BoundaryCheck& bcheck) const final;
 
   /// Return the vertices
@@ -119,7 +116,7 @@ class TrapezoidBounds : public PlanarBounds {
   /// @note the number of segements is ignored in this representation
   ///
   /// @return vector for vertices in 2D
-  std::vector<Vector2D> vertices(unsigned int lseg = 1) const final;
+  std::vector<Vector2> vertices(unsigned int lseg = 1) const final;
 
   // Bounding box representation
   const RectangleBounds& boundingBox() const final;

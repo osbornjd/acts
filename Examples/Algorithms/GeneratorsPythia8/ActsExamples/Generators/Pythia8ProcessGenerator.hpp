@@ -8,11 +8,12 @@
 
 #pragma once
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/PdgParticle.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "ActsExamples/EventData/SimParticle.hpp"
 #include "ActsExamples/Framework/RandomNumbers.hpp"
+#include "ActsExamples/Generators/EventGenerator.hpp"
 
 #include <memory>
 #include <mutex>
@@ -23,7 +24,7 @@ class Pythia;
 }
 namespace ActsExamples {
 
-class Pythia8Generator {
+class Pythia8Generator : public EventGenerator::ParticlesGenerator {
  public:
   struct Config {
     /// PDG particle number of the first incoming beam.
@@ -36,9 +37,6 @@ class Pythia8Generator {
     std::vector<std::string> settings = {{"HardQCD:all = on"}};
   };
 
-  static std::function<SimParticleContainer(RandomEngine&)> makeFunction(
-      const Config& cfg, Acts::Logging::Level lvl);
-
   Pythia8Generator(const Config& cfg, Acts::Logging::Level lvl);
   ~Pythia8Generator();
   // try to prevent pythia breakage by forbidding copying
@@ -48,7 +46,7 @@ class Pythia8Generator {
   Pythia8Generator& operator=(const Pythia8Generator&) = delete;
   Pythia8Generator& operator=(Pythia8Generator&& other) = delete;
 
-  SimParticleContainer operator()(RandomEngine& rng);
+  SimParticleContainer operator()(RandomEngine& rng) override;
 
  private:
   /// Private access to the logging instance

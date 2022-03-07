@@ -7,19 +7,20 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/Volume.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/BoundingBox.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
-#include <iomanip>
+#include <cmath>
 #include <iostream>
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace Acts {
 
 class Surface;
-class Volume;
 
 class VolumeBounds;
 using VolumeBoundsPtr = std::shared_ptr<const VolumeBounds>;
@@ -29,13 +30,13 @@ using OrientedSurface = std::pair<SurfacePtr, NavigationDirection>;
 using OrientedSurfaces = std::vector<OrientedSurface>;
 
 // Planar definitions to help construct the boundary surfaces
-static const Transform3D s_planeXY = Transform3D::Identity();
-static const Transform3D s_planeYZ =
-    AngleAxis3D(0.5 * M_PI, Vector3D::UnitY()) *
-    AngleAxis3D(0.5 * M_PI, Vector3D::UnitZ()) * Transform3D::Identity();
-static const Transform3D s_planeZX =
-    AngleAxis3D(-0.5 * M_PI, Vector3D::UnitX()) *
-    AngleAxis3D(-0.5 * M_PI, Vector3D::UnitZ()) * Transform3D::Identity();
+static const Transform3 s_planeXY = Transform3::Identity();
+static const Transform3 s_planeYZ = AngleAxis3(0.5 * M_PI, Vector3::UnitY()) *
+                                    AngleAxis3(0.5 * M_PI, Vector3::UnitZ()) *
+                                    Transform3::Identity();
+static const Transform3 s_planeZX = AngleAxis3(-0.5 * M_PI, Vector3::UnitX()) *
+                                    AngleAxis3(-0.5 * M_PI, Vector3::UnitZ()) *
+                                    Transform3::Identity();
 
 /// @class VolumeBounds
 ///
@@ -85,7 +86,7 @@ class VolumeBounds {
   /// @param tol is the tolerance applied for the inside check
   ///
   /// @return boolean indicating if the position is inside
-  virtual bool inside(const Vector3D& gpos, double tol = 0.) const = 0;
+  virtual bool inside(const Vector3& gpos, double tol = 0.) const = 0;
 
   /// Oriented surfaces, i.e. the decomposed boundary surfaces and the
   /// according navigation direction into the volume given the normal
@@ -98,7 +99,7 @@ class VolumeBounds {
   ///
   /// @return a vector of surfaces bounding this volume
   virtual OrientedSurfaces orientedSurfaces(
-      const Transform3D& transform = Transform3D::Identity()) const = 0;
+      const Transform3& transform = Transform3::Identity()) const = 0;
 
   /// Construct bounding box for this shape
   /// @param trf Optional transform
@@ -106,7 +107,7 @@ class VolumeBounds {
   /// @param entity Entity to associate this bounding box with
   /// @return Constructed bounding box
   virtual Volume::BoundingBox boundingBox(
-      const Transform3D* trf = nullptr, const Vector3D& envelope = {0, 0, 0},
+      const Transform3* trf = nullptr, const Vector3& envelope = {0, 0, 0},
       const Volume* entity = nullptr) const = 0;
 
   /// Binning offset - overloaded for some R-binning types
@@ -114,7 +115,7 @@ class VolumeBounds {
   /// @param bValue is the binning schema used
   ///
   /// @return vector 3D to be used for the binning
-  virtual Vector3D binningOffset(BinningValue bValue) const;
+  virtual Vector3 binningOffset(BinningValue bValue) const;
 
   /// Binning borders in double
   ///
@@ -130,9 +131,9 @@ class VolumeBounds {
 };
 
 /// Binning offset - overloaded for some R-binning types
-inline Vector3D VolumeBounds::binningOffset(
+inline Vector3 VolumeBounds::binningOffset(
     BinningValue /*bValue*/) const {  // standard offset is 0.,0.,0.
-  return Vector3D(0., 0., 0.);
+  return Vector3(0., 0., 0.);
 }
 
 inline double VolumeBounds::binningBorder(BinningValue /*bValue*/) const {

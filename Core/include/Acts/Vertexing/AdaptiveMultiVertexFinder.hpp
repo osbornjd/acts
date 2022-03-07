@@ -8,11 +8,11 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/AMVFInfo.hpp"
 #include "Acts/Vertexing/ImpactPointEstimator.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
@@ -47,7 +47,7 @@ class AdaptiveMultiVertexFinder {
       : std::true_type {};
 
  public:
-  /// @struct Config Configuration struct
+  /// Configuration struct
   struct Config {
     /// @brief Config constructor
     ///
@@ -55,13 +55,16 @@ class AdaptiveMultiVertexFinder {
     /// @param sfinder The seed finder
     /// @param ipEst ImpactPointEstimator
     /// @param lin Track linearizer
+    /// @param bIn Input magnetic field
     Config(vfitter_t fitter, const sfinder_t& sfinder,
            const ImpactPointEstimator<InputTrack_t, Propagator_t>& ipEst,
-           const Linearizer_t& lin)
+           const Linearizer_t& lin,
+           std::shared_ptr<const MagneticFieldProvider> bIn)
         : vertexFitter(std::move(fitter)),
           seedFinder(sfinder),
           ipEstimator(ipEst),
-          linearizer(lin) {}
+          linearizer(lin),
+          bField{std::move(bIn)} {}
 
     // Vertex fitter
     vfitter_t vertexFitter;
@@ -74,6 +77,8 @@ class AdaptiveMultiVertexFinder {
 
     // Track linearizer
     Linearizer_t linearizer;
+
+    std::shared_ptr<const MagneticFieldProvider> bField;
 
     // Use a beam spot constraint, vertexConstraint in VertexingOptions
     // has to be set in this case
@@ -157,7 +162,7 @@ class AdaptiveMultiVertexFinder {
 
   };  // Config struct
 
-  /// @struct State State struct for fulfilling interface
+  /// State struct for fulfilling interface
   struct State {};
 
   /// @brief Constructor used if InputTrack_t type == BoundTrackParameters
@@ -243,7 +248,7 @@ class AdaptiveMultiVertexFinder {
   /// @param currentConstraint Vertex constraint
   /// @param seedVertex Seed vertex
   void setConstraintAfterSeeding(Vertex<InputTrack_t>& currentConstraint,
-                                 const Vertex<InputTrack_t>& seedVertex) const;
+                                 Vertex<InputTrack_t>& seedVertex) const;
 
   /// @brief Calculates the IP significance of a track to a given vertex
   ///

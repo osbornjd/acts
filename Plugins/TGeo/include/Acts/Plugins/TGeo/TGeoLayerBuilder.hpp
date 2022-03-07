@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/ILayerBuilder.hpp"
 #include "Acts/Geometry/LayerCreator.hpp"
@@ -15,9 +17,7 @@
 #include "Acts/Geometry/SurfaceBinningMatcher.hpp"
 #include "Acts/Plugins/TGeo/ITGeoIdentifierProvider.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <climits>
 #include <tuple>
@@ -29,9 +29,8 @@ class TGeoNode;
 namespace Acts {
 
 class TGeoDetectorElement;
+class ITGeoDetectorElementSplitter;
 class Surface;
-
-using namespace Acts::UnitLiterals;
 
 /// @class TGeoLayerBuilder
 ///
@@ -45,7 +44,7 @@ using namespace Acts::UnitLiterals;
 /// split into layers.
 class TGeoLayerBuilder : public ILayerBuilder {
  public:
-  ///  Helper config structs for volume parsin
+  ///  Helper config structs for volume parsing
   struct LayerConfig {
    public:
     using RangeConfig = std::pair<BinningValue, std::pair<double, double>>;
@@ -63,18 +62,20 @@ class TGeoLayerBuilder : public ILayerBuilder {
     /// Layer splitting: parameter and tolerance
     std::vector<SplitConfig> splitConfigs = {};
     /// The envelope to be built around the layer
-    std::pair<double, double> envelope = {0_mm, 0_mm};
+    std::pair<double, double> envelope = {1 * UnitConstants::mm,
+                                          1 * UnitConstants::mm};
     /// Binning setup in l0: nbins (-1 -> automated), axis binning type
-    std::tuple<int, BinningType> binning0 = {-1, equidistant};
+    std::vector<std::pair<int, BinningType>> binning0 = {{-1, equidistant}};
     /// Binning setup in l1: nbins (-1 -> automated), axis binning type
-    std::tuple<int, BinningType> binning1 = {-1, equidistant};
+    std::vector<std::pair<int, BinningType>> binning1 = {{-1, equidistant}};
 
     // Default constructor
     LayerConfig()
         : volumeName(""),
           sensorNames({}),
           localAxes("XZY"),
-          envelope(std::pair<double, double>(1_mm, 1_mm)) {}
+          envelope(std::pair<double, double>(1 * UnitConstants::mm,
+                                             1 * UnitConstants::mm)) {}
   };
 
   /// @struct Config
@@ -83,9 +84,12 @@ class TGeoLayerBuilder : public ILayerBuilder {
     /// String based identification
     std::string configurationName = "undefined";
     /// Unit conversion
-    double unit = 1_cm;
+    double unit = 1 * UnitConstants::cm;
     /// Create an indentifier from TGeoNode
     std::shared_ptr<const ITGeoIdentifierProvider> identifierProvider = nullptr;
+    /// Split TGeoElement if a splitter is provided
+    std::shared_ptr<const ITGeoDetectorElementSplitter>
+        detectorElementSplitter = nullptr;
     /// Layer creator
     std::shared_ptr<const LayerCreator> layerCreator = nullptr;
     /// ProtoLayer helper
@@ -165,7 +169,7 @@ class TGeoLayerBuilder : public ILayerBuilder {
 
   /// Private helper method : build layers
   ///
-  /// @param gcts the geometry context of this call
+  /// @param gctx the geometry context of this call
   /// @param layers is goint to be filled
   /// @param type is the indication which ones to build -1 | 0 | 1
   void buildLayers(const GeometryContext& gctx, LayerVector& layers,

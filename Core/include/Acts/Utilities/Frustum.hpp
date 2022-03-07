@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
 
 #include <ostream>
@@ -34,7 +34,7 @@ class Frustum {
   /// Re expose the value type
   using value_type = value_t;
   /// Vertex type based on the value type and dimension
-  using VertexType = ActsVector<value_t, DIM>;
+  using VertexType = Eigen::Matrix<value_t, DIM, 1>;
   /// Vertex array type corresponding to the vertex type
   using vertex_array_type = Eigen::Array<value_t, DIM, 1>;
   /// Associated transform type
@@ -95,8 +95,7 @@ class Frustum {
 
   /// Getter for the normal vectors of the planes defining this frustum.
   /// @return Array containing the normal vectors for all planes.
-  /// @note The size of the array that is returned is fixed to `number of sides
-  /// + 1`
+  /// @note The size of the array that is returned is fixed to `number of sides + 1`
   const std::array<VertexType, SIDES + 1>& normals() const { return m_normals; }
 
   /// Transforms this frustum using a given transform and returns a new instance

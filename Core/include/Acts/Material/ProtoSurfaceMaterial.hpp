@@ -7,8 +7,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
+#include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
+
+#include <iosfwd>
 
 namespace Acts {
 
@@ -30,7 +35,9 @@ class ProtoSurfaceMaterial : public ISurfaceMaterial {
   ///
   /// @param binUtility a BinUtility determining the granularity
   ///        and binning of the material on the surface/layer
-  ProtoSurfaceMaterial(const BinUtility& binUtility);
+  /// @param mappingType is the type of surface mapping associated to the surface
+  ProtoSurfaceMaterial(const BinUtility& binUtility,
+                       MappingType mappingType = MappingType::Default);
 
   /// Copy constuctor
   ///
@@ -43,8 +50,6 @@ class ProtoSurfaceMaterial : public ISurfaceMaterial {
   ProtoSurfaceMaterial(ProtoSurfaceMaterial&& smproxy) = default;
 
   /// Destructor
-  ///
-  /// @param smproxy The source proxy
   ~ProtoSurfaceMaterial() override = default;
 
   /// Assignment operator
@@ -60,7 +65,7 @@ class ProtoSurfaceMaterial : public ISurfaceMaterial {
 
   /// Scale operator
   ///
-  /// @param
+  /// @param scale The value to scale this material by
   ProtoSurfaceMaterial& operator*=(double scale) final;
 
   /// Return the BinUtility
@@ -72,7 +77,7 @@ class ProtoSurfaceMaterial : public ISurfaceMaterial {
   /// @param lp is local positioning vector
   ///
   /// @return will return dummy material
-  const MaterialSlab& materialSlab(const Vector2D& lp) const final;
+  const MaterialSlab& materialSlab(const Vector2& lp) const final;
 
   /// Return method for full material description of the Surface - from the
   /// global coordinates
@@ -80,7 +85,7 @@ class ProtoSurfaceMaterial : public ISurfaceMaterial {
   /// @param gp is the global positioning vector
   ///
   /// @return will return dummy material
-  const MaterialSlab& materialSlab(const Vector3D& gp) const final;
+  const MaterialSlab& materialSlab(const Vector3& gp) const final;
 
   /// Direct access via bins to the MaterialSlab
   ///
@@ -105,12 +110,12 @@ class ProtoSurfaceMaterial : public ISurfaceMaterial {
 }  // namespace Acts
 
 inline const Acts::MaterialSlab& Acts::ProtoSurfaceMaterial::materialSlab(
-    const Vector2D& /*lp*/) const {
+    const Vector2& /*lp*/) const {
   return (m_materialSlab);
 }
 
 inline const Acts::MaterialSlab& Acts::ProtoSurfaceMaterial::materialSlab(
-    const Vector3D& /*gp*/) const {
+    const Vector3& /*gp*/) const {
   return (m_materialSlab);
 }
 

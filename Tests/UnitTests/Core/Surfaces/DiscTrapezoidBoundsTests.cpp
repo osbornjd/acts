@@ -10,9 +10,9 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Surfaces/DiscTrapezoidBounds.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <limits>
 
@@ -25,9 +25,6 @@ BOOST_AUTO_TEST_SUITE(Surfaces)
 BOOST_AUTO_TEST_CASE(DiscTrapezoidBoundsConstruction) {
   double minHalfX(1.0), maxHalfX(5.0), rMin(2.0), rMax(6.0), averagePhi(0.0),
       stereo(0.1);
-  // test default construction
-  // DiscTrapezoidBounds defaultConstructedDiscTrapezoidBounds;  should be
-  // deleted
   //
   /// Test construction with dimensions and default stereo
   BOOST_CHECK_EQUAL(
@@ -114,9 +111,9 @@ BOOST_AUTO_TEST_CASE(DiscTrapezoidBoundsProperties) {
                     SurfaceBounds::eDiscTrapezoid);
   //
   /// Test distanceToBoundary
-  Vector2D origin(0., 0.);
-  Vector2D outside(30., 0.);
-  Vector2D inSurface(2., 0.0);
+  Vector2 origin(0., 0.);
+  Vector2 outside(30., 0.);
+  Vector2 inSurface(2.5, 0.0);
   //
   /// Test dump
   boost::test_tools::output_test_stream dumpOuput;

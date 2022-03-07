@@ -25,14 +25,17 @@ class TruthTrackFinder final : public BareAlgorithm {
     /// The input truth particles that should be used to create proto tracks.
     std::string inputParticles;
     /// The input hit-particles map collection.
-    std::string inputHitParticlesMap;
+    std::string inputMeasurementParticlesMap;
     /// The output proto tracks collection.
     std::string outputProtoTracks;
   };
 
-  TruthTrackFinder(const Config& cfg, Acts::Logging::Level lvl);
+  TruthTrackFinder(const Config& config, Acts::Logging::Level level);
 
   ProcessCode execute(const AlgorithmContext& ctx) const override final;
+
+  /// Get readonly access to the config parameters
+  const Config& config() const { return m_cfg; }
 
  private:
   Config m_cfg;

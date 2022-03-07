@@ -13,8 +13,8 @@
 #include "Acts/Utilities/detail/ReferenceWrapperAnyCompat.hpp"
 // clang-format on
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <functional>
 
@@ -26,13 +26,12 @@ class ObjectSorterT : public std::binary_function<T, T, bool> {
   /// Constructor from a binning value
   ///
   /// @param bValue is the value in which the binning is done
-  /// @param transform is an optional transform to be performed
   ObjectSorterT(BinningValue bValue) : m_binningValue(bValue) {}
 
   /// Comparison operator
   ///
-  /// @tparam one first object
-  /// @tparam two second object
+  /// @param one first object
+  /// @param two second object
   ///
   /// @return boolen indicator
   bool operator()(T one, T two) const {
@@ -87,7 +86,7 @@ class DistanceSorterT : public std::binary_function<T, T, bool> {
   ///
   /// @param bValue is the value in which the binning is done
   /// @param reference is the reference point
-  DistanceSorterT(BinningValue bValue, Vector3D reference)
+  DistanceSorterT(BinningValue bValue, Vector3 reference)
       : m_binningValue(bValue),
         m_reference(reference),
         m_refR(VectorHelpers::perp(reference)),
@@ -165,10 +164,11 @@ class GeometryObjectSorterT : public std::binary_function<T, T, bool> {
  public:
   /// Constructor from a binning value
   ///
+  /// @param gctx The geometry context to use
   /// @param bValue is the value in which the binning is done
   /// @param transform is an optional transform to be performed
   GeometryObjectSorterT(const GeometryContext& gctx, BinningValue bValue,
-                        std::shared_ptr<const Transform3D> transform = nullptr)
+                        std::shared_ptr<const Transform3> transform = nullptr)
       : m_context(gctx),
         m_objectSorter(bValue),
         m_transform(std::move(transform)) {}
@@ -181,12 +181,12 @@ class GeometryObjectSorterT : public std::binary_function<T, T, bool> {
   /// @return boolen indicator
   bool operator()(T one, T two) const {
     // get the pos one / pos two
-    Vector3D posOne =
+    Vector3 posOne =
         m_transform
             ? m_transform->inverse() *
                   one->binningPosition(m_context, m_objectSorter.binningValue())
             : one->binningPosition(m_context, m_objectSorter.binningValue());
-    Vector3D posTwo =
+    Vector3 posTwo =
         m_transform
             ? m_transform->inverse() *
                   two->binningPosition(m_context, m_objectSorter.binningValue())
@@ -197,7 +197,7 @@ class GeometryObjectSorterT : public std::binary_function<T, T, bool> {
 
  protected:
   std::reference_wrapper<const GeometryContext> m_context;
-  ObjectSorterT<Vector3D> m_objectSorter;
-  std::shared_ptr<const Transform3D> m_transform;
+  ObjectSorterT<Vector3> m_objectSorter;
+  std::shared_ptr<const Transform3> m_transform;
 };
 }  // namespace Acts

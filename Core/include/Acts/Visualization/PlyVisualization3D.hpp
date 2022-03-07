@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
 #include "Acts/Visualization/ViewConfig.hpp"
 
@@ -32,27 +32,28 @@ class PlyVisualization3D : public IVisualization3D {
   using ValueType = T;
 
   /// Type of a vertex based on the value type
-  using VertexType = ActsVector<ValueType, 3>;
+  using VertexType = Eigen::Matrix<ValueType, 3, 1>;
 
   /// @copydoc Acts::IVisualization3D::vertex()
-  void vertex(const Vector3D& vtx, ColorRGB color = {120, 120, 120}) final;
+  void vertex(const Vector3& vtx, ColorRGB color = {120, 120, 120}) final;
 
-  /// @copydoc Acts::IVisualization3D::line()
-  void face(const std::vector<Vector3D>& vtxs,
+  /// @copydoc Acts::IVisualization3D::face()
+  void face(const std::vector<Vector3>& vtxs,
             ColorRGB color = {120, 120, 120}) final;
 
   /// @copydoc Acts::IVisualization3D::faces()
-  void faces(const std::vector<Vector3D>& vtxs, const std::vector<FaceType>&,
+  void faces(const std::vector<Vector3>& vtxs,
+             const std::vector<FaceType>& faces,
              ColorRGB color = {120, 120, 120}) final;
 
-  /// @copydoc Acts::IVisualization3D::face()
-  void line(const Vector3D& a, const Vector3D& b,
+  /// @copydoc Acts::IVisualization3D::line()
+  void line(const Vector3& a, const Vector3& b,
             ColorRGB color = {120, 120, 120}) final;
 
-  /// @copydoc Acts::IVisualization3D::write()
+  /// @copydoc Acts::IVisualization3D::write(const std::string&) const
   void write(const std::string& path) const final;
 
-  /// @copydoc Acts::IVisualization3D::write()
+  /// @copydoc Acts::IVisualization3D::write(std::ostream&) const
   void write(std::ostream& os) const final;
 
   /// @copydoc Acts::IVisualization3D::clear()
@@ -64,6 +65,8 @@ class PlyVisualization3D : public IVisualization3D {
   std::vector<std::pair<std::pair<size_t, size_t>, ColorRGB>> m_edges;
 };
 
+#ifndef DOXYGEN
 #include "detail/PlyVisualization3D.ipp"
+#endif
 
 }  // namespace Acts

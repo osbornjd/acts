@@ -15,6 +15,8 @@
 
 // CUDA plugin include(s).
 #include "Acts/Plugins/Cuda/Seeding2/SeedFinder.hpp"
+#include "Acts/Plugins/Cuda/Utilities/Info.hpp"
+#include "Acts/Plugins/Cuda/Utilities/MemoryManager.hpp"
 
 // Acts include(s).
 #include "Acts/Seeding/BinFinder.hpp"
@@ -30,6 +32,8 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+
+using namespace Acts::UnitLiterals;
 
 int main(int argc, char* argv[]) {
   // Interpret the command line arguments passed to the executable.
@@ -50,28 +54,35 @@ int main(int argc, char* argv[]) {
     spView.push_back(sp.get());
   }
 
+  int numPhiNeighbors = 1;
+
+  std::vector<std::pair<int, int>> zBinNeighborsTop;
+  std::vector<std::pair<int, int>> zBinNeighborsBottom;
+
   // Create binned groups of these spacepoints.
-  auto bottomBinFinder = std::make_shared<Acts::BinFinder<TestSpacePoint>>();
-  auto topBinFinder = std::make_shared<Acts::BinFinder<TestSpacePoint>>();
+  auto bottomBinFinder = std::make_shared<Acts::BinFinder<TestSpacePoint>>(
+      zBinNeighborsBottom, numPhiNeighbors);
+  auto topBinFinder = std::make_shared<Acts::BinFinder<TestSpacePoint>>(
+      zBinNeighborsTop, numPhiNeighbors);
 
   // Set up the seedfinder configuration.
   Acts::SeedfinderConfig<TestSpacePoint> sfConfig;
   // silicon detector max
-  sfConfig.rMax = 160.;
-  sfConfig.deltaRMin = 5.;
-  sfConfig.deltaRMax = 160.;
-  sfConfig.collisionRegionMin = -250.;
-  sfConfig.collisionRegionMax = 250.;
-  sfConfig.zMin = -2800.;
-  sfConfig.zMax = 2800.;
+  sfConfig.rMax = 160._mm;
+  sfConfig.deltaRMin = 5._mm;
+  sfConfig.deltaRMax = 160._mm;
+  sfConfig.collisionRegionMin = -250._mm;
+  sfConfig.collisionRegionMax = 250._mm;
+  sfConfig.zMin = -2800._mm;
+  sfConfig.zMax = 2800._mm;
   sfConfig.maxSeedsPerSpM = 5;
   // 2.7 eta
   sfConfig.cotThetaMax = 7.40627;
   sfConfig.sigmaScattering = 1.00000;
-  sfConfig.minPt = 500.;
-  sfConfig.bFieldInZ = 0.00199724;
-  sfConfig.beamPos = {-.5, -.5};
-  sfConfig.impactMax = 10.;
+  sfConfig.minPt = 500._MeV;
+  sfConfig.bFieldInZ = 1.99724_T;
+  sfConfig.beamPos = {-.5_mm, -.5_mm};
+  sfConfig.impactMax = 10._mm;
 
   // Use a size slightly smaller than what modern GPUs are capable of. This is
   // because for debugging we can't use all available threads in a block, and
@@ -92,8 +103,10 @@ int main(int argc, char* argv[]) {
 
   // Covariance tool, sets covariances per spacepoint as required.
   auto ct = [=](const TestSpacePoint& sp, float, float,
-                float) -> Acts::Vector2D {
-    return {sp.m_varianceR, sp.m_varianceZ};
+                float) -> std::pair<Acts::Vector3, Acts::Vector2> {
+    Acts::Vector3 position(sp.x(), sp.y(), sp.z());
+    Acts::Vector2 covariance(sp.m_varianceR, sp.m_varianceZ);
+    return std::make_pair(position, covariance);
   };
 
   // Create a grid with bin sizes according to the configured geometry, and
@@ -106,6 +119,27 @@ int main(int argc, char* argv[]) {
   // Make a convenient iterator that will be used multiple times later on.
   auto spGroup_end = spGroup.end();
 
+  // Allocate memory on the selected CUDA device.
+  if (Acts::Cuda::Info::instance().devices().size() <=
+      static_cast<std::size_t>(cmdl.cudaDevice)) {
+    std::cerr << "Invalid CUDA device (" << cmdl.cudaDevice << ") requested"
+              << std::endl;
+    return 1;
+  }
+  static constexpr std::size_t MEGABYTES = 1024l * 1024l;
+  std::size_t deviceMemoryAllocation = cmdl.cudaDeviceMemory * MEGABYTES;
+  if (deviceMemoryAllocation == 0) {
+    deviceMemoryAllocation =
+        Acts::Cuda::Info::instance().devices()[cmdl.cudaDevice].totalMemory *
+        0.8;
+  }
+  std::cout << "Allocating " << deviceMemoryAllocation / MEGABYTES
+            << " MB memory on device:\n"
+            << Acts::Cuda::Info::instance().devices()[cmdl.cudaDevice]
+            << std::endl;
+  Acts::Cuda::MemoryManager::instance().setMemorySize(deviceMemoryAllocation,
+                                                      cmdl.cudaDevice);
+
   // Set up the seedfinder configuration objects.
   TestHostCuts hostCuts;
   Acts::SeedFilterConfig filterConfig;
@@ -116,7 +150,7 @@ int main(int argc, char* argv[]) {
   // Set up the seedfinder objects.
   Acts::Seedfinder<TestSpacePoint> seedfinder_host(sfConfig);
   Acts::Cuda::SeedFinder<TestSpacePoint> seedfinder_device(
-      sfConfig, filterConfig, deviceCuts);
+      sfConfig, filterConfig, deviceCuts, cmdl.cudaDevice);
 
   //
   // Perform the seed finding on the host.
@@ -127,14 +161,19 @@ int main(int argc, char* argv[]) {
   // Create the result object.
   std::vector<std::vector<Acts::Seed<TestSpacePoint>>> seeds_host;
 
+  Acts::Extent rRangeSPExtent;
+
   // Perform the seed finding.
   if (!cmdl.onlyGPU) {
     auto spGroup_itr = spGroup.begin();
+    decltype(seedfinder_host)::State state;
     for (std::size_t i = 0;
          spGroup_itr != spGroup_end && i < cmdl.groupsToIterate;
          ++i, ++spGroup_itr) {
-      seeds_host.push_back(seedfinder_host.createSeedsForGroup(
-          spGroup_itr.bottom(), spGroup_itr.middle(), spGroup_itr.top()));
+      auto& group = seeds_host.emplace_back();
+      seedfinder_host.createSeedsForGroup(
+          state, std::back_inserter(group), spGroup_itr.bottom(),
+          spGroup_itr.middle(), spGroup_itr.top(), rRangeSPExtent);
     }
   }
 

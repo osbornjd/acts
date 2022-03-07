@@ -14,19 +14,10 @@ namespace Acts {
 
 LoggerWrapper::LoggerWrapper(const Logger& logger) : m_logger(&logger) {}
 
-bool LoggerWrapper::doPrint(const Logging::Level& lvl) const {
+void LoggerWrapper::log(const Logging::Level& lvl,
+                        const std::string& input) const {
   assert(m_logger != nullptr);
-  return m_logger->doPrint(lvl);
-}
-
-Logging::OutStream LoggerWrapper::log(const Logging::Level& lvl) const {
-  assert(m_logger != nullptr);
-  return m_logger->log(lvl);
-}
-
-const Logger& LoggerWrapper::operator()() const {
-  assert(m_logger != nullptr);
-  return *m_logger;
+  return m_logger->log(lvl, input);
 }
 
 namespace Logging {
@@ -46,9 +37,6 @@ std::unique_ptr<const Logger> makeDummyLogger() {
   return std::make_unique<const Logger>(std::move(output), std::move(print));
 }
 
-std::unique_ptr<const Logger> s_dummyLogger{makeDummyLogger()};
-LoggerWrapper s_dummyLoggerWrapper{*s_dummyLogger};
-
 }  // namespace
 }  // namespace Logging
 
@@ -66,6 +54,10 @@ std::unique_ptr<const Logger> getDefaultLogger(const std::string& name,
 }
 
 LoggerWrapper getDummyLogger() {
-  return Logging::s_dummyLoggerWrapper;
+  static const std::unique_ptr<const Logger> logger =
+      Logging::makeDummyLogger();
+  static const LoggerWrapper loggerWrapper{*logger};
+
+  return loggerWrapper;
 }
 }  // namespace Acts

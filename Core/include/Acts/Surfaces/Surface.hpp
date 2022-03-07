@@ -8,19 +8,19 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Alignment.hpp"
+#include "Acts/Definitions/Common.hpp"
 #include "Acts/Geometry/DetectorElementBase.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryObject.hpp"
-#include "Acts/Geometry/GeometryStatics.hpp"
 #include "Acts/Geometry/Polyhedron.hpp"
 #include "Acts/Surfaces/BoundaryCheck.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
 #include "Acts/Surfaces/SurfaceError.hpp"
 #include "Acts/Surfaces/detail/AlignmentHelper.hpp"
-#include "Acts/Utilities/AlignmentDefinitions.hpp"
 #include "Acts/Utilities/BinnedArray.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 #include "Acts/Utilities/Result.hpp"
 
@@ -68,11 +68,11 @@ class Surface : public virtual GeometryObject,
   };
 
  protected:
-  /// Constructor with Transform3D as a shared object
+  /// Constructor with Transform3 as a shared object
   ///
-  /// @param transform Transform3D positions the surface in 3D global space
+  /// @param transform Transform3 positions the surface in 3D global space
   /// @note also acts as default constructor
-  Surface(const Transform3D& transform = Transform3D::Identity());
+  Surface(const Transform3& transform = Transform3::Identity());
 
   /// Copy constructor
   ///
@@ -96,7 +96,7 @@ class Surface : public virtual GeometryObject,
   /// @param other Source surface for copy
   /// @param shift Additional transform applied as: shift * transform
   Surface(const GeometryContext& gctx, const Surface& other,
-          const Transform3D& shift);
+          const Transform3& shift);
 
  public:
   virtual ~Surface();
@@ -157,7 +157,7 @@ class Surface : public virtual GeometryObject,
   /// Return method for the Surface type to avoid dynamic casts
   virtual SurfaceType type() const = 0;
 
-  /// Return method for the surface Transform3D by reference
+  /// Return method for the surface Transform3 by reference
   /// In case a detector element is associated the surface transform
   /// is just forwarded to the detector element in order to keep the
   /// (mis-)alignment cache cetrally handled
@@ -165,7 +165,7 @@ class Surface : public virtual GeometryObject,
   /// @param gctx The current geometry context object, e.g. alignment
   ///
   /// @return the contextual transform
-  virtual const Transform3D& transform(const GeometryContext& gctx) const;
+  virtual const Transform3& transform(const GeometryContext& gctx) const;
 
   /// Return method for the surface center by reference
   /// @note the center is always recalculated in order to not keep a cache
@@ -173,7 +173,7 @@ class Surface : public virtual GeometryObject,
   /// @param gctx The current geometry context object, e.g. alignment
   ///
   /// @return center position by value
-  virtual Vector3D center(const GeometryContext& gctx) const;
+  virtual Vector3 center(const GeometryContext& gctx) const;
 
   /// Return method for the normal vector of the surface
   /// The normal vector can only be generally defined at a given local position
@@ -184,8 +184,8 @@ class Surface : public virtual GeometryObject,
   /// constructed
   ///
   /// @return normal vector by value
-  virtual Vector3D normal(const GeometryContext& gctx,
-                          const Vector2D& lposition) const = 0;
+  virtual Vector3 normal(const GeometryContext& gctx,
+                         const Vector2& lposition) const = 0;
 
   /// Return method for the normal vector of the surface
   /// The normal vector can only be generally defined at a given local position
@@ -197,8 +197,8 @@ class Surface : public virtual GeometryObject,
 
   ///
   /// @return normal vector by value
-  virtual Vector3D normal(const GeometryContext& gctx,
-                          const Vector3D& position) const;
+  virtual Vector3 normal(const GeometryContext& gctx,
+                         const Vector3& position) const;
 
   /// Return method for the normal vector of the surface
   ///
@@ -207,7 +207,7 @@ class Surface : public virtual GeometryObject,
   /// @param gctx The current geometry context object, e.g. alignment
   //
   /// @return normal vector by value
-  virtual Vector3D normal(const GeometryContext& gctx) const {
+  virtual Vector3 normal(const GeometryContext& gctx) const {
     return normal(gctx, center(gctx));
   }
 
@@ -258,8 +258,8 @@ class Surface : public virtual GeometryObject,
   /// @param bcheck BoundaryCheck directive for this onSurface check
   ///
   /// @return boolean indication if operation was successful
-  bool isOnSurface(const GeometryContext& gctx, const Vector3D& position,
-                   const Vector3D& momentum,
+  bool isOnSurface(const GeometryContext& gctx, const Vector3& position,
+                   const Vector3& momentum,
                    const BoundaryCheck& bcheck = true) const;
 
   /// The insideBounds method for local positions
@@ -267,7 +267,7 @@ class Surface : public virtual GeometryObject,
   /// @param lposition The local position to check
   /// @param bcheck BoundaryCheck directive for this onSurface check
   /// @return boolean indication if operation was successful
-  virtual bool insideBounds(const Vector2D& lposition,
+  virtual bool insideBounds(const Vector2& lposition,
                             const BoundaryCheck& bcheck = true) const;
 
   /// Local to global transformation
@@ -280,9 +280,9 @@ class Surface : public virtual GeometryObject,
   /// @param momentum global 3D momentum representation (optionally ignored)
   ///
   /// @return The global position by value
-  virtual Vector3D localToGlobal(const GeometryContext& gctx,
-                                 const Vector2D& lposition,
-                                 const Vector3D& momentum) const = 0;
+  virtual Vector3 localToGlobal(const GeometryContext& gctx,
+                                const Vector2& lposition,
+                                const Vector3& momentum) const = 0;
 
   /// Global to local transformation
   /// Generalized global to local transformation for the surface types. Since
@@ -293,11 +293,14 @@ class Surface : public virtual GeometryObject,
   /// @param position global 3D position - considered to be on surface but not
   /// inside bounds (check is done)
   /// @param momentum global 3D momentum representation (optionally ignored)
+  /// @param tolerance optional tolerance within which a point is considered
+  /// valid on surface
   ///
-  /// @return a Result<Vector2D> which can be !ok() if the operation fails
-  virtual Result<Vector2D> globalToLocal(const GeometryContext& gctx,
-                                         const Vector3D& position,
-                                         const Vector3D& momentum) const = 0;
+  /// @return a Result<Vector2> which can be !ok() if the operation fails
+  virtual Result<Vector2> globalToLocal(
+      const GeometryContext& gctx, const Vector3& position,
+      const Vector3& momentum,
+      double tolerance = s_onSurfaceTolerance) const = 0;
 
   /// Return mehtod for the reference frame
   /// This is the frame in which the covariance matrix is defined (specialized
@@ -308,72 +311,64 @@ class Surface : public virtual GeometryObject,
   /// inside bounds (check is done)
   /// @param momentum global 3D momentum representation (optionally ignored)
   ///
-  /// @return RotationMatrix3D which defines the three axes of the measurement
+  /// @return RotationMatrix3 which defines the three axes of the measurement
   /// frame
-  virtual Acts::RotationMatrix3D referenceFrame(const GeometryContext& gctx,
-                                                const Vector3D& position,
-                                                const Vector3D& momentum) const;
+  virtual Acts::RotationMatrix3 referenceFrame(const GeometryContext& gctx,
+                                               const Vector3& position,
+                                               const Vector3& momentum) const;
 
-  /// Initialize the jacobian from local to global
-  /// the surface knows best, hence the calculation is done here.
-  /// The jacobian is assumed to be initialised, so only the
-  /// relevant entries are filled
+  /// Calculate the jacobian from local to global which the surface knows best,
+  /// hence the calculation is done here.
+  ///
+  /// @note In principle, the input could also be a free parameters
+  /// vector as it could be transformed to a bound parameters. But the transform
+  /// might fail in case the parameters is not on surface. To avoid the check
+  /// inside this function, it takes directly the bound parameters as input
+  /// (then the check might be done where this function is called).
   ///
   /// @todo this mixes track parameterisation and geometry
   /// should move to :
   /// "Acts/EventData/detail/coordinate_transformations.hpp"
   ///
   /// @param gctx The current geometry context object, e.g. alignment
-  /// @param jacobian is the jacobian to be initialized
-  /// @param position is the global position of the parameters
-  /// @param direction is the direction at of the parameters
-  /// @param pars is the parameter vector
-  virtual void initJacobianToGlobal(const GeometryContext& gctx,
-                                    BoundToFreeMatrix& jacobian,
-                                    const Vector3D& position,
-                                    const Vector3D& direction,
-                                    const BoundVector& pars) const;
+  /// @param boundParams is the bound parameters vector
+  ///
+  /// @return Jacobian from local to global
+  virtual BoundToFreeMatrix boundToFreeJacobian(
+      const GeometryContext& gctx, const BoundVector& boundParams) const;
 
-  /// Initialize the jacobian from global to local
-  /// the surface knows best, hence the calculation is done here.
-  /// The jacobian is assumed to be initialised, so only the
-  /// relevant entries are filled
+  /// Calculate the jacobian from global to local which the surface knows best,
+  /// hence the calculation is done here.
   ///
-  /// @todo this mixes track parameterisation and geometry
-  /// should move to :
-  /// "Acts/EventData/detail/coordinate_transformations.hpp"
-  ///
-  /// @param jacobian is the jacobian to be initialized
-  /// @param position is the global position of the parameters
-  /// @param direction is the direction at of the parameters
-  /// @param gctx The current geometry context object, e.g. alignment
-  ///
-  /// @return the transposed reference frame (avoids recalculation)
-  virtual RotationMatrix3D initJacobianToLocal(const GeometryContext& gctx,
-                                               FreeToBoundMatrix& jacobian,
-                                               const Vector3D& position,
-                                               const Vector3D& direction) const;
-
-  /// Calculate the form factors for the derivatives
-  /// the calculation is identical for all surfaces where the
-  /// reference frame does not depend on the direction
-  ///
+  /// @note It assumes the input free parameters is on surface, hence no
+  /// onSurface check is done inside this function.
   ///
   /// @todo this mixes track parameterisation and geometry
   /// should move to :
   /// "Acts/EventData/detail/coordinate_transformations.hpp"
   ///
   /// @param gctx The current geometry context object, e.g. alignment
-  /// @param position is the position of the paramters in global
-  /// @param direction is the direction of the track
-  /// @param rft is the transposed reference frame (avoids recalculation)
-  /// @param jacobian is the transport jacobian
+  /// @param parameters is the free parameters
   ///
-  /// @return a five-dim vector
-  virtual BoundRowVector derivativeFactors(
-      const GeometryContext& gctx, const Vector3D& position,
-      const Vector3D& direction, const RotationMatrix3D& rft,
-      const BoundToFreeMatrix& jacobian) const;
+  /// @return Jacobian from global to local
+  virtual FreeToBoundMatrix freeToBoundJacobian(
+      const GeometryContext& gctx, const FreeVector& parameters) const;
+
+  /// Calculate the derivative of path length at the geometry constraint or
+  /// point-of-closest-approach w.r.t. free parameters. The calculation is
+  /// identical for all surfaces where the reference frame does not depend on
+  /// the direction
+  ///
+  /// @todo this mixes track parameterisation and geometry
+  /// should move to :
+  /// "Acts/EventData/detail/coordinate_transformations.hpp"
+  ///
+  /// @param gctx The current geometry context object, e.g. alignment
+  /// @param parameters is the free parameters
+  ///
+  /// @return Derivative of path length w.r.t. free parameters
+  virtual FreeToPathMatrix freeToPathDerivative(
+      const GeometryContext& gctx, const FreeVector& parameters) const;
 
   /// Calucation of the path correction for incident
   ///
@@ -384,8 +379,8 @@ class Surface : public virtual GeometryObject,
   ///
   /// @return Path correction with respect to the nominal incident.
   virtual double pathCorrection(const GeometryContext& gctx,
-                                const Vector3D& position,
-                                const Vector3D& direction) const = 0;
+                                const Vector3& position,
+                                const Vector3& direction) const = 0;
 
   /// Straight line intersection schema from position/direction
   ///
@@ -396,8 +391,8 @@ class Surface : public virtual GeometryObject,
   ///
   /// @return SurfaceIntersection object (contains intersection & surface)
   virtual SurfaceIntersection intersect(const GeometryContext& gctx,
-                                        const Vector3D& position,
-                                        const Vector3D& direction,
+                                        const Vector3& position,
+                                        const Vector3& direction,
                                         const BoundaryCheck& bcheck) const = 0;
 
   /// Output Method for std::ostream, to be overloaded by child classes
@@ -431,35 +426,32 @@ class Surface : public virtual GeometryObject,
   /// extrinsic Euler angles)
   ///
   /// @param gctx The current geometry context object, e.g. alignment
-  /// @param derivatives Path length derivatives of the free, nominal
-  /// parameters to help evaluate change of free track parameters caused by
   /// change of alignment parameters
-  /// @param position The position of the paramters in global
-  /// @param direction The direction of the track
+  /// @param parameters is the free parameters
+  /// @param pathDerivative is the derivative of free parameters w.r.t. path
+  /// length
   ///
   /// @return Derivative of bound track parameters w.r.t. local frame
   /// alignment parameters
   AlignmentToBoundMatrix alignmentToBoundDerivative(
-      const GeometryContext& gctx, const FreeVector& derivatives,
-      const Vector3D& position, const Vector3D& direction) const;
+      const GeometryContext& gctx, const FreeVector& parameters,
+      const FreeVector& pathDerivative) const;
 
-  /// Calculate the derivative of path length w.r.t. alignment parameters of the
-  /// surface (i.e. local frame origin in global 3D Cartesian coordinates and
-  /// its rotation represented with extrinsic Euler angles)
+  /// Calculate the derivative of path length at the geometry constraint or
+  /// point-of-closest-approach w.r.t. alignment parameters of the surface (i.e.
+  /// local frame origin in global 3D Cartesian coordinates and its rotation
+  /// represented with extrinsic Euler angles)
   ///
-  /// Re-implementation is needed for surface whose intersection with track is
-  /// not its local xy plane, e.g. LineSurface, CylinderSurface and ConeSurface
+  /// @note Re-implementation is needed for surface whose intersection with
+  /// track is not its local xy plane, e.g. LineSurface, CylinderSurface and
+  /// ConeSurface
   ///
   /// @param gctx The current geometry context object, e.g. alignment
-  /// @param rotToLocalZAxis The derivative of local frame z axis vector w.r.t.
-  /// its rotation
-  /// @param position The position of the paramters in global
-  /// @param direction The direction of the track
+  /// @param parameters is the free parameters
   ///
   /// @return Derivative of path length w.r.t. the alignment parameters
-  virtual AlignmentRowVector alignmentToPathDerivative(
-      const GeometryContext& gctx, const RotationMatrix3D& rotToLocalZAxis,
-      const Vector3D& position, const Vector3D& direction) const;
+  virtual AlignmentToPathMatrix alignmentToPathDerivative(
+      const GeometryContext& gctx, const FreeVector& parameters) const;
 
   /// Calculate the derivative of bound track parameters local position w.r.t.
   /// position in local 3D Cartesian coordinates
@@ -469,13 +461,13 @@ class Surface : public virtual GeometryObject,
   ///
   /// @return Derivative of bound local position w.r.t. position in local 3D
   /// cartesian coordinates
-  virtual LocalCartesianToBoundLocalMatrix localCartesianToBoundLocalDerivative(
-      const GeometryContext& gctx, const Vector3D& position) const = 0;
+  virtual ActsMatrix<2, 3> localCartesianToBoundLocalDerivative(
+      const GeometryContext& gctx, const Vector3& position) const = 0;
 
  protected:
-  /// Transform3D definition that positions
+  /// Transform3 definition that positions
   /// (translation, rotation) the surface in global space
-  Transform3D m_transform = Transform3D::Identity();
+  Transform3 m_transform = Transform3::Identity();
 
   /// Pointer to the a DetectorElementBase
   const DetectorElementBase* m_associatedDetElement{nullptr};
@@ -490,8 +482,23 @@ class Surface : public virtual GeometryObject,
 
   /// Possibility to attach a material descrption
   std::shared_ptr<const ISurfaceMaterial> m_surfaceMaterial;
-};
 
-#include "Acts/Surfaces/detail/Surface.ipp"
+ private:
+  /// Calculate the derivative of bound track parameters w.r.t.
+  /// alignment parameters of its reference surface (i.e. origin in global 3D
+  /// Cartesian coordinates and its rotation represented with extrinsic Euler
+  /// angles) without any path correction
+  ///
+  /// @note This function should be used together with alignment to path
+  /// derivative to get the full alignment to bound derivatives
+  ///
+  /// @param gctx The current geometry context object, e.g. alignment
+  /// @param parameters is the free parameters
+  ///
+  /// @return Derivative of bound track parameters w.r.t. local frame alignment
+  /// parameters without path correction
+  AlignmentToBoundMatrix alignmentToBoundDerivativeWithoutCorrection(
+      const GeometryContext& gctx, const FreeVector& parameters) const;
+};
 
 }  // namespace Acts

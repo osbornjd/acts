@@ -8,12 +8,11 @@
 
 #include "ActsExamples/Vertexing/TutorialVertexFinderAlgorithm.hpp"
 
-#include "Acts/MagneticField/ConstantBField.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/AdaptiveMultiVertexFinder.hpp"
 #include "Acts/Vertexing/AdaptiveMultiVertexFitter.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
@@ -25,6 +24,7 @@
 #include "Acts/Vertexing/VertexingOptions.hpp"
 #include "ActsExamples/Framework/RandomNumbers.hpp"
 #include "ActsExamples/Framework/WhiteBoard.hpp"
+#include "ActsExamples/Utilities/Options.hpp"
 
 #include "VertexingHelpers.hpp"
 

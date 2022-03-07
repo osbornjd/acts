@@ -8,17 +8,36 @@
 
 #include "Acts/Material/SurfaceMaterialMapper.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/NeutralTrackParameters.hpp"
+#include "Acts/EventData/TrackParameters.hpp"
+#include "Acts/Geometry/ApproachDescriptor.hpp"
+#include "Acts/Geometry/BoundarySurfaceT.hpp"
+#include "Acts/Geometry/Layer.hpp"
+#include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Material/BinnedSurfaceMaterial.hpp"
+#include "Acts/Material/ISurfaceMaterial.hpp"
+#include "Acts/Material/MaterialInteraction.hpp"
 #include "Acts/Material/ProtoSurfaceMaterial.hpp"
+#include "Acts/Propagator/AbortList.hpp"
 #include "Acts/Propagator/ActionList.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
+#include "Acts/Propagator/PropagatorError.hpp"
 #include "Acts/Propagator/StandardAborters.hpp"
-#include "Acts/Propagator/StraightLineStepper.hpp"
+#include "Acts/Propagator/SurfaceCollector.hpp"
+#include "Acts/Propagator/VolumeCollector.hpp"
+#include "Acts/Surfaces/SurfaceArray.hpp"
 #include "Acts/Utilities/BinAdjustment.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
+#include "Acts/Utilities/BinnedArray.hpp"
 #include "Acts/Utilities/Helpers.hpp"
+#include "Acts/Utilities/Result.hpp"
+
+#include <cstddef>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 Acts::SurfaceMaterialMapper::SurfaceMaterialMapper(
     const Config& cfg, StraightLinePropagator propagator,
@@ -115,7 +134,7 @@ void Acts::SurfaceMaterialMapper::checkAndInsert(State& mState,
       // Screen output for Binned Surface material
       ACTS_DEBUG("       - (proto) binning is " << *bu);
       // Now update
-      BinUtility buAdjusted = adjustBinUtility(*bu, surface);
+      BinUtility buAdjusted = adjustBinUtility(*bu, surface, mState.geoContext);
       // Screen output for Binned Surface material
       ACTS_DEBUG("       - adjusted binning is " << buAdjusted);
       mState.accumulatedMaterial[geoID] =
@@ -190,7 +209,7 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
       ActionList<MaterialSurfaceCollector, MaterialVolumeCollector>;
   using AbortList = AbortList<EndOfWorldReached>;
 
-  auto propLogger = getDefaultLogger("SufMatMapProp", Logging::INFO);
+  auto propLogger = getDefaultLogger("SurfMatMapProp", Logging::INFO);
   PropagatorOptions<ActionList, AbortList> options(
       mState.geoContext, mState.magFieldContext, LoggerWrapper{*propLogger});
 
@@ -232,7 +251,7 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
   // Use those to minimize the lookup
   GeometryIdentifier lastID = GeometryIdentifier();
   GeometryIdentifier currentID = GeometryIdentifier();
-  Vector3D currentPos(0., 0., 0);
+  Vector3 currentPos(0., 0., 0);
   double currentPathCorrection = 0.;
   auto currentAccMaterial = mState.accumulatedMaterial.end();
 
@@ -240,6 +259,14 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
   using MapBin = std::pair<AccumulatedSurfaceMaterial*, std::array<size_t, 3>>;
   std::multimap<AccumulatedSurfaceMaterial*, std::array<size_t, 3>>
       touchedMapBins;
+
+  if (sfIter != mappingSurfaces.end() &&
+      sfIter->surface->surfaceMaterial()->mappingType() ==
+          Acts::MappingType::PostMapping) {
+    ACTS_WARNING(
+        "The first mapping surface is a PostMapping one. Some material from "
+        "before the PostMapping surface will be mapped onto it ");
+  }
 
   // Assign the recorded ones, break if you hit an end
   while (rmIter != rMaterial.end() && sfIter != mappingSurfaces.end()) {
@@ -252,6 +279,7 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
       if (distMat - distVol > s_epsilon) {
         // Switch to next material volume
         ++volIter;
+        continue;
       }
     }
     /// check if we are inside a material volume
@@ -260,12 +288,69 @@ void Acts::SurfaceMaterialMapper::mapMaterialTrack(
       ++rmIter;
       continue;
     }
-    if (sfIter != mappingSurfaces.end() - 1 &&
-        (rmIter->position - sfIter->position).norm() >
-            (rmIter->position - (sfIter + 1)->position).norm()) {
-      // Switch to next assignment surface
-      ++sfIter;
+    // Do we need to switch to next assignment surface ?
+    if (sfIter != mappingSurfaces.end() - 1) {
+      int mappingType = sfIter->surface->surfaceMaterial()->mappingType();
+      int nextMappingType =
+          (sfIter + 1)->surface->surfaceMaterial()->mappingType();
+
+      if (mappingType == Acts::MappingType::PreMapping ||
+          mappingType == Acts::MappingType::Sensor) {
+        // Change surface if the material after the current surface.
+        if ((rmIter->position - mTrack.first.first).norm() >
+            (sfIter->position - mTrack.first.first).norm()) {
+          if (nextMappingType == Acts::MappingType::PostMapping) {
+            ACTS_WARNING(
+                "PreMapping or Sensor surface followed by PostMapping. Some "
+                "material "
+                "from before the PostMapping surface will be mapped onto it");
+          }
+          ++sfIter;
+          continue;
+        }
+      } else if (mappingType == Acts::MappingType::Default ||
+                 mappingType == Acts::MappingType::PostMapping) {
+        switch (nextMappingType) {
+          case Acts::MappingType::PreMapping:
+          case Acts::MappingType::Default: {
+            // Change surface if the material closest to the next surface.
+            if ((rmIter->position - sfIter->position).norm() >
+                (rmIter->position - (sfIter + 1)->position).norm()) {
+              ++sfIter;
+              continue;
+            }
+            break;
+          }
+          case Acts::MappingType::PostMapping: {
+            // Change surface if the material after the next surface.
+            if ((rmIter->position - sfIter->position).norm() >
+                ((sfIter + 1)->position - sfIter->position).norm()) {
+              ++sfIter;
+              continue;
+            }
+            break;
+          }
+          case Acts::MappingType::Sensor: {
+            // Change surface if the next material after the next surface.
+            if ((rmIter == rMaterial.end() - 1) ||
+                ((rmIter + 1)->position - sfIter->position).norm() >
+                    ((sfIter + 1)->position - sfIter->position).norm()) {
+              ++sfIter;
+              continue;
+            }
+            break;
+          }
+          default: {
+            ACTS_ERROR("Incorect mapping type for the next surface : "
+                       << (sfIter + 1)->surface->geometryId());
+          }
+        }
+      } else {
+        ACTS_ERROR("Incorect mapping type for surface : "
+                   << sfIter->surface->geometryId());
+      }
     }
+
     // get the current Surface ID
     currentID = sfIter->surface->geometryId();
     // We have work to do: the assignemnt surface has changed

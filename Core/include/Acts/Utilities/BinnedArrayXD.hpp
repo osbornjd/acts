@@ -33,7 +33,7 @@ namespace Acts {
 template <class T>
 class BinnedArrayXD : public BinnedArray<T> {
   /// typedef the object and position for readability
-  using TAP = std::pair<T, Vector3D>;
+  using TAP = std::pair<T, Vector3>;
 
  public:
   /// Constructor for single object
@@ -131,7 +131,7 @@ class BinnedArrayXD : public BinnedArray<T> {
   /// @param bins is the bin triple filled during this access
   ///
   /// @return is the object in that bin
-  T object(const Vector2D& lposition, std::array<size_t, 3>& bins) const final {
+  T object(const Vector2& lposition, std::array<size_t, 3>& bins) const final {
     if (m_binUtility) {
       size_t bdim = m_binUtility->dimensions();
       bins[2] = bdim > 2 ? m_binUtility->bin(lposition, 2) : 0;
@@ -143,7 +143,7 @@ class BinnedArrayXD : public BinnedArray<T> {
   }
 
   // satisfy overload / override
-  T object(const Vector2D& lposition) const override {
+  T object(const Vector2& lposition) const override {
     std::array<size_t, 3> bins;
     return object(lposition, bins);
   }
@@ -154,7 +154,7 @@ class BinnedArrayXD : public BinnedArray<T> {
   /// @param bins is the bins triple filled during access
   ///
   /// @return is the object in that bin
-  T object(const Vector3D& position, std::array<size_t, 3>& bins) const final {
+  T object(const Vector3& position, std::array<size_t, 3>& bins) const final {
     if (m_binUtility) {
       size_t bdim = m_binUtility->dimensions();
       bins[2] = bdim > 2 ? m_binUtility->bin(position, 2) : 0;
@@ -166,7 +166,7 @@ class BinnedArrayXD : public BinnedArray<T> {
   }
 
   // satisfy overload / override
-  T object(const Vector3D& position) const override {
+  T object(const Vector3& position) const override {
     std::array<size_t, 3> bins;
     return object(position, bins);
   }
@@ -180,52 +180,6 @@ class BinnedArrayXD : public BinnedArray<T> {
   /// @return internal object grid
   const std::vector<std::vector<std::vector<T>>>& objectGrid() const final {
     return m_objectGrid;
-  }
-
-  /// Returns the object according to the bin triple
-  /// and their neighbour objects (if different)
-  ///
-  /// @param binTriple is the binning
-  ///
-  /// @return a vector of unique objects
-  std::vector<T> objectCluster(
-      const std::array<size_t, 3>& binTriple) const override {
-    // prepare the return vector
-    std::vector<T> rvector;
-    // reference bin object to be excluded
-    T bObject = m_objectGrid[binTriple[2]][binTriple[1]][binTriple[0]];
-    // get the dimensions first
-    size_t bdim = m_binUtility->dimensions();
-    // avoiding code duplication
-    std::vector<size_t> zerorange = {0};
-    // 2D bin
-    std::vector<size_t> bin2values =
-        (bdim > 2) ? m_binUtility->binningData()[2].neighbourRange(binTriple[2])
-                   : zerorange;
-    // 1D bin
-    std::vector<size_t> bin1values =
-        (bdim > 1) ? m_binUtility->binningData()[1].neighbourRange(binTriple[1])
-                   : zerorange;
-    // 0D bin
-    std::vector<size_t> bin0values =
-        m_binUtility->binningData()[0].neighbourRange(binTriple[0]);
-
-    // do the loop
-    for (auto b2 : bin2values) {
-      for (auto b1 : bin1values) {
-        for (auto b0 : bin0values) {
-          // get the object
-          T object = m_objectGrid[b2][b1][b0];
-          if (object && object != bObject &&
-              std::find(rvector.begin(), rvector.end(), object) ==
-                  rvector.end()) {
-            rvector.push_back(object);
-          }
-        }
-      }
-    }
-    // return the ones you found
-    return rvector;
   }
 
   /// Return the BinUtility

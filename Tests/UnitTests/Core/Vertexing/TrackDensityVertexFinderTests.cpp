@@ -10,12 +10,12 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/DummyVertexFitter.hpp"
 #include "Acts/Vertexing/GaussianTrackDensity.hpp"
 #include "Acts/Vertexing/TrackDensityVertexFinder.hpp"
@@ -41,13 +41,13 @@ MagneticFieldContext magFieldContext = MagneticFieldContext();
 ///
 BOOST_AUTO_TEST_CASE(track_density_finder_test) {
   // Define some track parameter properties
-  Vector3D pos0{0, 0, 0};
-  Vector3D pos1a{2_mm, 1_mm, -10_mm};
-  Vector3D mom1a{400_MeV, 600_MeV, 200_MeV};
-  Vector3D pos1b{1_mm, 2_mm, -3_mm};
-  Vector3D mom1b{600_MeV, 400_MeV, -200_MeV};
-  Vector3D pos1c{1.2_mm, 1.3_mm, -7_mm};
-  Vector3D mom1c{300_MeV, 1000_MeV, 100_MeV};
+  Vector3 pos0{0, 0, 0};
+  Vector3 pos1a{2_mm, 1_mm, -10_mm};
+  Vector3 mom1a{400_MeV, 600_MeV, 200_MeV};
+  Vector3 pos1b{1_mm, 2_mm, -3_mm};
+  Vector3 mom1b{600_MeV, 400_MeV, -200_MeV};
+  Vector3 pos1c{1.2_mm, 1.3_mm, -7_mm};
+  Vector3 mom1c{300_MeV, 1000_MeV, 100_MeV};
 
   VertexingOptions<BoundTrackParameters> vertexingOptions(geoContext,
                                                           magFieldContext);
@@ -63,15 +63,18 @@ BOOST_AUTO_TEST_CASE(track_density_finder_test) {
       Surface::makeShared<PerigeeSurface>(pos0);
 
   // Test finder for some fixed track parameter values
-  BoundTrackParameters params1a(perigeeSurface, geoContext,
-                                makeVector4(pos1a, 0), mom1a, mom1a.norm(), 1,
-                                covMat);
-  BoundTrackParameters params1b(perigeeSurface, geoContext,
-                                makeVector4(pos1b, 0), mom1b, mom1b.norm(), -1,
-                                covMat);
-  BoundTrackParameters params1c(perigeeSurface, geoContext,
-                                makeVector4(pos1c, 0), mom1c, mom1c.norm(), -1,
-                                covMat);
+  auto params1a = BoundTrackParameters::create(perigeeSurface, geoContext,
+                                               makeVector4(pos1a, 0), mom1a,
+                                               mom1a.norm(), 1, covMat)
+                      .value();
+  auto params1b = BoundTrackParameters::create(perigeeSurface, geoContext,
+                                               makeVector4(pos1b, 0), mom1b,
+                                               mom1b.norm(), -1, covMat)
+                      .value();
+  auto params1c = BoundTrackParameters::create(perigeeSurface, geoContext,
+                                               makeVector4(pos1c, 0), mom1c,
+                                               mom1c.norm(), -1, covMat)
+                      .value();
 
   // Vectors of track parameters in different orders
   std::vector<const BoundTrackParameters*> vec1 = {&params1a, &params1b,
@@ -93,8 +96,8 @@ BOOST_AUTO_TEST_CASE(track_density_finder_test) {
   if (res1.ok() and res2.ok()) {
     BOOST_CHECK(!(*res1).empty());
     BOOST_CHECK(!(*res2).empty());
-    Vector3D result1 = (*res1).back().position();
-    Vector3D result2 = (*res2).back().position();
+    Vector3 result1 = (*res1).back().position();
+    Vector3 result2 = (*res2).back().position();
     BOOST_CHECK(result1 == result2);
   }
 }
@@ -105,13 +108,13 @@ BOOST_AUTO_TEST_CASE(track_density_finder_test) {
 ///
 BOOST_AUTO_TEST_CASE(track_density_finder_constr_test) {
   // Define some track parameter properties
-  Vector3D pos0{0, 0, 0};
-  Vector3D pos1a{2_mm, 1_mm, -10_mm};
-  Vector3D mom1a{400_MeV, 600_MeV, 200_MeV};
-  Vector3D pos1b{1_mm, 2_mm, -3_mm};
-  Vector3D mom1b{600_MeV, 400_MeV, -200_MeV};
-  Vector3D pos1c{1.2_mm, 1.3_mm, -7_mm};
-  Vector3D mom1c{300_MeV, 1000_MeV, 100_MeV};
+  Vector3 pos0{0, 0, 0};
+  Vector3 pos1a{2_mm, 1_mm, -10_mm};
+  Vector3 mom1a{400_MeV, 600_MeV, 200_MeV};
+  Vector3 pos1b{1_mm, 2_mm, -3_mm};
+  Vector3 mom1b{600_MeV, 400_MeV, -200_MeV};
+  Vector3 pos1c{1.2_mm, 1.3_mm, -7_mm};
+  Vector3 mom1c{300_MeV, 1000_MeV, 100_MeV};
 
   // From Athena VertexSeedFinderTestAlg
   double const expectedZResult = -13.013;
@@ -121,8 +124,8 @@ BOOST_AUTO_TEST_CASE(track_density_finder_constr_test) {
                                                           magFieldContext);
 
   // Create constraint for seed finding
-  Vector3D constraintPos{1.7_mm, 1.3_mm, -6_mm};
-  ActsSymMatrixD<3> constrCov = ActsSymMatrixD<3>::Identity();
+  Vector3 constraintPos{1.7_mm, 1.3_mm, -6_mm};
+  SymMatrix3 constrCov = ActsSymMatrix<3>::Identity();
 
   Vertex<BoundTrackParameters> vertexConstraint(constraintPos);
   vertexConstraint.setCovariance(constrCov);
@@ -140,15 +143,18 @@ BOOST_AUTO_TEST_CASE(track_density_finder_constr_test) {
       Surface::makeShared<PerigeeSurface>(pos0);
 
   // Test finder for some fixed track parameter values
-  BoundTrackParameters params1a(perigeeSurface, geoContext,
-                                makeVector4(pos1a, 0), mom1a, mom1a.norm(), 1,
-                                covMat);
-  BoundTrackParameters params1b(perigeeSurface, geoContext,
-                                makeVector4(pos1b, 0), mom1b, mom1b.norm(), -1,
-                                covMat);
-  BoundTrackParameters params1c(perigeeSurface, geoContext,
-                                makeVector4(pos1c, 0), mom1c, mom1c.norm(), -1,
-                                covMat);
+  auto params1a = BoundTrackParameters::create(perigeeSurface, geoContext,
+                                               makeVector4(pos1a, 0), mom1a,
+                                               mom1a.norm(), 1, covMat)
+                      .value();
+  auto params1b = BoundTrackParameters::create(perigeeSurface, geoContext,
+                                               makeVector4(pos1b, 0), mom1b,
+                                               mom1b.norm(), -1, covMat)
+                      .value();
+  auto params1c = BoundTrackParameters::create(perigeeSurface, geoContext,
+                                               makeVector4(pos1c, 0), mom1c,
+                                               mom1c.norm(), -1, covMat)
+                      .value();
 
   // Vector of track parameters
   std::vector<const BoundTrackParameters*> vec1 = {&params1a, &params1b,
@@ -162,7 +168,7 @@ BOOST_AUTO_TEST_CASE(track_density_finder_constr_test) {
 
   if (res.ok()) {
     BOOST_CHECK(!(*res).empty());
-    Vector3D result = (*res).back().position();
+    Vector3 result = (*res).back().position();
 
     BOOST_CHECK(result[eX] == constraintPos[eX]);
     BOOST_CHECK(result[eY] == constraintPos[eY]);
@@ -194,7 +200,7 @@ BOOST_AUTO_TEST_CASE(track_density_finder_random_test) {
   Covariance covMat = Covariance::Identity();
 
   // Perigee surface for track parameters
-  Vector3D pos0{0, 0, 0};
+  Vector3 pos0{0, 0, 0};
   std::shared_ptr<PerigeeSurface> perigeeSurface =
       Surface::makeShared<PerigeeSurface>(pos0);
 
@@ -224,9 +230,11 @@ BOOST_AUTO_TEST_CASE(track_density_finder_random_test) {
     double phi = phiDist(gen);
     double eta = etaDist(gen);
     double charge = etaDist(gen) > 0 ? 1 : -1;
-    trackVec.push_back(BoundTrackParameters(
-        perigeeSurface, geoContext, Vector4D(x, y, z, 0),
-        makeDirectionUnitFromPhiEta(phi, eta), pt, charge, covMat));
+    trackVec.push_back(BoundTrackParameters::create(
+                           perigeeSurface, geoContext, Vector4(x, y, z, 0),
+                           makeDirectionUnitFromPhiEta(phi, eta), pt, charge,
+                           covMat)
+                           .value());
   }
 
   std::vector<const BoundTrackParameters*> trackPtrVec;
@@ -241,7 +249,7 @@ BOOST_AUTO_TEST_CASE(track_density_finder_random_test) {
 
   if (res3.ok()) {
     BOOST_CHECK(!(*res3).empty());
-    Vector3D result = (*res3).back().position();
+    Vector3 result = (*res3).back().position();
     CHECK_CLOSE_ABS(result[eZ], zVertexPos, 1_mm);
   }
 }
@@ -264,13 +272,13 @@ struct InputTrack {
 ///
 BOOST_AUTO_TEST_CASE(track_density_finder_usertrack_test) {
   // Define some track parameter properties
-  Vector3D pos0{0, 0, 0};
-  Vector3D pos1a{2_mm, 1_mm, -10_mm};
-  Vector3D mom1a{400_MeV, 600_MeV, 200_MeV};
-  Vector3D pos1b{1_mm, 2_mm, -3_mm};
-  Vector3D mom1b{600_MeV, 400_MeV, -200_MeV};
-  Vector3D pos1c{1.2_mm, 1.3_mm, -7_mm};
-  Vector3D mom1c{300_MeV, 1000_MeV, 100_MeV};
+  Vector3 pos0{0, 0, 0};
+  Vector3 pos1a{2_mm, 1_mm, -10_mm};
+  Vector3 mom1a{400_MeV, 600_MeV, 200_MeV};
+  Vector3 pos1b{1_mm, 2_mm, -3_mm};
+  Vector3 mom1b{600_MeV, 400_MeV, -200_MeV};
+  Vector3 pos1c{1.2_mm, 1.3_mm, -7_mm};
+  Vector3 mom1c{300_MeV, 1000_MeV, 100_MeV};
 
   // From Athena VertexSeedFinderTestAlg
   double const expectedZResult = -13.013;
@@ -279,8 +287,8 @@ BOOST_AUTO_TEST_CASE(track_density_finder_usertrack_test) {
   VertexingOptions<InputTrack> vertexingOptions(geoContext, magFieldContext);
 
   // Create constraint for seed finding
-  Vector3D constraintPos{1.7_mm, 1.3_mm, -6_mm};
-  ActsSymMatrixD<3> constrCov = ActsSymMatrixD<3>::Identity();
+  Vector3 constraintPos{1.7_mm, 1.3_mm, -6_mm};
+  SymMatrix3 constrCov = SymMatrix3::Identity();
 
   Vertex<InputTrack> vertexConstraint(constraintPos);
   vertexConstraint.setCovariance(constrCov);
@@ -302,15 +310,18 @@ BOOST_AUTO_TEST_CASE(track_density_finder_usertrack_test) {
       Surface::makeShared<PerigeeSurface>(pos0);
 
   // Test finder for some fixed track parameter values
-  InputTrack params1a(BoundTrackParameters(perigeeSurface, geoContext,
-                                           makeVector4(pos1a, 0), mom1a,
-                                           mom1a.norm(), 1, covMat));
-  InputTrack params1b(BoundTrackParameters(perigeeSurface, geoContext,
-                                           makeVector4(pos1b, 0), mom1b,
-                                           mom1b.norm(), -1, covMat));
-  InputTrack params1c(BoundTrackParameters(perigeeSurface, geoContext,
-                                           makeVector4(pos1c, 0), mom1c,
-                                           mom1c.norm(), -1, covMat));
+  InputTrack params1a(BoundTrackParameters::create(perigeeSurface, geoContext,
+                                                   makeVector4(pos1a, 0), mom1a,
+                                                   mom1a.norm(), 1, covMat)
+                          .value());
+  InputTrack params1b(BoundTrackParameters::create(perigeeSurface, geoContext,
+                                                   makeVector4(pos1b, 0), mom1b,
+                                                   mom1b.norm(), -1, covMat)
+                          .value());
+  InputTrack params1c(BoundTrackParameters::create(perigeeSurface, geoContext,
+                                                   makeVector4(pos1c, 0), mom1c,
+                                                   mom1c.norm(), -1, covMat)
+                          .value());
 
   // Vector of track parameters
   std::vector<const InputTrack*> vec1 = {&params1a, &params1b, &params1c};
@@ -323,7 +334,7 @@ BOOST_AUTO_TEST_CASE(track_density_finder_usertrack_test) {
 
   if (res.ok()) {
     BOOST_CHECK(!(*res).empty());
-    Vector3D result = (*res).back().position();
+    Vector3 result = (*res).back().position();
 
     BOOST_CHECK(result[eX] == constraintPos[eX]);
     BOOST_CHECK(result[eY] == constraintPos[eY]);

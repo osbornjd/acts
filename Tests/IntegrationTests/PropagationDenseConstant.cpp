@@ -33,7 +33,7 @@ using namespace Acts::UnitLiterals;
 
 using MagneticField = Acts::ConstantBField;
 using Stepper = Acts::EigenStepper<
-    MagneticField, Acts::StepperExtensionList<Acts::DenseEnvironmentExtension>>;
+    Acts::StepperExtensionList<Acts::DenseEnvironmentExtension>>;
 using Propagator = Acts::Propagator<Stepper, Acts::Navigator>;
 using RiddersPropagator = Acts::RiddersPropagator<Propagator>;
 
@@ -77,17 +77,18 @@ inline std::shared_ptr<const Acts::TrackingGeometry> makeDetector() {
 inline Propagator makePropagator(double bz) {
   using namespace Acts;
 
-  MagneticField magField(Acts::Vector3D(0.0, 0.0, bz));
+  auto magField = std::make_shared<MagneticField>(Acts::Vector3(0.0, 0.0, bz));
   Stepper stepper(std::move(magField));
-  return Propagator(std::move(stepper), Acts::Navigator(makeDetector()));
+  return Propagator(std::move(stepper), Acts::Navigator{{makeDetector()}});
 }
 
 inline RiddersPropagator makeRiddersPropagator(double bz) {
   using namespace Acts;
 
-  MagneticField magField(Acts::Vector3D(0.0, 0.0, bz));
+  auto magField = std::make_shared<MagneticField>(Acts::Vector3(0.0, 0.0, bz));
   Stepper stepper(std::move(magField));
-  return RiddersPropagator(std::move(stepper), Acts::Navigator(makeDetector()));
+  return RiddersPropagator(std::move(stepper),
+                           Acts::Navigator{{makeDetector()}});
 }
 
 }  // namespace
@@ -168,7 +169,7 @@ BOOST_DATA_TEST_CASE(CovarianceCurvilinear,
       epsDir, epsMom, epsCov);
 }
 
-// limit theta to ignore the covariance missmatches at high theta for now
+// limit theta to ignore the covariance mismatches at high theta for now
 BOOST_DATA_TEST_CASE(CovarianceToCylinderAlongZ,
                      ds::phiWithoutAmbiguity* ds::thetaCentral* ds::absMomentum*
                          ds::chargeNonZero* ds::pathLength* ds::magneticField,
@@ -205,7 +206,7 @@ BOOST_DATA_TEST_CASE(CovarianceToPlane,
       PlaneSurfaceBuilder(), epsPos, epsDir, epsMom, epsCov);
 }
 
-// limit theta to ignore the covariance missmatches at high theta for now
+// limit theta to ignore the covariance mismatches at high theta for now
 BOOST_DATA_TEST_CASE(CovarianceToStrawAlongZ,
                      ds::phiWithoutAmbiguity* ds::thetaCentral* ds::absMomentum*
                          ds::chargeNonZero* ds::pathLength* ds::magneticField,

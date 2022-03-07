@@ -8,7 +8,8 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/MagneticField/MagneticFieldProvider.hpp"
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
 
 #include <string>
@@ -18,12 +19,12 @@ namespace ActsExamples {
 class TutorialVertexFinderAlgorithm final : public BareAlgorithm {
  public:
   struct Config {
-    /// Input track parameters collection.
+    /// Input track parameters collection
     std::string inputTrackParameters;
-    /// Output proto vertex collection.
+    /// Output proto vertex collection
     std::string outputProtoVertices;
-    /// Magnetic field vector.
-    Acts::Vector3D bField = Acts::Vector3D::Zero();
+    /// The magnetic field
+    std::shared_ptr<Acts::MagneticFieldProvider> bField;
   };
 
   TutorialVertexFinderAlgorithm(const Config& cfg, Acts::Logging::Level lvl);
@@ -33,6 +34,9 @@ class TutorialVertexFinderAlgorithm final : public BareAlgorithm {
   /// @param ctx is the algorithm context with event information
   /// @return a process code indication success or failure
   ProcessCode execute(const AlgorithmContext& ctx) const final;
+
+  /// Get readonly access to the config parameters
+  const Config& config() const { return m_cfg; }
 
  private:
   Config m_cfg;

@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/NeutralTrackParameters.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Propagator/AbortList.hpp"
@@ -19,9 +21,7 @@
 #include "Acts/Propagator/StandardAborters.hpp"
 #include "Acts/Propagator/detail/SteppingLogger.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
 #include "ActsExamples/Framework/ProcessCode.hpp"
 #include "ActsExamples/Framework/RandomNumbers.hpp"
@@ -32,9 +32,9 @@
 #include <memory>
 #include <optional>
 
-using namespace Acts::UnitLiterals;
-
 namespace ActsExamples {
+
+class PropagatorInterface;
 
 /// Using some short hands for Recorded Material
 using RecordedMaterial = Acts::MaterialInteractor::result_type;
@@ -43,7 +43,7 @@ using RecordedMaterial = Acts::MaterialInteractor::result_type;
 /// - this is start:  position, start momentum
 ///   and the Recorded material
 using RecordedMaterialTrack =
-    std::pair<std::pair<Acts::Vector3D, Acts::Vector3D>, RecordedMaterial>;
+    std::pair<std::pair<Acts::Vector3, Acts::Vector3>, RecordedMaterial>;
 
 /// Finally the output of the propagation test
 using PropagationOutput =
@@ -54,57 +54,53 @@ using PropagationOutput =
 ///
 /// If the propagator is equipped appropriately, it can
 /// also be used to test the Extrapolator within the geomtetry
-///
-/// @tparam propagator_t Type of the Propagator to be tested
-template <typename propagator_t>
 class PropagationAlgorithm : public BareAlgorithm {
  public:
   struct Config {
-    // create a config object with the propagator
-    Config(propagator_t prop) : propagator(std::move(prop)) {}
-
-    /// the propagors to be tested
-    propagator_t propagator;
+    /// Instance of a propagator wrapper that performs the actual propagation
+    std::shared_ptr<PropagatorInterface> propagatorImpl = nullptr;
 
     /// how to set it up
     std::shared_ptr<RandomNumbers> randomNumberSvc = nullptr;
-
     /// proapgation mode
     int mode = 0;
+    /// Switch the logger to sterile
+    bool sterileLogger = false;
     /// debug output
     bool debugOutput = false;
     /// Modify the behavior of the material interaction: energy loss
-    bool energyLoss = false;
+    bool energyLoss = true;
     /// Modify the behavior of the material interaction: scattering
-    bool multipleScattering = false;
+    bool multipleScattering = true;
     /// Modify the behavior of the material interaction: record
-    bool recordMaterialInteractions = false;
+    bool recordMaterialInteractions = true;
 
     /// number of particles
     size_t ntests = 100;
     /// d0 gaussian sigma
-    double d0Sigma = 15_um;
+    double d0Sigma = 15 * Acts::UnitConstants::um;
     /// z0 gaussian sigma
-    double z0Sigma = 55_mm;
+    double z0Sigma = 55 * Acts::UnitConstants::mm;
     /// phi gaussian sigma (used for covariance transport)
-    double phiSigma = 0.0001;
+    double phiSigma = 0.001;
     /// theta gaussian sigma (used for covariance transport)
-    double thetaSigma = 0.0001;
+    double thetaSigma = 0.001;
     /// qp gaussian sigma (used for covariance transport)
-    double qpSigma = 0.00001 / 1_GeV;
+    double qpSigma = 0.0001 / 1 * Acts::UnitConstants::GeV;
     /// t gaussian sigma (used for covariance transport)
-    double tSigma = 1_ns;
+    double tSigma = 1 * Acts::UnitConstants::ns;
     /// phi range
     std::pair<double, double> phiRange = {-M_PI, M_PI};
     /// eta range
     std::pair<double, double> etaRange = {-4., 4.};
     /// pt range
-    std::pair<double, double> ptRange = {100_MeV, 100_GeV};
+    std::pair<double, double> ptRange = {100 * Acts::UnitConstants::MeV,
+                                         100 * Acts::UnitConstants::GeV};
     /// looper protection
-    double ptLoopers = 300_MeV;
+    double ptLoopers = 500 * Acts::UnitConstants::MeV;
 
     /// Max step size steering
-    double maxStepSize = 3_m;
+    double maxStepSize = 3 * Acts::UnitConstants::m;
 
     /// The step collection to be stored
     std::string propagationStepCollection = "PropagationSteps";
@@ -125,13 +121,16 @@ class PropagationAlgorithm : public BareAlgorithm {
   /// Constructor
   /// @param [in] cnf is the configuration struct
   /// @param [in] loglevel is the loggin level
-  PropagationAlgorithm(const Config& cnf, Acts::Logging::Level loglevel);
+  PropagationAlgorithm(const Config& cnf, Acts::Logging::Level level);
 
   /// Framework execute method
   /// @param [in] the algorithm context for event consistency
   /// @return is a process code indicating succes or not
   ActsExamples::ProcessCode execute(
       const AlgorithmContext& context) const final override;
+
+  /// Get const access to the config
+  const Config& config() const { return m_cfg; }
 
  private:
   Config m_cfg;  ///< the config class
@@ -142,23 +141,6 @@ class PropagationAlgorithm : public BareAlgorithm {
   std::optional<Acts::BoundSymMatrix> generateCovariance(
       ActsExamples::RandomEngine& rnd,
       std::normal_distribution<double>& gauss) const;
-
-  /// Templated execute test method for
-  /// charged and netural particles
-  ///
-  // @tparam parameters_t type of the parameters objects (charged/neutra;)
-  ///
-  /// @param [in] context The Context for this call
-  /// @param [in] startParameters the start parameters
-  /// @param [in] pathLengthe the path limit of this propagation
-  ///
-  /// @return collection of Propagation steps for further analysis
-  template <typename parameters_t>
-  PropagationOutput executeTest(
-      const AlgorithmContext& context, const parameters_t& startParameters,
-      double pathLength = std::numeric_limits<double>::max()) const;
 };
-
-#include "PropagationAlgorithm.ipp"
 
 }  // namespace ActsExamples

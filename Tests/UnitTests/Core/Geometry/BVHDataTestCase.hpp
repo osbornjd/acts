@@ -13,67 +13,10 @@ using Ray = Acts::Ray<double, 3>;
 GeometryContext tgContext = GeometryContext();
 MagneticFieldContext mfContext = MagneticFieldContext();
 
-std::tuple<std::vector<const Volume*>, std::shared_ptr<TrackingGeometry>>
-gridBoxFactory(size_t n = NBOXES, double hl = 1000, size_t octd = 5) {
-  Box::Size size(Acts::Vector3D(2, 2, 2));
+Test::CubicBVHTrackingGeometry grid(NBOXES, 1000, 5);
 
-  std::shared_ptr<CuboidVolumeBounds> vbds =
-      std::make_shared<CuboidVolumeBounds>(10, 10, 10);
-
-  double min = -hl;
-  double max = hl;
-
-  double step = (max - min) / double(n);
-  std::vector<std::unique_ptr<const Volume>> volumes;
-  std::vector<std::unique_ptr<Box>> boxStore;
-  boxStore.reserve((n + 1) * (n + 1) * (n + 1));
-
-  std::cout << "generating: " << (n + 1) * (n + 1) * (n + 1)
-            << " bounding boxes" << std::endl;
-
-  std::vector<Box*> boxes;
-  boxes.reserve(boxStore.size());
-
-  for (size_t i = 0; i <= n; i++) {
-    for (size_t j = 0; j <= n; j++) {
-      for (size_t k = 0; k <= n; k++) {
-        Vector3D pos(min + i * step, min + j * step, min + k * step);
-
-        auto trf = Transform3D(Translation3D(pos));
-        auto vol = std::make_unique<AbstractVolume>(trf, vbds);
-
-        volumes.push_back(std::move(vol));
-        boxStore.push_back(
-            std::make_unique<Box>(volumes.back()->boundingBox()));
-        boxes.push_back(boxStore.back().get());
-      }
-    }
-  }
-
-  Box* top = make_octree(boxStore, boxes, octd);
-
-  // create trackingvolume
-  // will own the volumes, so make non-owning copy first
-  std::vector<const Volume*> volumeCopy;
-  volumeCopy.reserve(volumes.size());
-  for (auto& vol : volumes) {
-    volumeCopy.push_back(vol.get());
-  }
-
-  // box like overall shape
-  auto tvBounds =
-      std::make_shared<CuboidVolumeBounds>(hl * 1.1, hl * 1.1, hl * 1.1);
-
-  auto tv = TrackingVolume::create(Transform3D::Identity(), tvBounds,
-                                   std::move(boxStore), std::move(volumes), top,
-                                   nullptr, "TheVolume");
-
-  auto tg = std::make_shared<TrackingGeometry>(tv);
-
-  return {std::move(volumeCopy), tg};
-}
-
-auto [volumes, tg] = gridBoxFactory();
+auto volumes = grid.volumes;
+auto tg = grid.trackingGeometry;
 
 BOOST_DATA_TEST_CASE(
     bvhnavigation_test,
@@ -99,7 +42,7 @@ BOOST_DATA_TEST_CASE(
 
   // construct ray from parameters
   double theta = 2 * std::atan(std::exp(-eta));
-  Acts::Vector3D dir;
+  Acts::Vector3 dir;
   dir << std::cos(phi), std::sin(phi), 1. / std::tan(theta);
   dir.normalize();
   Ray ray({x, y, z}, dir);
@@ -134,7 +77,7 @@ BOOST_DATA_TEST_CASE(
   using PropagatorType = Propagator<Stepper, Navigator>;
 
   Stepper stepper{};
-  Navigator navigator(tg);
+  Navigator navigator({tg});
   PropagatorType propagator(std::move(stepper), navigator);
 
   using ActionList = Acts::ActionList<SteppingLogger>;
@@ -145,7 +88,7 @@ BOOST_DATA_TEST_CASE(
 
   options.pathLimit = 20_m;
 
-  Acts::Vector4D pos4 = Acts::Vector4D::Zero();
+  Acts::Vector4 pos4 = Acts::Vector4::Zero();
   pos4.segment<3>(Acts::ePos0) = ray.origin();
   // momentum value should be irrelevant.
   Acts::CurvilinearTrackParameters startPar(pos4, ray.dir(), 50_GeV, 1_e);

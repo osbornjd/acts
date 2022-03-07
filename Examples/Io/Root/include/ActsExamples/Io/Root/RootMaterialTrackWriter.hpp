@@ -15,7 +15,7 @@
 #include <Acts/Utilities/Logger.hpp>
 
 #include <mutex>
-
+#include <unordered_map>
 class TFile;
 class TTree;
 
@@ -26,7 +26,7 @@ using RecordedMaterial = MaterialInteractor::result_type;
 // - this is start:  position, start momentum
 //   and the Recorded material
 using RecordedMaterialTrack =
-    std::pair<std::pair<Acts::Vector3D, Acts::Vector3D>, RecordedMaterial>;
+    std::pair<std::pair<Acts::Vector3, Acts::Vector3>, RecordedMaterial>;
 }  // namespace Acts
 
 namespace ActsExamples {
@@ -39,7 +39,7 @@ namespace ActsExamples {
 /// It writes out a MaterialTrack which is usually generated from
 /// Geant4 material mapping
 class RootMaterialTrackWriter
-    : public WriterT<std::vector<Acts::RecordedMaterialTrack>> {
+    : public WriterT<std::unordered_map<size_t, Acts::RecordedMaterialTrack>> {
  public:
   struct Config {
     std::string collection =
@@ -47,7 +47,6 @@ class RootMaterialTrackWriter
     std::string filePath = "";                 ///< path of the output file
     std::string fileMode = "RECREATE";         ///< file access mode
     std::string treeName = "material-tracks";  ///< name of the output tree
-    TFile* rootFile = nullptr;                 ///< common root file
 
     /// Re-calculate total values from individual steps (for cross-checks)
     bool recalculateTotals = false;
@@ -60,9 +59,9 @@ class RootMaterialTrackWriter
   };
 
   /// Constructor with
-  /// @param cfg configuration struct
-  /// @param output logging level
-  RootMaterialTrackWriter(const Config& cfg,
+  /// @param config configuration struct
+  /// @param level logging level
+  RootMaterialTrackWriter(const Config& config,
                           Acts::Logging::Level level = Acts::Logging::INFO);
 
   /// Virtual destructor
@@ -71,15 +70,19 @@ class RootMaterialTrackWriter
   /// Framework intialize method
   ActsExamples::ProcessCode endRun() final override;
 
+  /// Readonly access to the config
+  const Config& config() const { return m_cfg; }
+
  protected:
   // This implementation holds the actual writing method
   /// and is called by the WriterT<>::write interface
   ///
   /// @param ctx The Algorithm context with per event information
   /// @param clusters is the data to be written out
-  ProcessCode writeT(const AlgorithmContext& ctx,
-                     const std::vector<Acts::RecordedMaterialTrack>&
-                         materialtracks) final override;
+  ProcessCode writeT(
+      const AlgorithmContext& ctx,
+      const std::unordered_map<size_t, Acts::RecordedMaterialTrack>&
+          materialtracks) final override;
 
  private:
   /// The config class
@@ -90,6 +93,9 @@ class RootMaterialTrackWriter
   TFile* m_outputFile;
   /// The output tree name
   TTree* m_outputTree;
+
+  /// Event identifier.
+  uint32_t m_eventId;
 
   float m_v_x;    ///< start global x
   float m_v_y;    ///< start global y

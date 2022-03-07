@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 
 #include <vector>
 
@@ -43,13 +43,19 @@ class AnnealingUtility {
   };
 
   /// Constructor
-  AnnealingUtility(const Config& cfg = Config()) : m_cfg(cfg) {}
+  AnnealingUtility(const Config& cfg = Config()) : m_cfg(cfg) {
+    // Set Gaussian cut-off terms for each temperature
+    for (double temp : cfg.setOfTemperatures) {
+      m_gaussCutTempVec.push_back(std::exp(-cfg.cutOff / (2. * temp)));
+    }
+  }
 
   /// Does the actual annealing step
   void anneal(State& state) const;
 
   /// @brief Weight access
   ///
+  /// @param state The state object
   /// @param chi2 Chi^2 for e.g. current track, i.e. compatibility
   /// of track to current vertex candidate
   /// @param allChi2 Vector of all chi^2 values, i.e. e.g. compatibilities
@@ -61,6 +67,7 @@ class AnnealingUtility {
 
   /// @brief Weight access
   ///
+  /// @param state The state object
   /// @param chi2 Chi^2
   ///
   /// @return Calculated weight
@@ -69,5 +76,9 @@ class AnnealingUtility {
  private:
   /// Configuration object
   Config m_cfg;
+
+  // For each temperature, a Gaussian term with the chi2 cut-off value
+  // is calculated and stored here
+  std::vector<double> m_gaussCutTempVec;
 };
 }  // namespace Acts

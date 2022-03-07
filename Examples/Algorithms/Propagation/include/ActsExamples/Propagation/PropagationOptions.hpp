@@ -8,16 +8,15 @@
 
 #pragma once
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "ActsExamples/Utilities/Options.hpp"
 
 #include <iostream>
 
-#include "PropagationAlgorithm.hpp"
+#include <boost/program_options.hpp>
 
-namespace po = boost::program_options;
-using namespace Acts::UnitLiterals;
+#include "PropagationAlgorithm.hpp"
 
 namespace ActsExamples {
 
@@ -26,8 +25,10 @@ namespace Options {
 /// @brief PropagationAlgorithm options
 ///
 /// @tparam aopt_t Type of the options class from boost
-template <typename aopt_t>
-void addPropagationOptions(aopt_t& opt) {
+inline void addPropagationOptions(
+    boost::program_options::options_description& opt) {
+  namespace po = boost::program_options;
+  using namespace Acts::UnitLiterals;
   opt.add_options()(
       "prop-debug", po::value<bool>()->default_value(false),
       "Run in debug mode, will create propagation screen output.")(
@@ -50,7 +51,13 @@ void addPropagationOptions(aopt_t& opt) {
       po::value<std::string>()->default_value("propagation-material"),
       "Propagation material collection.")(
       "prop-ntests", po::value<size_t>()->default_value(1000),
-      "Number of tests performed.")(
+      "Number of tests performed.")("prop-resolve-material",
+                                    po::value<bool>()->default_value(true),
+                                    "Resolve all smaterial surfaces.")(
+      "prop-resolve-passive", po::value<bool>()->default_value(false),
+      "Resolve all passive surfaces.")("prop-resolve-sensitive",
+                                       po::value<bool>()->default_value(true),
+                                       "Resolve all sensitive surfaces.")(
       "prop-d0-sigma", po::value<double>()->default_value(15_um),
       "Sigma of the transverse impact parameter [in mm].")(
       "prop-z0-sigma", po::value<double>()->default_value(55_mm),
@@ -63,22 +70,19 @@ void addPropagationOptions(aopt_t& opt) {
       "Sigma of the signed inverse momentum [in GeV^{-1}].")(
       "prop-t-sigma", po::value<double>()->default_value(1_ns),
       "Sigma of the time parameter [in ns].")(
-      "prop-corr-offd",
-      po::value<read_range>()->multitoken()->default_value({}),
+      "prop-corr-offd", po::value<Reals<15>>(),
       "The 15 off-diagonal correlation rho(d0,z0), rho(d0,phi), [...], "
       "rho(z0,phi), rho(z0, theta), [...], rho(qop,t). Row-wise.")(
-      "prop-phi-range",
-      po::value<read_range>()->multitoken()->default_value({-M_PI, M_PI}),
+      "prop-phi-range", po::value<Reals<2>>()->default_value({{-M_PI, M_PI}}),
       "Azimutal angle phi range for proprapolated tracks.")(
-      "prop-eta-range",
-      po::value<read_range>()->multitoken()->default_value({-4., 4.}),
+      "prop-eta-range", po::value<Reals<2>>()->default_value({{-4., 4.}}),
       "Pseudorapidity range for proprapolated tracks.")(
       "prop-pt-range",
-      po::value<read_range>()->multitoken()->default_value({100_MeV, 100_GeV}),
+      po::value<Reals<2>>()->default_value({{100_MeV, 100_GeV}}),
       "Transverse momentum range for proprapolated tracks [in GeV].")(
       "prop-max-stepsize", po::value<double>()->default_value(3_m),
       "Maximum step size for the propagation [in mm].")(
-      "prop-pt-loopers", po::value<double>()->default_value(300_MeV),
+      "prop-pt-loopers", po::value<double>()->default_value(500_MeV),
       "Transverse momentum below which loops are being detected [in GeV].");
 }
 
@@ -87,19 +91,15 @@ void addPropagationOptions(aopt_t& opt) {
 /// @tparam vmap_t is the Type of the Parameter map to be read out
 /// @tparam propagator_t is the Type of the Propagator used
 ///
-/// @param vm is the parameter map for the options
-/// @param propagator is the propagator to be used in this job
-///
 /// @returns a Config object for the PropagationAlgorithm
-template <typename vmap_t, typename propagator_t>
-typename ActsExamples::PropagationAlgorithm<propagator_t>::Config
-readPropagationConfig(const vmap_t& vm, propagator_t propagator) {
-  typename ActsExamples::PropagationAlgorithm<propagator_t>::Config pAlgConfig(
-      std::move(propagator));
+inline ActsExamples::PropagationAlgorithm::Config readPropagationConfig(
+    const boost::program_options::variables_map& vm) {
+  using namespace Acts::UnitLiterals;
+  ActsExamples::PropagationAlgorithm::Config pAlgConfig;
 
-  read_range iphir = vm["prop-phi-range"].template as<read_range>();
-  read_range ietar = vm["prop-eta-range"].template as<read_range>();
-  read_range iptr = vm["prop-pt-range"].template as<read_range>();
+  auto iphir = vm["prop-phi-range"].template as<Reals<2>>();
+  auto ietar = vm["prop-eta-range"].template as<Reals<2>>();
+  auto iptr = vm["prop-pt-range"].template as<Reals<2>>();
 
   /// Material interaction behavior
   pAlgConfig.energyLoss = vm["prop-energyloss"].template as<bool>();
@@ -153,10 +153,9 @@ readPropagationConfig(const vmap_t& vm, propagator_t propagator) {
                            Acts::BoundIndices::eBoundTime) =
         pAlgConfig.tSigma * pAlgConfig.tSigma;
 
-    // Read if the offdiagonal parameters have been read
-    auto readOffd = vm["prop-corr-offd"].template as<read_range>();
-    // Only if they are properly defined, assign
-    if (readOffd.size() == 15) {
+    // Only if they are properly defined, assign off-diagonals
+    if (vm.count("prop-corr-offd")) {
+      auto readOffd = vm["prop-corr-offd"].template as<Reals<15>>();
       pAlgConfig.correlations(Acts::BoundIndices::eBoundLoc0,
                               Acts::BoundIndices::eBoundLoc1) = readOffd[0];
       pAlgConfig.correlations(Acts::BoundIndices::eBoundLoc0,

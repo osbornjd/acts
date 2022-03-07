@@ -8,41 +8,51 @@
 
 #pragma once
 
-#include <functional>
-//#include <memory>
 #include "Acts/Geometry/TrackingGeometry.hpp"
-#include "Acts/TrackFinding/CKFSourceLinkSelector.hpp"
 #include "Acts/TrackFinding/CombinatorialKalmanFilter.hpp"
-#include "ActsExamples/EventData/SimSourceLink.hpp"
+#include "Acts/TrackFinding/MeasurementSelector.hpp"
+#include "Acts/TrackFinding/SourceLinkAccessorConcept.hpp"
+#include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/Track.hpp"
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
-#include "ActsExamples/Plugins/BField/BFieldOptions.hpp"
+#include "ActsExamples/MagneticField/MagneticField.hpp"
 
+#include <functional>
 #include <vector>
 
 namespace ActsExamples {
 
 class TrackFindingAlgorithm final : public BareAlgorithm {
  public:
+  /// Track finder function that takes input measurements, initial trackstate
+  /// and track finder options and returns some track-finder-specific result.
+  using TrackFinderOptions =
+      Acts::CombinatorialKalmanFilterOptions<IndexSourceLinkAccessor>;
   using TrackFinderResult =
-      Acts::Result<Acts::CombinatorialKalmanFilterResult<SimSourceLink>>;
-  /// Track finding function that takes input measurements, initial trackstate
-  /// and track finder options and returns some track-finding-specific result.
-  using CKFOptions =
-      Acts::CombinatorialKalmanFilterOptions<Acts::CKFSourceLinkSelector>;
-  using TrackFinderFunction = std::function<TrackFinderResult(
-      const SimSourceLinkContainer&, const TrackParameters&,
-      const CKFOptions&)>;
+      std::vector<Acts::Result<Acts::CombinatorialKalmanFilterResult>>;
+
+  /// Find function that takes the above parameters
+  /// @note This is separated into a virtual interface to keep compilation units
+  /// small
+  class TrackFinderFunction {
+   public:
+    virtual ~TrackFinderFunction() = default;
+    virtual TrackFinderResult operator()(const IndexSourceLinkContainer&,
+                                         const TrackParametersContainer&,
+                                         const TrackFinderOptions&) const = 0;
+  };
 
   /// Create the track finder function implementation.
   ///
   /// The magnetic field is intentionally given by-value since the variant
   /// contains shared_ptr anyways.
-  static TrackFinderFunction makeTrackFinderFunction(
+  static std::shared_ptr<TrackFinderFunction> makeTrackFinderFunction(
       std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
-      Options::BFieldVariant magneticField);
+      std::shared_ptr<const Acts::MagneticFieldProvider> magneticField);
 
   struct Config {
+    /// Input measurements collection.
+    std::string inputMeasurements;
     /// Input source links collection.
     std::string inputSourceLinks;
     /// Input initial track parameter estimates for for each proto track.
@@ -50,26 +60,101 @@ class TrackFindingAlgorithm final : public BareAlgorithm {
     /// Output find trajectories collection.
     std::string outputTrajectories;
     /// Type erased track finder function.
-    TrackFinderFunction findTracks;
-    /// CKF source link selector config
-    Acts::CKFSourceLinkSelector::Config sourcelinkSelectorCfg;
+    std::shared_ptr<TrackFinderFunction> findTracks;
+    /// CKF measurement selector config
+    Acts::MeasurementSelector::Config measurementSelectorCfg;
+    /// Compute shared hit information
+    bool computeSharedHits = false;
   };
 
   /// Constructor of the track finding algorithm
   ///
-  /// @param cfg is the config struct to configure the algorithm
+  /// @param config is the config struct to configure the algorithm
   /// @param level is the logging level
-  TrackFindingAlgorithm(Config cfg, Acts::Logging::Level lvl);
+  TrackFindingAlgorithm(Config config, Acts::Logging::Level level);
 
   /// Framework execute method of the track finding algorithm
   ///
   /// @param ctx is the algorithm context that holds event-wise information
   /// @return a process code to steer the algorithm flow
   ActsExamples::ProcessCode execute(
-      const ActsExamples::AlgorithmContext& ctx) const final override;
+      const ActsExamples::AlgorithmContext& ctx) const final;
+
+  /// Get readonly access to the config parameters
+  const Config& config() const { return m_cfg; }
+
+ private:
+  template <typename source_link_accessor_container_t>
+  void computeSharedHits(
+      const source_link_accessor_container_t& sourcelinks,
+      std::vector<Acts::Result<Acts::CombinatorialKalmanFilterResult>>&) const;
 
  private:
   Config m_cfg;
 };
+
+template <typename source_link_accessor_container_t>
+void TrackFindingAlgorithm::computeSharedHits(
+    const source_link_accessor_container_t& sourceLinks,
+    std::vector<Acts::Result<Acts::CombinatorialKalmanFilterResult>>& results)
+    const {
+  // Compute shared hits from all the reconstructed tracks
+  // Compute nSharedhits and Update ckf results
+  // hit index -> list of multi traj indexes [traj, meas]
+
+  std::vector<std::size_t> firstTrackOnTheHit(
+      sourceLinks.size(), std::numeric_limits<std::size_t>::max());
+  std::vector<std::size_t> firstStateOnTheHit(
+      sourceLinks.size(), std::numeric_limits<std::size_t>::max());
+
+  for (unsigned int iresult(0); iresult < results.size(); iresult++) {
+    if (not results.at(iresult).ok()) {
+      continue;
+    }
+
+    auto& ckfResult = results.at(iresult).value();
+    auto& measIndexes = ckfResult.lastMeasurementIndices;
+
+    for (auto measIndex : measIndexes) {
+      ckfResult.fittedStates.visitBackwards(measIndex, [&](const auto& state) {
+        if (not state.typeFlags().test(Acts::TrackStateFlag::MeasurementFlag))
+          return;
+
+        std::size_t hitIndex =
+            static_cast<const IndexSourceLink&>(state.uncalibrated()).index();
+
+        // Check if hit not already used
+        if (firstTrackOnTheHit.at(hitIndex) ==
+            std::numeric_limits<std::size_t>::max()) {
+          firstTrackOnTheHit.at(hitIndex) = iresult;
+          firstStateOnTheHit.at(hitIndex) = state.index();
+          return;
+        }
+
+        // if already used, control if first track state has been marked
+        // as shared
+        int indexFirstTrack = firstTrackOnTheHit.at(hitIndex);
+        int indexFirstState = firstStateOnTheHit.at(hitIndex);
+        if (not results.at(indexFirstTrack)
+                    .value()
+                    .fittedStates.getTrackState(indexFirstState)
+                    .typeFlags()
+                    .test(Acts::TrackStateFlag::SharedHitFlag))
+          results.at(indexFirstTrack)
+              .value()
+              .fittedStates.getTrackState(indexFirstState)
+              .typeFlags()
+              .set(Acts::TrackStateFlag::SharedHitFlag);
+
+        // Decorate this track
+        results.at(iresult)
+            .value()
+            .fittedStates.getTrackState(state.index())
+            .typeFlags()
+            .set(Acts::TrackStateFlag::SharedHitFlag);
+      });
+    }
+  }
+}
 
 }  // namespace ActsExamples

@@ -31,32 +31,31 @@ MagneticFieldContext mfContext = MagneticFieldContext();
 BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
   // definition of dummy BField
   struct BField {
-    static Vector3D value(const std::array<double, 2>& rz) {
+    static Vector3 value(const std::array<double, 2>& rz) {
       double r = rz.at(0);
       double z = rz.at(1);
       // linear in r and z so interpolation should be exact
-      return Vector3D(r * z, 3 * r, -2 * z);
+      return Vector3(r * z, 3 * r, -2 * z);
     }
   };
 
   // map (x,y,z) -> (r,z)
-  auto transformPos = [](const Vector3D& pos) {
-    return Vector2D(perp(pos), pos.z());
+  auto transformPos = [](const Vector3& pos) {
+    return Vector2(perp(pos), pos.z());
   };
 
   // map (Bx,By,Bz) -> (Bx,By,Bz)
-  auto transformBField = [](const Vector3D& field, const Vector3D&) {
+  auto transformBField = [](const Vector3& field, const Vector3&) {
     return field;
   };
 
   // magnetic field known on grid in (r,z)
   detail::EquidistantAxis r(0.0, 4.0, 4u);
-  detail::EquidistantAxis z(-5, 5, 5u);
+  detail::EquidistantAxis z(-5, 7, 6u);
 
   using Grid_t =
-      detail::Grid<Vector3D, detail::EquidistantAxis, detail::EquidistantAxis>;
-  using Mapper_t = InterpolatedBFieldMapper<Grid_t>;
-  using BField_t = InterpolatedBFieldMap<Mapper_t>;
+      detail::Grid<Vector3, detail::EquidistantAxis, detail::EquidistantAxis>;
+  using BField_t = InterpolatedBFieldMap<Grid_t>;
 
   Grid_t g(std::make_tuple(std::move(r), std::move(z)));
 
@@ -69,49 +68,97 @@ BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
     }
   }
 
-  // create field mapping
-  Mapper_t mapper(transformPos, transformBField, std::move(g));
-  BField_t::Config config(std::move(mapper));
-  config.scale = 1.;
-
   // create BField service
-  BField_t b(std::move(config));
+  BField_t b{{transformPos, transformBField, std::move(g)}};
 
-  Vector3D pos;
-  pos << -3, 2.5, 1.7;
-  // test the cache interface
-  BField_t::Cache bCache(mfContext);
-  CHECK_CLOSE_REL(b.getField(pos, bCache),
+  auto bCacheAny = b.makeCache(mfContext);
+  BField_t::Cache& bCache = bCacheAny.get<BField_t::Cache>();
+
+  auto check = [&](double i) {
+    BOOST_CHECK(b.isInside({0, 0, i * 4.9}));
+    BOOST_CHECK(!b.isInside({0, 0, i * 5.1}));
+
+    BOOST_CHECK(b.isInside({i * 2.9, 0, 0}));
+    BOOST_CHECK(!b.isInside({i * 3.1, 0, 0}));
+
+    BOOST_CHECK(b.isInside({0, i * 2.9, 0}));
+    BOOST_CHECK(!b.isInside({0, i * 3.1, 0}));
+
+    BOOST_CHECK(b.isInside({2, 2.2, 0}));
+    BOOST_CHECK(!b.isInside({2, 3, 0}));
+
+    BOOST_CHECK(b.isInside({i * 2, 2.2, 0}));
+    BOOST_CHECK(!b.isInside({i * 2, 3, 0}));
+
+    BOOST_CHECK(b.isInside({2, i * 2.2, 0}));
+    BOOST_CHECK(!b.isInside({2, i * 3, 0}));
+
+    BOOST_CHECK(b.isInside({i * 2, i * 2.2, 0}));
+    BOOST_CHECK(!b.isInside({i * 2, i * 3, 0}));
+  };
+
+  check(1);
+  check(-1);
+
+  Vector3 pos;
+  pos << -3, 2.5,
+      1.7;  // this was previously checked, but is actually out of bounds
+  BOOST_CHECK(!b.isInside(pos));
+  BOOST_CHECK(!b.getField(pos, bCacheAny).ok());
+
+  pos << -1.6, 2.5, 1.7;
+  BOOST_CHECK(b.isInside(pos));
+  CHECK_CLOSE_REL(b.getField(pos, bCacheAny).value(),
                   BField::value({{perp(pos), pos.z()}}), 1e-6);
 
-  CHECK_CLOSE_REL(b.getField(pos, bCache),
-                  BField::value({{perp(pos), pos.z()}}), 1e-6);
   auto& c = *bCache.fieldCell;
-  BOOST_CHECK(c.isInside(pos));
-  CHECK_CLOSE_REL(c.getField(pos), BField::value({{perp(pos), pos.z()}}), 1e-6);
+  BOOST_CHECK(c.isInside(transformPos(pos)));
+  CHECK_CLOSE_REL(c.getField(transformPos(pos)),
+                  BField::value({{perp(pos), pos.z()}}), 1e-6);
+
+  ActsMatrix<3, 3> deriv;
+
+  pos << 1, 1, -5.5;  // this position is outside the grid
+  BOOST_CHECK(!b.isInside(pos));
+  BOOST_CHECK(!b.getField(pos, bCacheAny).ok());
+  BOOST_CHECK(!b.getFieldGradient(pos, deriv, bCacheAny).ok());
+
+  pos << 1, 6, -1.7;  // this position is outside the grid
+  BOOST_CHECK(!b.isInside(pos));
+  BOOST_CHECK(!b.getField(pos, bCacheAny).ok());
+  BOOST_CHECK(!b.getFieldGradient(pos, deriv, bCacheAny).ok());
 
   pos << 0, 1.5, -2.5;
-  BField_t::Cache bCache2(mfContext);
-  CHECK_CLOSE_REL(b.getField(pos, bCache2),
+  BOOST_CHECK(b.isInside(pos));
+  bCacheAny = b.makeCache(mfContext);
+  BField_t::Cache& bCache2 = bCacheAny.get<BField_t::Cache>();
+  CHECK_CLOSE_REL(b.getField(pos, bCacheAny).value(),
                   BField::value({{perp(pos), pos.z()}}), 1e-6);
   c = *bCache2.fieldCell;
-  BOOST_CHECK(c.isInside(pos));
-  CHECK_CLOSE_REL(c.getField(pos), BField::value({{perp(pos), pos.z()}}), 1e-6);
+  BOOST_CHECK(c.isInside(transformPos(pos)));
+  CHECK_CLOSE_REL(c.getField(transformPos(pos)),
+                  BField::value({{perp(pos), pos.z()}}), 1e-6);
 
   pos << 2, 3, -4;
-  BField_t::Cache bCache3(mfContext);
-  CHECK_CLOSE_REL(b.getField(pos, bCache3),
+  BOOST_CHECK(!b.isInside(pos));
+
+  pos << 2, 2.2, -4;
+  BOOST_CHECK(b.isInside(pos));
+  bCacheAny = b.makeCache(mfContext);
+  BField_t::Cache& bCache3 = bCacheAny.get<BField_t::Cache>();
+  CHECK_CLOSE_REL(b.getField(pos, bCacheAny).value(),
                   BField::value({{perp(pos), pos.z()}}), 1e-6);
   c = *bCache3.fieldCell;
-  BOOST_CHECK(c.isInside(pos));
-  CHECK_CLOSE_REL(c.getField(pos), BField::value({{perp(pos), pos.z()}}), 1e-6);
+  BOOST_CHECK(c.isInside(transformPos(pos)));
+  CHECK_CLOSE_REL(c.getField(transformPos(pos)),
+                  BField::value({{perp(pos), pos.z()}}), 1e-6);
 
   // some field cell tests
-  BOOST_CHECK(c.isInside((pos << 3, 2, -3.7).finished()));
-  BOOST_CHECK(c.isInside((pos << -2, 3, -4.7).finished()));
-  BOOST_CHECK(not c.isInside((pos << -2, 3, 4.7).finished()));
-  BOOST_CHECK(not c.isInside((pos << 0, 2, -4.7).finished()));
-  BOOST_CHECK(not c.isInside((pos << 5, 2, 14.).finished()));
+  BOOST_CHECK(not c.isInside(transformPos((pos << 3, 2, -3.7).finished())));
+  BOOST_CHECK(not c.isInside(transformPos((pos << -2, 3, -4.7).finished())));
+  BOOST_CHECK(not c.isInside(transformPos((pos << -2, 3, 4.7).finished())));
+  BOOST_CHECK(c.isInside(transformPos((pos << 0, 2, -4.7).finished())));
+  BOOST_CHECK(not c.isInside(transformPos((pos << 5, 2, 14.).finished())));
 }
 }  // namespace Test
 

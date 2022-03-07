@@ -24,20 +24,12 @@ target_link_libraries(
   ActsExampleGeometryGeneric
   PRIVATE ${_common_libraries} ActsExamplesDetectorGeneric)
 
-# Generic detector with IOV based alignment
+# Generic detector with alignment
 add_executable(
   ActsExampleGeometryAligned
   AlignedGeometryExample.cpp)
 target_link_libraries(
   ActsExampleGeometryAligned
-  PRIVATE ${_common_libraries} ActsExamplesDetectorContextual)
-
-# Generic detector with Payload based alignment
-add_executable(
-  ActsExampleGeometryPayload
-  PayloadGeometryExample.cpp)
-target_link_libraries(
-  ActsExampleGeometryPayload
   PRIVATE ${_common_libraries} ActsExamplesDetectorContextual)
 
 # TGeo detector
@@ -48,13 +40,21 @@ target_link_libraries(
   ActsExampleGeometryTGeo
   PRIVATE ${_common_libraries} ActsExamplesDetectorTGeo)
 
+# Telescope detector
+add_executable(
+  ActsExampleGeometryTelescope
+  TelescopeGeometryExample.cpp)
+target_link_libraries(
+  ActsExampleGeometryTelescope
+  PRIVATE ${_common_libraries} ActsExamplesDetectorTelescope)
+
 install(
   TARGETS
     ActsExampleGeometryEmpty
     ActsExampleGeometryGeneric
     ActsExampleGeometryAligned
-    ActsExampleGeometryPayload
     ActsExampleGeometryTGeo
+    ActsExampleGeometryTelescope
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_subdirectory_if(DD4hep ACTS_BUILD_EXAMPLES_DD4HEP)

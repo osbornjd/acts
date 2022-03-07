@@ -8,10 +8,10 @@
 
 #include <boost/test/data/test_case.hpp>
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
 #include "Acts/Utilities/PdgParticle.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "ActsFatras/EventData/Particle.hpp"
 
 #include <cstdint>
@@ -42,6 +42,8 @@ const auto rngSeed =
 const auto parameters =
     particlePdg * momentumPhi * momentumLambda * momentumAbs ^ rngSeed;
 
+const auto parametersPhotonConversion = momentumPhi * momentumLambda ^ rngSeed;
+
 // utility function to build a particle from the dataset parameters
 inline ActsFatras::Particle makeParticle(Acts::PdgParticle pdg, double phi,
                                          double lambda, double p) {
@@ -50,7 +52,7 @@ inline ActsFatras::Particle makeParticle(Acts::PdgParticle pdg, double phi,
       .setPosition4(0, 0, 0, 0)
       .setDirection(std::cos(lambda) * std::cos(phi),
                     std::cos(lambda) * std::sin(phi), std::sin(lambda))
-      .setAbsMomentum(p);
+      .setAbsoluteMomentum(p);
 }
 
 }  // namespace Dataset

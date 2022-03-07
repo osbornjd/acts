@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2020-2021 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -17,6 +17,7 @@
 #include "Acts/Seeding/Seedfinder.hpp"
 #include "Acts/Seeding/SeedfinderConfig.hpp"
 #include "Acts/Seeding/SpacePointGrid.hpp"
+#include "Acts/Utilities/Logger.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -34,6 +35,10 @@
 #include "ATLASCuts.hpp"
 #include "CommandLineArguments.h"
 #include "SpacePoint.hpp"
+#include "vecmem/memory/sycl/device_memory_resource.hpp"
+#include "vecmem/memory/sycl/host_memory_resource.hpp"
+
+using namespace Acts::UnitLiterals;
 
 auto readFile(const std::string& filename) -> std::vector<const SpacePoint*> {
   std::string line;
@@ -82,21 +87,25 @@ auto setupSeedfinderConfiguration()
     -> Acts::SeedfinderConfig<external_spacepoint_t> {
   Acts::SeedfinderConfig<SpacePoint> config;
   // silicon detector max
-  config.rMax = 160.;
-  config.deltaRMin = 5.;
-  config.deltaRMax = 160.;
-  config.collisionRegionMin = -250.;
-  config.collisionRegionMax = 250.;
-  config.zMin = -2800.;
-  config.zMax = 2800.;
+  config.rMax = 160._mm;
+  config.deltaRMin = 5._mm;
+  config.deltaRMax = 160._mm;
+  config.deltaRMinTopSP = config.deltaRMin;
+  config.deltaRMinBottomSP = config.deltaRMin;
+  config.deltaRMaxTopSP = config.deltaRMax;
+  config.deltaRMaxBottomSP = config.deltaRMax;
+  config.collisionRegionMin = -250._mm;
+  config.collisionRegionMax = 250._mm;
+  config.zMin = -2800._mm;
+  config.zMax = 2800._mm;
   config.maxSeedsPerSpM = 5;
   // 2.7 eta
   config.cotThetaMax = 7.40627;
   config.sigmaScattering = 1.00000;
-  config.minPt = 500.;
-  config.bFieldInZ = 0.00199724;
-  config.beamPos = {-.5, -.5};
-  config.impactMax = 10.;
+  config.minPt = 500._MeV;
+  config.bFieldInZ = 1.99724_T;
+  config.beamPos = {-.5_mm, -.5_mm};
+  config.impactMax = 10._mm;
 
   // for sycl
   config.nTrplPerSpBLimit = 100;
@@ -132,10 +141,15 @@ auto main(int argc, char** argv) -> int {
 
   auto spVec = readFile(cmdlTool.inpFileName);
 
+  int numPhiNeighbors = 1;
+
+  std::vector<std::pair<int, int>> zBinNeighborsTop;
+  std::vector<std::pair<int, int>> zBinNeighborsBottom;
+
   auto bottomBinFinder = std::make_shared<Acts::BinFinder<SpacePoint>>(
-      Acts::BinFinder<SpacePoint>());
+      Acts::BinFinder<SpacePoint>(zBinNeighborsBottom, numPhiNeighbors));
   auto topBinFinder = std::make_shared<Acts::BinFinder<SpacePoint>>(
-      Acts::BinFinder<SpacePoint>());
+      Acts::BinFinder<SpacePoint>(zBinNeighborsTop, numPhiNeighbors));
   auto config = setupSeedfinderConfiguration<SpacePoint>();
 
   Acts::ATLASCuts<SpacePoint> atlasCuts = Acts::ATLASCuts<SpacePoint>();
@@ -143,20 +157,30 @@ auto main(int argc, char** argv) -> int {
   config.seedFilter = std::make_unique<Acts::SeedFilter<SpacePoint>>(
       Acts::SeedFilter<SpacePoint>(Acts::SeedFilterConfig(), &atlasCuts));
 
+  const Acts::Logging::Level logLvl =
+      cmdlTool.csvFormat ? Acts::Logging::WARNING : Acts::Logging::INFO;
+  Acts::Sycl::QueueWrapper queue(
+      cmdlTool.deviceName,
+      Acts::getDefaultLogger("Sycl::QueueWrapper", logLvl));
+  vecmem::sycl::host_memory_resource resource(queue.getQueue());
+  vecmem::sycl::device_memory_resource device_resource(queue.getQueue());
   Acts::Sycl::Seedfinder<SpacePoint> syclSeedfinder(
-      config, deviceAtlasCuts, Acts::Sycl::QueueWrapper(cmdlTool.deviceName));
+      config, deviceAtlasCuts, queue, resource, &device_resource);
   Acts::Seedfinder<SpacePoint> normalSeedfinder(config);
-  auto covarianceTool = [=](const SpacePoint& sp, float /*unused*/,
-                            float /*unused*/,
-                            float_t /*unused*/) -> Acts::Vector2D {
-    return {sp.varianceR, sp.varianceZ};
+  auto globalTool =
+      [=](const SpacePoint& sp, float /*unused*/, float /*unused*/,
+          float_t /*unused*/) -> std::pair<Acts::Vector3, Acts::Vector2> {
+    Acts::Vector3 position(sp.x(), sp.y(), sp.z());
+    Acts::Vector2 covariance(sp.varianceR, sp.varianceZ);
+    return std::make_pair(position, covariance);
   };
+
   std::unique_ptr<Acts::SpacePointGrid<SpacePoint>> grid =
       Acts::SpacePointGridCreator::createGrid<SpacePoint>(
           setupSpacePointGridConfig(config));
 
   auto spGroup = Acts::BinnedSPGroup<SpacePoint>(
-      spVec.begin(), spVec.end(), covarianceTool, bottomBinFinder, topBinFinder,
+      spVec.begin(), spVec.end(), globalTool, bottomBinFinder, topBinFinder,
       std::move(grid), config);
 
   auto end_prep = std::chrono::system_clock::now();
@@ -177,12 +201,15 @@ auto main(int argc, char** argv) -> int {
   auto start_cpu = std::chrono::system_clock::now();
   uint group_count = 0;
   std::vector<std::vector<Acts::Seed<SpacePoint>>> seedVector_cpu;
+  Acts::Extent rRangeSPExtent;
 
   if (!cmdlTool.onlyGpu) {
+    decltype(normalSeedfinder)::State state;
     for (auto groupIt = spGroup.begin(); !(groupIt == spGroup.end());
          ++groupIt) {
-      seedVector_cpu.push_back(normalSeedfinder.createSeedsForGroup(
-          groupIt.bottom(), groupIt.middle(), groupIt.top()));
+      normalSeedfinder.createSeedsForGroup(
+          state, std::back_inserter(seedVector_cpu.emplace_back()),
+          groupIt.bottom(), groupIt.middle(), groupIt.top(), rRangeSPExtent);
       group_count++;
       if (!cmdlTool.allgroup && group_count >= cmdlTool.groups) {
         break;

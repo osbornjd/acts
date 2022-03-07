@@ -19,6 +19,8 @@ namespace Acts {
 
 class ISurfaceMaterial;
 class SurfaceBounds;
+class PlanarBounds;
+class DiscBounds;
 class DigitizationModule;
 
 /// @class TGeoDetectorElement
@@ -36,6 +38,9 @@ class TGeoDetectorElement : public IdentifiedDetectorElement {
   using ContextType = GeometryContext;
 
   /// Constructor
+  ///
+  /// @note this constructor used auto-translation
+  ///
   /// @param identifier is the detector identifier
   /// @param tGeoNode is the TGeoNode which should be represented
   /// @param tGeoMatrix The Matrix to global (i.e. ACTS transform)
@@ -61,13 +66,41 @@ class TGeoDetectorElement : public IdentifiedDetectorElement {
   ///       should be translated to a disc surface. Per default it will be
   ///       translated into a cylindrical surface.
   /// @param material Possible material of detector element
-  /// @param digitizationModule Shared pointer to the geometric digitization
-  /// description
   TGeoDetectorElement(
       const Identifier& identifier, const TGeoNode& tGeoNode,
       const TGeoMatrix& tGeoMatrix = TGeoIdentity(),
       const std::string& axes = "XYZ", double scalor = 10.,
       std::shared_ptr<const Acts::ISurfaceMaterial> material = nullptr);
+
+  /// Constructor with pre-computed surface
+  ///
+  /// @note this detector element constructor needs everything
+  /// pre-computed.
+  ///
+  /// @param identifier is the detector identifier
+  /// @param tGeoNode is the TGeoNode which should be represented
+  /// @param tgTransform the transform of this detector element
+  /// @param tgBounds the bounds of this surface
+  /// @param tgThickness the thickness of this detector element
+  TGeoDetectorElement(const Identifier& identifier, const TGeoNode& tGeoNode,
+                      const Transform3& tgTransform,
+                      std::shared_ptr<const PlanarBounds> tgBounds,
+                      double tgThickness = 0.);
+
+  /// Constructor with pre-computed disk surface.
+  ///
+  /// @note this detector element constructor needs everything
+  /// pre-computed.
+  ///
+  /// @param identifier is the detector identifier
+  /// @param tGeoNode is the TGeoNode which should be represented
+  /// @param tgTransform the transform of this detector element
+  /// @param tgBounds the bounds of this surface
+  /// @param tgThickness the thickness of this detector element
+  TGeoDetectorElement(const Identifier& identifier, const TGeoNode& tGeoNode,
+                      const Transform3& tgTransform,
+                      std::shared_ptr<const DiscBounds> tgBounds,
+                      double tgThickness = 0.);
 
   ~TGeoDetectorElement() override;
 
@@ -76,7 +109,7 @@ class TGeoDetectorElement : public IdentifiedDetectorElement {
   /// Return local to global transform associated with this identifier
   ///
   /// @param gctx The current geometry context object, e.g. alignment
-  const Transform3D& transform(const GeometryContext& gctx) const final;
+  const Transform3& transform(const GeometryContext& gctx) const final;
 
   /// Return surface associated with this identifier, which should come from the
   const Surface& surface() const final;
@@ -90,11 +123,14 @@ class TGeoDetectorElement : public IdentifiedDetectorElement {
   /// Returns the thickness of the module
   double thickness() const final;
 
+  /// Return the TGeoNode for back navigation
+  const TGeoNode& tgeoNode() const { return *m_detElement; }
+
  private:
   /// Pointer to TGeoNode (not owned)
   const TGeoNode* m_detElement{nullptr};
   /// Transformation of the detector element
-  Transform3D m_transform = Transform3D::Identity();
+  Transform3 m_transform = Transform3::Identity();
   /// Identifier of the detector element
   Identifier m_identifier;
   /// Boundaries of the detector element
@@ -109,7 +145,7 @@ inline Identifier TGeoDetectorElement::identifier() const {
   return m_identifier;
 }
 
-inline const Transform3D& TGeoDetectorElement::transform(
+inline const Transform3& TGeoDetectorElement::transform(
     const GeometryContext& /*gctx*/) const {
   return m_transform;
 }

@@ -6,14 +6,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "ActsExamples/Framework/Sequencer.hpp"
+#include "ActsExamples/MagneticField/MagneticFieldOptions.hpp"
 #include "ActsExamples/Options/CommonOptions.hpp"
 #include "ActsExamples/Options/Pythia8Options.hpp"
+#include "ActsExamples/Reconstruction/ReconstructionBase.hpp"
 #include "ActsExamples/TruthTracking/ParticleSelector.hpp"
 #include "ActsExamples/TruthTracking/ParticleSmearing.hpp"
 #include "ActsExamples/TruthTracking/TruthVertexFinder.hpp"
 #include "ActsExamples/Vertexing/VertexFitterAlgorithm.hpp"
+#include "ActsExamples/Vertexing/VertexingOptions.hpp"
 
 #include <memory>
 
@@ -27,7 +30,10 @@ int main(int argc, char* argv[]) {
   Options::addRandomNumbersOptions(desc);
   Options::addPythia8Options(desc);
   ParticleSelector::addOptions(desc);
-  Options::addOutputOptions(desc);
+  Options::addVertexingOptions(desc);
+  Options::addMagneticFieldOptions(desc);
+  Options::addOutputOptions(desc, OutputFormat::DirectoryOnly);
+  Options::addParticleSmearingOptions(desc);
   auto vars = Options::parse(desc, argc, argv);
   if (vars.empty()) {
     return EXIT_FAILURE;
@@ -38,6 +44,9 @@ int main(int argc, char* argv[]) {
   auto rnd =
       std::make_shared<RandomNumbers>(Options::readRandomNumbersConfig(vars));
   Sequencer sequencer(Options::readSequencerConfig(vars));
+
+  // Setup the magnetic field
+  auto magneticField = Options::readMagneticField(vars);
 
   // setup event generator
   EventGenerator::Config evgen = Options::readPythia8Options(vars, logLevel);
@@ -51,16 +60,15 @@ int main(int argc, char* argv[]) {
   selectParticles.outputParticles = "particles_selected";
   // smearing only works with charge particles for now
   selectParticles.removeNeutral = true;
+  selectParticles.absEtaMax = vars["vertexing-eta-max"].as<double>();
+  selectParticles.rhoMax = vars["vertexing-rho-max"].as<double>() * 1_mm;
+  selectParticles.ptMin = vars["vertexing-pt-min"].as<double>() * 1_MeV;
   sequencer.addAlgorithm(
       std::make_shared<ParticleSelector>(selectParticles, logLevel));
 
-  // simulate track reconstruction by smearing truth track parameters
-  ParticleSmearing::Config smearParticles;
-  smearParticles.inputParticles = selectParticles.outputParticles;
-  smearParticles.outputTrackParameters = "trackparameters";
-  smearParticles.randomNumbers = rnd;
-  sequencer.addAlgorithm(
-      std::make_shared<ParticleSmearing>(smearParticles, logLevel));
+  // Run the particle smearing
+  auto particleSmearingCfg = setupParticleSmearing(
+      vars, sequencer, rnd, selectParticles.outputParticles);
 
   // find true primary vertices w/o secondary particles
   TruthVertexFinder::Config findVertices;
@@ -72,9 +80,9 @@ int main(int argc, char* argv[]) {
 
   // fit vertices using the Billoir fitter
   VertexFitterAlgorithm::Config fitVertices;
-  fitVertices.inputTrackParameters = smearParticles.outputTrackParameters;
+  fitVertices.bField = magneticField;
+  fitVertices.inputTrackParameters = particleSmearingCfg.outputTrackParameters;
   fitVertices.inputProtoVertices = findVertices.outputProtoVertices;
-  fitVertices.bField = Acts::Vector3D(0_T, 0_T, 2_T);
   sequencer.addAlgorithm(
       std::make_shared<VertexFitterAlgorithm>(fitVertices, logLevel));
 

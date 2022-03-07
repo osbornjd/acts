@@ -6,22 +6,23 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ActsExamples/Plugins/HepMC3/HepMC3Particle.hpp"
+#include "ActsExamples/Io/HepMC3/HepMC3Particle.hpp"
 
-#include "ActsExamples/Plugins/HepMC3/HepMC3Vertex.hpp"
+#include "ActsExamples/Io/HepMC3/HepMC3Vertex.hpp"
+#include "ActsFatras/Utilities/ParticleData.hpp"
 
-std::unique_ptr<ActsExamples::SimParticle>
-ActsExamples::HepMC3Particle::particle(
-    const std::shared_ptr<HepMC3::GenParticle> particle) {
+ActsExamples::SimParticle ActsExamples::HepMC3Particle::particle(
+    HepMC3::ConstGenParticlePtr particle) {
   // TODO this is probably not quite right
   ActsFatras::Barcode particleId;
   particleId.setParticle(particle->id());
+  Acts::PdgParticle pdg = static_cast<Acts::PdgParticle>(particle->pid());
   SimParticle fw(particleId, static_cast<Acts::PdgParticle>(particle->pid()),
-                 HepPID::charge(particle->pid()), particle->generated_mass());
+                 ActsFatras::findCharge(pdg), particle->generated_mass());
   fw.setDirection(particle->momentum().x(), particle->momentum().y(),
                   particle->momentum().z());
-  fw.setAbsMomentum(particle->momentum().p3mod());
-  return std::make_unique<SimParticle>(std::move(fw));
+  fw.setAbsoluteMomentum(particle->momentum().p3mod());
+  return fw;
 }
 
 int ActsExamples::HepMC3Particle::id(
@@ -32,11 +33,9 @@ int ActsExamples::HepMC3Particle::id(
 std::unique_ptr<ActsExamples::SimVertex>
 ActsExamples::HepMC3Particle::productionVertex(
     const std::shared_ptr<HepMC3::GenParticle> particle) {
-  HepMC3Vertex simVert;
-
   // Return the vertex if it exists
   if (particle->production_vertex())
-    return simVert.processVertex(
+    return HepMC3Vertex::processVertex(
         std::make_shared<HepMC3::GenVertex>(*particle->production_vertex()));
   else
     return nullptr;
@@ -45,11 +44,9 @@ ActsExamples::HepMC3Particle::productionVertex(
 std::unique_ptr<ActsExamples::SimVertex>
 ActsExamples::HepMC3Particle::endVertex(
     const std::shared_ptr<HepMC3::GenParticle> particle) {
-  HepMC3Vertex simVert;
-
   // Return the vertex if it exists
   if (particle->end_vertex())
-    return simVert.processVertex(
+    return HepMC3Vertex::processVertex(
         std::make_shared<HepMC3::GenVertex>(*(particle->end_vertex())));
   else
     return nullptr;
@@ -60,9 +57,9 @@ int ActsExamples::HepMC3Particle::pdgID(
   return particle->pid();
 }
 
-Acts::Vector3D ActsExamples::HepMC3Particle::momentum(
+Acts::Vector3 ActsExamples::HepMC3Particle::momentum(
     const std::shared_ptr<HepMC3::GenParticle> particle) {
-  Acts::Vector3D mom;
+  Acts::Vector3 mom;
   mom(0) = particle->momentum().x();
   mom(1) = particle->momentum().y();
   mom(2) = particle->momentum().z();
@@ -81,7 +78,8 @@ double ActsExamples::HepMC3Particle::mass(
 
 double ActsExamples::HepMC3Particle::charge(
     const std::shared_ptr<HepMC3::GenParticle> particle) {
-  return HepPID::charge(particle->pid());
+  return ActsFatras::findCharge(
+      static_cast<Acts::PdgParticle>(particle->pid()));
 }
 
 void ActsExamples::HepMC3Particle::pdgID(
@@ -90,7 +88,7 @@ void ActsExamples::HepMC3Particle::pdgID(
 }
 
 void ActsExamples::HepMC3Particle::momentum(
-    std::shared_ptr<HepMC3::GenParticle> particle, const Acts::Vector3D& mom) {
+    std::shared_ptr<HepMC3::GenParticle> particle, const Acts::Vector3& mom) {
   HepMC3::FourVector fVec(mom(0), mom(1), mom(2), particle->momentum().e());
   particle->set_momentum(fVec);
 }

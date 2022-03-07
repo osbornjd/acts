@@ -7,74 +7,54 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/MagneticField/MagneticFieldProvider.hpp"
 
 namespace Acts {
 
 /// @ingroup MagneticField
 /// @brief Null bfield which returns 0 always
-class NullBField final {
+class NullBField final : public MagneticFieldProvider {
  public:
   struct Cache {
     /// @brief constructor with context
-    Cache(std::reference_wrapper<const MagneticFieldContext> /*mcfg*/) {}
+    Cache(const MagneticFieldContext& /*mcfg*/) {}
   };
 
   /// @brief Default constructor
   NullBField() = default;
 
-  /// @brief retrieve magnetic field value
-  ///
-  /// @param [in] position global position
-  /// @return magnetic field vector
+  /// @copydoc MagneticFieldProvider::getField(const Vector3&,MagneticFieldProvider::Cache&) const
   ///
   /// @note The @p position is ignored and only kept as argument to provide
   ///       a consistent interface with other magnetic field services.
-  Vector3D getField(const Vector3D& /*position*/) const { return m_BField; }
-
-  /// @brief retrieve magnetic field value
-  ///
-  /// @param [in] position global position
-  /// @param [in] cache Cache object (is ignored)
-  /// @return magnetic field vector
-  ///
-  /// @note The @p position is ignored and only kept as argument to provide
-  ///       a consistent interface with other magnetic field services.
-  Vector3D getField(const Vector3D& /*position*/, Cache& /*cache*/) const {
-    return m_BField;
+  Result<Vector3> getField(const Vector3& position,
+                           MagneticFieldProvider::Cache& cache) const override {
+    (void)position;
+    (void)cache;
+    return Result<Vector3>::success(m_BField);
   }
 
-  /// @brief retrieve magnetic field value & its gradient
-  ///
-  /// @param [in]  position   global position
-  /// @param [out] derivative gradient of magnetic field vector as (3x3) matrix
-  /// @return magnetic field vector
+  /// @copydoc MagneticFieldProvider::getFieldGradient(const Vector3&,ActsMatrix<3,3>&,MagneticFieldProvider::Cache&) const
   ///
   /// @note The @p position is ignored and only kept as argument to provide
   ///       a consistent interface with other magnetic field services.
   /// @note currently the derivative is not calculated
   /// @todo return derivative
-  Vector3D getFieldGradient(const Vector3D& /*position*/,
-                            ActsMatrixD<3, 3>& /*derivative*/) const {
-    return m_BField;
+  Result<Vector3> getFieldGradient(
+      const Vector3& position, ActsMatrix<3, 3>& derivative,
+      MagneticFieldProvider::Cache& cache) const override {
+    (void)position;
+    (void)derivative;
+    (void)cache;
+    return Result<Vector3>::success(m_BField);
   }
 
-  /// @brief retrieve magnetic field value & its gradient
-  ///
-  /// @param [in]  position   global position
-  /// @param [out] derivative gradient of magnetic field vector as (3x3) matrix
-  /// @param [in] cache Cache object (is ignored)
-  /// @return magnetic field vector
-  ///
-  /// @note The @p position is ignored and only kept as argument to provide
-  ///       a consistent interface with other magnetic field services.
-  /// @note currently the derivative is not calculated
-  /// @todo return derivative
-  Vector3D getFieldGradient(const Vector3D& /*position*/,
-                            ActsMatrixD<3, 3>& /*derivative*/,
-                            Cache& /*cache*/) const {
-    return m_BField;
+  /// @copydoc MagneticFieldProvider::makeCache(const MagneticFieldContext&) const
+  Acts::MagneticFieldProvider::Cache makeCache(
+      const Acts::MagneticFieldContext& mctx) const override {
+    return Acts::MagneticFieldProvider::Cache::make<Cache>(mctx);
   }
 
   /// @brief check whether given 3D position is inside look-up domain
@@ -83,10 +63,13 @@ class NullBField final {
   /// @return @c true if position is inside the defined look-up grid,
   ///         otherwise @c false
   /// @note The method will always return true for the null B-Field
-  bool isInside(const Vector3D& /*position*/) const { return true; }
+  bool isInside(const Vector3& position) const {
+    (void)position;
+    return true;
+  }
 
  private:
   /// magnetic field vector
-  const Vector3D m_BField = Vector3D::Zero();
+  const Vector3 m_BField = Vector3::Zero();
 };
 }  // namespace Acts

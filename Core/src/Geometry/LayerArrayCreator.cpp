@@ -6,28 +6,27 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// LayerArrayCreator.cpp, Acts project
-///////////////////////////////////////////////////////////////////
-
 #include "Acts/Geometry/LayerArrayCreator.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryObjectSorter.hpp"
-#include "Acts/Geometry/GeometryStatics.hpp"
 #include "Acts/Geometry/Layer.hpp"
 #include "Acts/Geometry/NavigationLayer.hpp"
+#include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
-#include "Acts/Surfaces/DiscBounds.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
-#include "Acts/Surfaces/RectangleBounds.hpp"
+#include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
-#include "Acts/Surfaces/TrapezoidBounds.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinnedArrayXD.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Utilities/BinningType.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <memory>
+#include <utility>
+#include <vector>
 
 std::unique_ptr<const Acts::LayerArray> Acts::LayerArrayCreator::layerArray(
     const GeometryContext& gctx, const LayerVector& layersInput, double min,
@@ -45,7 +44,7 @@ std::unique_ptr<const Acts::LayerArray> Acts::LayerArrayCreator::layerArray(
   GeometryObjectSorterT<std::shared_ptr<const Layer>> layerSorter(gctx, bValue);
   std::sort(layers.begin(), layers.end(), layerSorter);
   // useful typedef
-  using LayerOrderPosition = std::pair<std::shared_ptr<const Layer>, Vector3D>;
+  using LayerOrderPosition = std::pair<std::shared_ptr<const Layer>, Vector3>;
   // needed for all cases
   std::shared_ptr<const Layer> layer = nullptr;
   std::unique_ptr<const BinUtility> binUtility = nullptr;
@@ -176,20 +175,20 @@ std::shared_ptr<Acts::Surface> Acts::LayerArrayCreator::createNavigationSurface(
   // surface reference
   const Surface& layerSurface = layer.surfaceRepresentation();
   // translation to be applied
-  Vector3D translation(0., 0., 0.);
+  Vector3 translation(0., 0., 0.);
   // switching he binnig values
   switch (bValue) {
     // case x
     case binX: {
-      translation = Vector3D(offset, 0., 0.);
+      translation = Vector3(offset, 0., 0.);
     } break;
     // case y
     case binY: {
-      translation = Vector3D(0., offset, 0.);
+      translation = Vector3(0., offset, 0.);
     } break;
     // case z
     case binZ: {
-      translation = Vector3D(0., 0., offset);
+      translation = Vector3(0., 0., offset);
     } break;
     // case R
     case binR: {
@@ -197,7 +196,7 @@ std::shared_ptr<Acts::Surface> Acts::LayerArrayCreator::createNavigationSurface(
       if (layerSurface.type() == Surface::Cylinder) {
         break;
       }
-      translation = Vector3D(offset, 0., 0.);
+      translation = Vector3(offset, 0., 0.);
     } break;
     // do nothing for the default
     default: {
@@ -209,13 +208,13 @@ std::shared_ptr<Acts::Surface> Acts::LayerArrayCreator::createNavigationSurface(
   // for everything else than a cylinder it's a copy with shift
   if (layerSurface.type() == Surface::Plane) {
     // create a transform that does the shift
-    Transform3D shift = Transform3D(Translation3D(translation));
+    Transform3 shift = Transform3(Translation3(translation));
     const PlaneSurface* plane =
         dynamic_cast<const PlaneSurface*>(&layerSurface);
     navigationSurface = Surface::makeShared<PlaneSurface>(gctx, *plane, shift);
   } else if (layerSurface.type() == Surface::Disc) {
     // create a transform that does the shift
-    Transform3D shift = Transform3D(Translation3D(translation));
+    Transform3 shift = Transform3(Translation3(translation));
     const DiscSurface* disc = dynamic_cast<const DiscSurface*>(&layerSurface);
     navigationSurface = Surface::makeShared<DiscSurface>(gctx, *disc, shift);
   } else if (layerSurface.type() == Surface::Cylinder) {

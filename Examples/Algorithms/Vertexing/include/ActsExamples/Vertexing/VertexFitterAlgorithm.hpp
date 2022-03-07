@@ -8,8 +8,9 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
+#include "Acts/MagneticField/MagneticFieldProvider.hpp"
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
 
 #include <string>
@@ -19,19 +20,24 @@ namespace ActsExamples {
 class VertexFitterAlgorithm final : public BareAlgorithm {
  public:
   struct Config {
-    /// Input track parameters collection.
+    /// Input track parameters collection
     std::string inputTrackParameters;
-    /// Input proto vertex collection.
+    /// Input proto vertex collection
     std::string inputProtoVertices;
-    /// The magnetic field.
-    Acts::Vector3D bField = Acts::Vector3D::Zero();
+    /// Output vertex collection
+    std::string outputVertices;
+    /// The magnetic field
+    std::shared_ptr<Acts::MagneticFieldProvider> bField;
+    /// Constraint vertex fit bool
     bool doConstrainedFit = false;
     /// Vertex constraint position
-    Acts::Vector3D constraintPos = Acts::Vector3D(0, 0, 0);
+    Acts::Vector4 constraintPos = Acts::Vector4(0, 0, 0, 0);
     /// Vertex constraint covariance matrix
-    Acts::SymMatrix3D constraintCov =
-        Acts::Vector3D(3 * Acts::UnitConstants::mm, 3 * Acts::UnitConstants::mm,
-                       10 * Acts::UnitConstants::mm)
+    Acts::SymMatrix4 constraintCov =
+        Acts::Vector4(3 * Acts::UnitConstants::mm * Acts::UnitConstants::mm,
+                      3 * Acts::UnitConstants::mm * Acts::UnitConstants::mm,
+                      10 * Acts::UnitConstants::mm * Acts::UnitConstants::mm,
+                      1 * Acts::UnitConstants::ns * Acts::UnitConstants::ns)
             .asDiagonal();
   };
 
@@ -42,6 +48,9 @@ class VertexFitterAlgorithm final : public BareAlgorithm {
   /// @param ctx is the algorithm context with event information
   /// @return a process code indication success or failure
   ProcessCode execute(const AlgorithmContext& ctx) const final;
+
+  /// Get readonly access to the config parameters
+  const Config& config() const { return m_cfg; }
 
  private:
   Config m_cfg;

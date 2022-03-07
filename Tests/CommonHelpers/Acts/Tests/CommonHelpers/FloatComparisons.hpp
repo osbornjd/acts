@@ -10,7 +10,8 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Utilities/TypeTraits.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -154,13 +155,24 @@ predicate_result matrixCompare(const Eigen::DenseBase<Derived1>& val,
   return true;
 }
 
+template <typename T>
+using has_begin_t = decltype(std::declval<T>().cbegin());
+template <typename T>
+using has_end_t = decltype(std::declval<T>().cend());
+template <typename T>
+using has_eval_t = decltype(std::declval<T>().eval());
+
 // STL container frontend
 //
 // FIXME: The algorithm only supports ordered containers, so the API should
 //        only accept them. Does someone know a clean way to do that in C++?
 //
 template <typename Container,
-          typename Enable = typename Container::const_iterator>
+          typename = std::enable_if_t<
+              !Acts::Concepts::exists<has_eval_t, Container> &&
+                  Acts::Concepts::exists<has_begin_t, Container> &&
+                  Acts::Concepts::exists<has_end_t, Container>,
+              int>>
 predicate_result compare(const Container& val, const Container& ref,
                          ScalarComparison&& compareImpl) {
   // Make sure that the two input containers have the same number of items
@@ -214,7 +226,7 @@ predicate_result compare(const Eigen::DenseBase<T>& val,
 }
 
 // Eigen transform frontend
-predicate_result compare(const Transform3D& val, const Transform3D& ref,
+predicate_result compare(const Transform3& val, const Transform3& ref,
                          ScalarComparison&& compareImpl) {
   return matrixCompare(val.matrix(), ref.matrix(), std::move(compareImpl));
 }
@@ -257,15 +269,18 @@ boost::test_tools::predicate_result checkCloseOrSmall(const T& val,
   return compare(val, ref, closeOrSmall(reltol, small));
 }
 
-template <typename Scalar, int dim>
+template <typename val_t, typename ref_t>
 boost::test_tools::predicate_result checkCloseCovariance(
-    const ActsSymMatrix<Scalar, dim>& val,
-    const ActsSymMatrix<Scalar, dim>& ref, double tol) {
-  static_assert(dim != Eigen::Dynamic,
-                "Dynamic-size matrices are currently unsupported.");
+    const Eigen::MatrixBase<val_t>& val, const Eigen::MatrixBase<ref_t>& ref,
+    double tol) {
+  EIGEN_STATIC_ASSERT_FIXED_SIZE(val_t);
+  EIGEN_STATIC_ASSERT_FIXED_SIZE(ref_t);
+  EIGEN_STATIC_ASSERT_SAME_MATRIX_SIZE(val_t, ref_t);
+  assert(val.cols() == val.rows());
+  assert(ref.cols() == ref.rows());
 
-  for (int col = 0; col < dim; ++col) {
-    for (int row = col; row < dim; ++row) {
+  for (int col = 0; col < val.cols(); ++col) {
+    for (int row = col; row < val.rows(); ++row) {
       // For diagonal elements, this is just a regular relative comparison.
       // But for off-diagonal correlation terms, the tolerance scales with the
       // geometric mean of the variance terms that are being correlated.

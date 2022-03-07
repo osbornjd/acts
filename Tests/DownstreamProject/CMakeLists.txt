@@ -8,8 +8,8 @@ find_package(
   COMPONENTS
     Core
     Fatras
+    PluginAutodiff
     PluginDD4hep
-    PluginDigitization
     PluginIdentification
     PluginJson
     PluginLegacy
@@ -29,7 +29,6 @@ target_link_libraries(
     ActsCore
     ActsFatras
     ActsPluginDD4hep
-    ActsPluginDigitization
     ActsPluginIdentification
     ActsPluginJson
     ActsPluginLegacy

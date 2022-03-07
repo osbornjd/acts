@@ -8,8 +8,8 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Vertexing/FsmwMode1dFinder.hpp"
@@ -67,7 +67,7 @@ class IterativeVertexFinder {
   using InputTrack_t = typename vfitter_t::InputTrack_t;
   using IPEstimator = ImpactPointEstimator<InputTrack_t, Propagator_t>;
 
-  /// @struct Config Configuration struct
+  /// Configuration struct
   struct Config {
     /// @brief Config constructor
     ///
@@ -107,10 +107,13 @@ class IterativeVertexFinder {
     double cutOffTrackWeight = 0.01;
   };
 
-  /// @struct State State struct
+  /// State struct
   struct State {
-    State(const Acts::MagneticFieldContext& mctx)
-        : ipState(mctx), linearizerState(mctx), fitterState(mctx) {}
+    State(const MagneticFieldProvider& field,
+          const Acts::MagneticFieldContext& magContext)
+        : ipState(field.makeCache(magContext)),
+          linearizerState(field.makeCache(magContext)),
+          fitterState(field.makeCache(magContext)) {}
     /// The IP estimator state
     typename IPEstimator::State ipState;
     /// The inearizer state
@@ -260,8 +263,6 @@ class IterativeVertexFinder {
   /// @brief Counts all tracks that are significant for a vertex
   ///
   /// @param vtx The vertex
-  /// @param weightThreshold Threshold to count all tracks with weights >
-  /// weightThreshold
   ///
   /// @return Number of significant tracks
   int countSignificantTracks(const Vertex<InputTrack_t>& vtx) const;

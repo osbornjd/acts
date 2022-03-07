@@ -12,13 +12,12 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/CuboidVolumeBounds.hpp"
 #include "Acts/Geometry/CutoutCylinderVolumeBounds.hpp"
 #include "Acts/Geometry/CylinderVolumeBounds.hpp"
 #include "Acts/Geometry/Volume.hpp"
-
 #include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <stdexcept>
 
@@ -28,11 +27,12 @@ namespace Acts {
 ///
 /// @param bu BinUtility at source
 /// @param cBounds the Cylinder volume bounds to adjust to
+/// @param transform Transform for the adjusted @c BinUtility
 ///
 /// @return new updated BinUtiltiy
 BinUtility adjustBinUtility(const BinUtility& bu,
                             const CylinderVolumeBounds& cBounds,
-                            const Transform3D& transform) {
+                            const Transform3& transform) {
   // Default constructor
   BinUtility uBinUtil(transform);
   // The parameters from the cylinder bounds
@@ -82,11 +82,12 @@ BinUtility adjustBinUtility(const BinUtility& bu,
 ///
 /// @param bu BinUtility at source
 /// @param cBounds the Cutout Cylinder volume bounds to adjust to
+/// @param transform Transform for the adjusted @c BinUtility
 ///
 /// @return new updated BinUtiltiy
 BinUtility adjustBinUtility(const BinUtility& bu,
                             const CutoutCylinderVolumeBounds& cBounds,
-                            const Transform3D& transform) {
+                            const Transform3& transform) {
   // Default constructor
   BinUtility uBinUtil(transform);
   // The parameters from the cutout cylinder bounds
@@ -136,11 +137,12 @@ BinUtility adjustBinUtility(const BinUtility& bu,
 ///
 /// @param bu BinUtility at source
 /// @param cBounds the Cuboid volume bounds to adjust to
+/// @param transform Transform for the adjusted @c BinUtility
 ///
 /// @return new updated BinUtiltiy
 BinUtility adjustBinUtility(const BinUtility& bu,
                             const CuboidVolumeBounds& cBounds,
-                            const Transform3D& transform) {
+                            const Transform3& transform) {
   // Default constructor
   BinUtility uBinUtil(transform);
   // The parameters from the cylinder bounds
@@ -187,7 +189,7 @@ BinUtility adjustBinUtility(const BinUtility& bu,
 /// @brief adjust the BinUtility bu to a volume
 ///
 /// @param bu BinUtility at source
-/// @param Volume to which the adjustment is being done
+/// @param volume Volume to which the adjustment is being done
 ///
 /// @return new updated BinUtiltiy
 BinUtility adjustBinUtility(const BinUtility& bu, const Volume& volume) {

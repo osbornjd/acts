@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
@@ -14,7 +15,6 @@
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Tests/CommonHelpers/BenchmarkTools.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <iostream>
 
@@ -69,19 +69,20 @@ int main(int argc, char* argv[]) {
                            << "GeV in a " << BzInT << "T B-field");
 
   using BField_type = ConstantBField;
-  using Stepper_type = EigenStepper<BField_type>;
+  using Stepper_type = EigenStepper<>;
   using Propagator_type = Propagator<Stepper_type>;
   using Covariance = BoundSymMatrix;
 
-  BField_type bField(0, 0, BzInT * UnitConstants::T);
+  auto bField =
+      std::make_shared<BField_type>(Vector3{0, 0, BzInT * UnitConstants::T});
   Stepper_type atlas_stepper(std::move(bField));
   Propagator_type propagator(std::move(atlas_stepper));
 
   PropagatorOptions<> options(tgContext, mfContext, getDummyLogger());
   options.pathLimit = maxPathInM * UnitConstants::m;
 
-  Vector4D pos4(0, 0, 0, 0);
-  Vector3D dir(1, 0, 0);
+  Vector4 pos4(0, 0, 0, 0);
+  Vector3 dir(1, 0, 0);
   Covariance cov;
   // clang-format off
   cov << 10_mm, 0, 0, 0, 0, 0,

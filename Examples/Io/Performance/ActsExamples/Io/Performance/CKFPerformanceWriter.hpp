@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "Acts/Utilities/Units.hpp"
-#include "ActsExamples/EventData/Track.hpp"
+#include "Acts/Definitions/Units.hpp"
+#include "ActsExamples/EventData/Trajectories.hpp"
 #include "ActsExamples/Framework/WriterT.hpp"
 #include "ActsExamples/Validation/DuplicationPlotTool.hpp"
 #include "ActsExamples/Validation/EffPlotTool.hpp"
@@ -21,8 +21,6 @@
 class TFile;
 class TTree;
 
-using namespace Acts::UnitLiterals;
-
 namespace ActsExamples {
 
 /// Write out the performance of CombinatorialKalmanFilter (CKF), e.g.
@@ -33,17 +31,19 @@ namespace ActsExamples {
 /// this is done by setting the Config::rootFile pointer to an existing file
 ///
 /// Safe to use from multiple writer threads - uses a std::mutex lock.
-class CKFPerformanceWriter final : public WriterT<TrajectoryContainer> {
+class CKFPerformanceWriter final : public WriterT<TrajectoriesContainer> {
  public:
   struct Config {
-    /// Input truth particles collection.
-    std::string inputParticles;
     /// Input (found) trajectories collection.
     std::string inputTrajectories;
-    /// Output directory.
-    std::string outputDir;
+    /// Input particles collection.
+    std::string inputParticles;
+    /// Input hit-particles map collection.
+    std::string inputMeasurementParticlesMap;
     /// Output filename.
-    std::string outputFilename = "performance_ckf.root";
+    std::string filePath = "performance_ckf.root";
+    /// Output filemode
+    std::string fileMode = "RECREATE";
     /// Plot tool configurations.
     EffPlotTool::Config effPlotToolConfig;
     FakeRatePlotTool::Config fakeRatePlotToolConfig;
@@ -54,19 +54,21 @@ class CKFPerformanceWriter final : public WriterT<TrajectoryContainer> {
     /// Min number of measurements
     size_t nMeasurementsMin = 9;
     /// Min transverse momentum
-    double ptMin = 1_GeV;
+    double ptMin = 1 * Acts::UnitConstants::GeV;
+    /// function to check if neural network predicted track label is duplicate
+    std::function<bool(std::vector<float>&)> duplicatedPredictor = nullptr;
   };
 
   /// Construct from configuration and log level.
   CKFPerformanceWriter(Config cfg, Acts::Logging::Level lvl);
-  ~CKFPerformanceWriter() override;
+  ~CKFPerformanceWriter() final override;
 
   /// Finalize plots.
   ProcessCode endRun() final override;
 
  private:
   ProcessCode writeT(const AlgorithmContext& ctx,
-                     const TrajectoryContainer& trajectories) final override;
+                     const TrajectoriesContainer& trajectories) final override;
 
   Config m_cfg;
   /// Mutex used to protect multi-threaded writes.

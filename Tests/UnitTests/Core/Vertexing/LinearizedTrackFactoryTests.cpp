@@ -10,6 +10,8 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
@@ -17,8 +19,6 @@
 #include "Acts/Propagator/StraightLineStepper.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
 
 namespace bdata = boost::unit_test::data;
@@ -28,8 +28,7 @@ namespace Acts {
 namespace Test {
 
 using Covariance = BoundSymMatrix;
-using Linearizer =
-    HelicalTrackLinearizer<Propagator<EigenStepper<ConstantBField>>>;
+using Linearizer = HelicalTrackLinearizer<Propagator<EigenStepper<>>>;
 
 // Create a test context
 GeometryContext geoContext = GeometryContext();
@@ -70,18 +69,17 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
   std::mt19937 gen(mySeed);
 
   // Set up constant B-Field
-  ConstantBField bField(0.0, 0.0, 1_T);
+  auto bField = std::make_shared<ConstantBField>(Vector3{0.0, 0.0, 1_T});
 
   // Set up Eigenstepper
-  EigenStepper<ConstantBField> stepper(bField);
+  EigenStepper<> stepper(bField);
 
   // Set up propagator with void navigator
-  auto propagator =
-      std::make_shared<Propagator<EigenStepper<ConstantBField>>>(stepper);
+  auto propagator = std::make_shared<Propagator<EigenStepper<>>>(stepper);
 
   // Create perigee surface
   std::shared_ptr<PerigeeSurface> perigeeSurface =
-      Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+      Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
   // Create position of vertex and perigee surface
   double x = vXYDist(gen);
@@ -124,20 +122,19 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
 
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linFactory(ltConfig);
-  Linearizer::State state(magFieldContext);
+  Linearizer::State state(bField->makeCache(magFieldContext));
 
   BoundVector vecBoundZero = BoundVector::Zero();
   BoundSymMatrix matBoundZero = BoundSymMatrix::Zero();
-  Vector4D vecSPZero = Vector4D::Zero();
-  ActsMatrix<BoundScalar, eBoundSize, 4> matBound2SPZero =
-      ActsMatrix<BoundScalar, eBoundSize, 4>::Zero();
-  ActsMatrixD<eBoundSize, 3> matBound2MomZero =
-      ActsMatrixD<eBoundSize, 3>::Zero();
+  Vector4 vecSPZero = Vector4::Zero();
+  ActsMatrix<eBoundSize, 4> matBound2SPZero = ActsMatrix<eBoundSize, 4>::Zero();
+  ActsMatrix<eBoundSize, 3> matBound2MomZero =
+      ActsMatrix<eBoundSize, 3>::Zero();
 
   for (const BoundTrackParameters& parameters : tracks) {
     LinearizedTrack linTrack =
         linFactory
-            .linearizeTrack(parameters, Vector4D::Zero(), geoContext,
+            .linearizeTrack(parameters, Vector4::Zero(), geoContext,
                             magFieldContext, state)
             .value();
 
@@ -171,7 +168,7 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_straightline_test) {
 
   // Create perigee surface
   std::shared_ptr<PerigeeSurface> perigeeSurface =
-      Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+      Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
   // Create position of vertex and perigee surface
   double x = vXYDist(gen);
@@ -216,20 +213,22 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_straightline_test) {
   // magnetic field, which results in the extreme case of a straight line
   LinearizerStraightLine::Config ltConfig(propagator);
   LinearizerStraightLine linFactory(ltConfig);
-  LinearizerStraightLine::State state(magFieldContext);
+
+  auto field = std::make_shared<NullBField>();
+
+  LinearizerStraightLine::State state(field->makeCache(magFieldContext));
 
   BoundVector vecBoundZero = BoundVector::Zero();
   BoundSymMatrix matBoundZero = BoundSymMatrix::Zero();
-  Vector4D vecSPZero = Vector4D::Zero();
-  ActsMatrix<BoundScalar, eBoundSize, 4> matBound2SPZero =
-      ActsMatrix<BoundScalar, eBoundSize, 4>::Zero();
-  ActsMatrixD<eBoundSize, 3> matBound2MomZero =
-      ActsMatrixD<eBoundSize, 3>::Zero();
+  Vector4 vecSPZero = Vector4::Zero();
+  ActsMatrix<eBoundSize, 4> matBound2SPZero = ActsMatrix<eBoundSize, 4>::Zero();
+  ActsMatrix<eBoundSize, 3> matBound2MomZero =
+      ActsMatrix<eBoundSize, 3>::Zero();
 
   for (const BoundTrackParameters& parameters : tracks) {
     LinearizedTrack linTrack =
         linFactory
-            .linearizeTrack(parameters, Vector4D::Zero(), geoContext,
+            .linearizeTrack(parameters, Vector4::Zero(), geoContext,
                             magFieldContext, state)
             .value();
 

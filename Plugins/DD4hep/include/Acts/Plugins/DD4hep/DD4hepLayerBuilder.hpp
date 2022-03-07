@@ -8,13 +8,13 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/ILayerBuilder.hpp"
 #include "Acts/Geometry/LayerCreator.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 class TGeoMatrix;
 
@@ -131,6 +131,8 @@ class DD4hepLayerBuilder : public ILayerBuilder {
   /// Private helper method to be called for endcap layers
   ///
   /// @param gctx the geometry context for this build call
+  /// @param dendcapLayers Vector of detector elements for the endcap layers
+  /// @param side Which endcap side it is
   ///
   /// @return  the layers for either endcap side
   const LayerVector endcapLayers(
@@ -140,7 +142,6 @@ class DD4hepLayerBuilder : public ILayerBuilder {
 
   /// Private helper function collecting all sensitive detector elements of a
   /// layer
-  /// @param gctx the geometry context of this call
   /// @param detElement the DD4hep::DetElement of the layer
   /// @param surfaces the vector of surfaces which should be filled with the
   /// sensitive detector elements
@@ -160,7 +161,7 @@ class DD4hepLayerBuilder : public ILayerBuilder {
   // Private helper function to convert the TGeo transformation matrix into
   // an Acts transformation matrix
   // @param tGeoTrans TGeo transformation matrix which should be converted
-  Acts::Transform3D convertTransform(const TGeoMatrix* tGeoTrans) const;
+  Acts::Transform3 convertTransform(const TGeoMatrix* tGeoTrans) const;
 };
 
 inline const std::string& DD4hepLayerBuilder::identification() const {

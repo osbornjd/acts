@@ -8,18 +8,30 @@
 
 #include "Acts/Geometry/CylinderVolumeBuilder.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Geometry/AbstractVolume.hpp"
 #include "Acts/Geometry/BoundarySurfaceFace.hpp"
 #include "Acts/Geometry/CylinderLayer.hpp"
 #include "Acts/Geometry/CylinderVolumeBounds.hpp"
-#include "Acts/Geometry/DiscLayer.hpp"
+#include "Acts/Geometry/IConfinedTrackingVolumeBuilder.hpp"
+#include "Acts/Geometry/ILayerBuilder.hpp"
 #include "Acts/Geometry/ITrackingVolumeHelper.hpp"
+#include "Acts/Geometry/Layer.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
+#include "Acts/Geometry/VolumeBounds.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
+#include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Surfaces/Surface.hpp"
+#include "Acts/Surfaces/SurfaceBounds.hpp"
+#include "Acts/Utilities/BinningType.hpp"
 
 #include <algorithm>
+#include <iosfwd>
+#include <iterator>
 #include <vector>
+
+#include <math.h>
 
 Acts::CylinderVolumeBuilder::CylinderVolumeBuilder(
     const Acts::CylinderVolumeBuilder::Config& cvbConfig,
@@ -247,13 +259,39 @@ Acts::CylinderVolumeBuilder::trackingVolume(
           }
         }
       }
+
+      // we check radii for consistency from the inside outwards, so need to
+      // sort
+      std::sort(innerRadii.begin(), innerRadii.end());
+      std::sort(outerRadii.begin(), outerRadii.end());
+
+      ACTS_DEBUG("Inner radii:" << [&]() {
+        std::stringstream ss;
+        for (double f : innerRadii) {
+          ss << " " << f;
+        }
+        return ss.str();
+      }());
+
+      ACTS_DEBUG("Outer radii:" << [&]() {
+        std::stringstream ss;
+        for (double f : outerRadii) {
+          ss << " " << f;
+        }
+        return ss.str();
+      }());
       // Result of the parsing loop
       if (innerRadii.size() == outerRadii.size() and not innerRadii.empty()) {
         bool consistent = true;
         // The inter volume radii
+        ACTS_VERBOSE("Checking ring radius consistency");
         std::vector<double> interRadii = {};
         for (int ir = 1; ir < int(innerRadii.size()); ++ir) {
           // Check whether inner/outer radii are consistent
+          ACTS_VERBOSE(
+              "or #" << ir - 1 << " < ir #" << ir << ": " << outerRadii[ir - 1]
+                     << " < " << innerRadii[ir] << ", ok: "
+                     << (outerRadii[ir - 1] < innerRadii[ir] ? "yes" : "no"));
           if (outerRadii[ir - 1] < innerRadii[ir]) {
             interRadii.push_back(0.5 * (outerRadii[ir - 1] + innerRadii[ir]));
           } else {
@@ -316,7 +354,12 @@ Acts::CylinderVolumeBuilder::trackingVolume(
           }
           // Return a container of ring volumes
           return tvHelper->createContainerTrackingVolume(gctx, endcapContainer);
+        } else {
+          ACTS_DEBUG("Ring radii found to be inconsistent");
         }
+      } else {
+        ACTS_DEBUG("Have " << innerRadii.size() << " inner radii and "
+                           << outerRadii.size() << " outer radii");
       }
     }
 
@@ -495,7 +538,7 @@ Acts::VolumeConfig Acts::CylinderVolumeBuilder::analyzeContent(
       // the thickness of the layer needs to be taken into account
       double thickness = layer->thickness();
       // get the center of the layer
-      const Vector3D& center = layer->surfaceRepresentation().center(gctx);
+      const Vector3& center = layer->surfaceRepresentation().center(gctx);
       // check if it is a cylinder layer
       const CylinderLayer* cLayer =
           dynamic_cast<const CylinderLayer*>(layer.get());
@@ -532,6 +575,7 @@ Acts::VolumeConfig Acts::CylinderVolumeBuilder::analyzeContent(
             std::min(lConfig.rMin, rMinD - m_cfg.layerEnvelopeR.first);
         lConfig.rMax =
             std::max(lConfig.rMax, rMaxD + m_cfg.layerEnvelopeR.second);
+        lConfig.rMin = std::max(0.0, lConfig.rMin);
         lConfig.zMin = std::min(lConfig.zMin, zMinD - m_cfg.layerEnvelopeZ);
         lConfig.zMax = std::max(lConfig.zMax, zMaxD + m_cfg.layerEnvelopeZ);
       }

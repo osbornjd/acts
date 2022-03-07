@@ -31,13 +31,15 @@ namespace Acts {
 namespace Test {
 
 using BFieldType = ConstantBField;
-using EigenStepperType = EigenStepper<BFieldType>;
-using AtlasStepperType = AtlasStepper<BFieldType>;
+using EigenStepperType = EigenStepper<>;
+using AtlasStepperType = AtlasStepper;
 using Covariance = BoundSymMatrix;
 
 // Create a test context
 GeometryContext tgContext = GeometryContext();
 MagneticFieldContext mfContext = MagneticFieldContext();
+
+static auto bField = std::make_shared<BFieldType>(Vector3{0, 0, 1_T});
 
 /// Helper method to create a transform for a plane
 /// to mimic detector situations, the plane is roughly
@@ -46,13 +48,13 @@ MagneticFieldContext mfContext = MagneticFieldContext();
 /// @param nnomal The nominal normal direction
 /// @param angleT Rotation around the norminal normal
 /// @param angleU Roation around the original U axis
-Transform3D createCylindricTransform(const Vector3D& nposition, double angleX,
-                                     double angleY) {
-  Transform3D ctransform;
+Transform3 createCylindricTransform(const Vector3& nposition, double angleX,
+                                    double angleY) {
+  Transform3 ctransform;
   ctransform.setIdentity();
   ctransform.pretranslate(nposition);
-  ctransform.prerotate(AngleAxis3D(angleX, Vector3D::UnitX()));
-  ctransform.prerotate(AngleAxis3D(angleY, Vector3D::UnitY()));
+  ctransform.prerotate(AngleAxis3(angleX, Vector3::UnitX()));
+  ctransform.prerotate(AngleAxis3(angleY, Vector3::UnitY()));
   return ctransform;
 }
 
@@ -63,25 +65,25 @@ Transform3D createCylindricTransform(const Vector3D& nposition, double angleX,
 /// @param nnomal The nominal normal direction
 /// @param angleT Rotation around the norminal normal
 /// @param angleU Roation around the original U axis
-Transform3D createPlanarTransform(const Vector3D& nposition,
-                                  const Vector3D& nnormal, double angleT,
-                                  double angleU) {
+Transform3 createPlanarTransform(const Vector3& nposition,
+                                 const Vector3& nnormal, double angleT,
+                                 double angleU) {
   // the rotation of the destination surface
-  Vector3D T = nnormal.normalized();
-  Vector3D U = std::abs(T.dot(Vector3D::UnitZ())) < 0.99
-                   ? Vector3D::UnitZ().cross(T).normalized()
-                   : Vector3D::UnitX().cross(T).normalized();
-  Vector3D V = T.cross(U);
+  Vector3 T = nnormal.normalized();
+  Vector3 U = std::abs(T.dot(Vector3::UnitZ())) < 0.99
+                  ? Vector3::UnitZ().cross(T).normalized()
+                  : Vector3::UnitX().cross(T).normalized();
+  Vector3 V = T.cross(U);
   // that's the plane curvilinear Rotation
-  RotationMatrix3D curvilinearRotation;
+  RotationMatrix3 curvilinearRotation;
   curvilinearRotation.col(0) = U;
   curvilinearRotation.col(1) = V;
   curvilinearRotation.col(2) = T;
   // curvilinear surfaces are boundless
-  Transform3D ctransform{curvilinearRotation};
+  Transform3 ctransform{curvilinearRotation};
   ctransform.pretranslate(nposition);
-  ctransform.prerotate(AngleAxis3D(angleT, T));
-  ctransform.prerotate(AngleAxis3D(angleU, U));
+  ctransform.prerotate(AngleAxis3(angleT, T));
+  ctransform.prerotate(AngleAxis3(angleU, U));
   //
   return ctransform;
 }
@@ -124,9 +126,11 @@ template <typename Parameters>
 void testJacobianToGlobal(const Parameters& pars) {
   // Jacobian creation for Propagator/Steppers
   // a) ATLAS stepper
-  AtlasStepperType::State astepState(tgContext, mfContext, pars);
+  AtlasStepperType::State astepState(tgContext, bField->makeCache(mfContext),
+                                     pars);
   // b) Eigen stepper
-  EigenStepperType::State estepState(tgContext, mfContext, pars);
+  EigenStepperType::State estepState(tgContext, bField->makeCache(mfContext),
+                                     pars);
 
   // create the matrices
   auto asMatrix = convertToMatrix(astepState.pVector);
@@ -141,8 +145,8 @@ BOOST_AUTO_TEST_CASE(JacobianCurvilinearToGlobalTest) {
   Covariance cov;
   cov << 10_mm, 0, 0, 0, 0, 0, 0, 10_mm, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,
       0, 0.1, 0, 0, 0, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0, 0, 0;
-  CurvilinearTrackParameters curvilinear(
-      Vector4D(341., 412., 93., 0.), Vector3D(1.2, 8.3, 0.45), 10.0, 1, cov);
+  CurvilinearTrackParameters curvilinear(Vector4(341., 412., 93., 0.),
+                                         Vector3(1.2, 8.3, 0.45), 10.0, 1, cov);
 
   // run the test
   testJacobianToGlobal(curvilinear);
@@ -171,7 +175,7 @@ BOOST_AUTO_TEST_CASE(JacobianCylinderToGlobalTest) {
 BOOST_AUTO_TEST_CASE(JacobianDiscToGlobalTest) {
   // the disc transform and surface
   auto dTransform = createPlanarTransform(
-      {10., -5., 0.}, Vector3D(0.23, 0.07, 1.).normalized(), 0.004, 0.03);
+      {10., -5., 0.}, Vector3(0.23, 0.07, 1.).normalized(), 0.004, 0.03);
   auto dSurface = Surface::makeShared<DiscSurface>(dTransform, 200., 1000.);
 
   Covariance cov;
@@ -190,8 +194,8 @@ BOOST_AUTO_TEST_CASE(JacobianDiscToGlobalTest) {
 /// This tests the jacobian of local plane -> global
 BOOST_AUTO_TEST_CASE(JacobianPlaneToGlobalTest) {
   // Let's create a surface somewhere in space
-  Vector3D sPosition(3421., 112., 893.);
-  Vector3D sNormal = Vector3D(1.2, -0.3, 0.05).normalized();
+  Vector3 sPosition(3421., 112., 893.);
+  Vector3 sNormal = Vector3(1.2, -0.3, 0.05).normalized();
 
   // Create a surface & parameters with covariance on the surface
   auto pSurface = Surface::makeShared<PlaneSurface>(sPosition, sNormal);
@@ -212,7 +216,7 @@ BOOST_AUTO_TEST_CASE(JacobianPlaneToGlobalTest) {
 /// This tests the jacobian of local perigee -> global
 BOOST_AUTO_TEST_CASE(JacobianPerigeeToGlobalTest) {
   // Create a surface & parameters with covariance on the surface
-  auto pSurface = Surface::makeShared<PerigeeSurface>(Vector3D({0., 0., 0.}));
+  auto pSurface = Surface::makeShared<PerigeeSurface>(Vector3({0., 0., 0.}));
 
   Covariance cov;
   cov << 10_mm, 0, 0, 0, 0, 0, 0, 10_mm, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,

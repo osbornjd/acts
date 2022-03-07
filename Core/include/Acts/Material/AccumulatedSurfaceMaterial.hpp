@@ -8,16 +8,18 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Material/AccumulatedMaterialSlab.hpp"
-#include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <array>
+#include <memory>
 #include <vector>
 
 namespace Acts {
+
+class ISurfaceMaterial;
 
 /// @class AccumulatedSurfaceMaterial
 ///
@@ -81,18 +83,20 @@ class AccumulatedSurfaceMaterial {
   ///
   /// @param lp local position for the bin assignment
   /// @param mp material properties to be assigned
+  /// @param pathCorrection Correction factor for the effective path length
   ///
   /// @return the bin triple to which the material was assigned
-  std::array<size_t, 3> accumulate(const Vector2D& lp, const MaterialSlab& mp,
+  std::array<size_t, 3> accumulate(const Vector2& lp, const MaterialSlab& mp,
                                    double pathCorrection = 1.);
 
   /// Assign a material properites object
   ///
   /// @param gp global position for the bin assignment
   /// @param mp material properties to be assigned
+  /// @param pathCorrection Correction factor for the effective path length
   ///
   /// @return the bin triple to which the material was assigned
-  std::array<size_t, 3> accumulate(const Vector3D& gp, const MaterialSlab& mp,
+  std::array<size_t, 3> accumulate(const Vector3& gp, const MaterialSlab& mp,
                                    double pathCorrection = 1.);
 
   /// Average the information accumulated from one mapped track
@@ -107,7 +111,7 @@ class AccumulatedSurfaceMaterial {
   ///
   /// @param gp global position for the bin assignment
   /// @param emptyHit indicator if this is an empty assignment
-  void trackAverage(const Vector3D& gp, bool emptyHit = false);
+  void trackAverage(const Vector3& gp, bool emptyHit = false);
 
   /// Total average creates SurfaceMaterial
   std::unique_ptr<const ISurfaceMaterial> totalAverage();

@@ -29,7 +29,7 @@ class SingleCurvilinearTrackParameters
   using Base = SingleBoundTrackParameters<charge_t>;
 
  public:
-  using Scalar = BoundScalar;
+  using Scalar = ActsScalar;
   using ParametersVector = BoundVector;
   using CovarianceMatrix = BoundSymMatrix;
 
@@ -41,7 +41,7 @@ class SingleCurvilinearTrackParameters
   /// @param q Particle charge
   /// @param cov Curvilinear bound parameters covariance matrix
   SingleCurvilinearTrackParameters(
-      const Vector4D& pos4, const Vector3D& dir, Scalar p, Scalar q,
+      const Vector4& pos4, const Vector3& dir, Scalar p, Scalar q,
       std::optional<CovarianceMatrix> cov = std::nullopt)
       : Base(Surface::makeShared<PlaneSurface>(pos4.segment<3>(ePos0), dir),
              detail::transformFreeToCurvilinearParameters(
@@ -62,7 +62,7 @@ class SingleCurvilinearTrackParameters
   template <typename T = charge_t,
             std::enable_if_t<std::is_default_constructible_v<T>, int> = 0>
   SingleCurvilinearTrackParameters(
-      const Vector4D& pos4, const Vector3D& dir, Scalar qOverP,
+      const Vector4& pos4, const Vector3& dir, Scalar qOverP,
       std::optional<CovarianceMatrix> cov = std::nullopt)
       : Base(Surface::makeShared<PlaneSurface>(pos4.segment<3>(ePos0), dir),
              detail::transformFreeToCurvilinearParameters(pos4[eTime], dir,
@@ -78,7 +78,7 @@ class SingleCurvilinearTrackParameters
   /// @param q Particle charge
   /// @param cov Curvilinear bound parameters covariance matrix
   SingleCurvilinearTrackParameters(
-      const Vector4D& pos4, Scalar phi, Scalar theta, Scalar p, Scalar q,
+      const Vector4& pos4, Scalar phi, Scalar theta, Scalar p, Scalar q,
       std::optional<CovarianceMatrix> cov = std::nullopt)
       : Base(Surface::makeShared<PlaneSurface>(
                  pos4.segment<3>(ePos0),
@@ -102,7 +102,7 @@ class SingleCurvilinearTrackParameters
   template <typename T = charge_t,
             std::enable_if_t<std::is_default_constructible_v<T>, int> = 0>
   SingleCurvilinearTrackParameters(
-      const Vector4D& pos4, Scalar phi, Scalar theta, Scalar qOverP,
+      const Vector4& pos4, Scalar phi, Scalar theta, Scalar qOverP,
       std::optional<CovarianceMatrix> cov = std::nullopt)
       : Base(Surface::makeShared<PlaneSurface>(
                  pos4.segment<3>(ePos0),
@@ -111,8 +111,17 @@ class SingleCurvilinearTrackParameters
                                                           theta, qOverP),
              std::move(cov)) {}
 
-  // this class does not have a custom default constructor and thus should not
-  // provide any custom default cstors, dstor, or assignment. see ISOCPP C.20.
+  /// Parameters are not default constructible due to the charge type.
+  SingleCurvilinearTrackParameters() = delete;
+  SingleCurvilinearTrackParameters(const SingleCurvilinearTrackParameters&) =
+      default;
+  SingleCurvilinearTrackParameters(SingleCurvilinearTrackParameters&&) =
+      default;
+  ~SingleCurvilinearTrackParameters() = default;
+  SingleCurvilinearTrackParameters& operator=(
+      const SingleCurvilinearTrackParameters&) = default;
+  SingleCurvilinearTrackParameters& operator=(
+      SingleCurvilinearTrackParameters&&) = default;
 };
 
 }  // namespace Acts

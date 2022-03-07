@@ -11,6 +11,10 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 
+#include <algorithm>
+
+#include <boost/container/small_vector.hpp>
+
 void Acts::GenericApproachDescriptor::registerLayer(const Layer& lay) {
   // go through the surfaces
   for (auto& sf : m_surfaceCache) {
@@ -21,9 +25,10 @@ void Acts::GenericApproachDescriptor::registerLayer(const Layer& lay) {
 
 Acts::ObjectIntersection<Acts::Surface>
 Acts::GenericApproachDescriptor::approachSurface(
-    const GeometryContext& gctx, const Vector3D& position,
-    const Vector3D& direction, const BoundaryCheck& bcheck) const {
-  std::vector<ObjectIntersection<Surface>> sIntersections;
+    const GeometryContext& gctx, const Vector3& position,
+    const Vector3& direction, const BoundaryCheck& bcheck) const {
+  // almost always 2
+  boost::container::small_vector<ObjectIntersection<Surface>, 2> sIntersections;
   sIntersections.reserve(m_surfaceCache.size());
   for (auto& sf : m_surfaceCache) {
     auto sfIntersection = sf->intersect(gctx, position, direction, bcheck);

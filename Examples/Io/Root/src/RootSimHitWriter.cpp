@@ -8,7 +8,7 @@
 
 #include "ActsExamples/Io/Root/RootSimHitWriter.hpp"
 
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Definitions/Units.hpp"
 
 #include <ios>
 #include <stdexcept>
@@ -17,8 +17,9 @@
 #include <TTree.h>
 
 ActsExamples::RootSimHitWriter::RootSimHitWriter(
-    const ActsExamples::RootSimHitWriter::Config& cfg, Acts::Logging::Level lvl)
-    : WriterT(cfg.inputSimulatedHits, "RootSimHitWriter", lvl), m_cfg(cfg) {
+    const ActsExamples::RootSimHitWriter::Config& config,
+    Acts::Logging::Level level)
+    : WriterT(config.inputSimHits, "RootSimHitWriter", level), m_cfg(config) {
   // inputParticles is already checked by base constructor
   if (m_cfg.filePath.empty()) {
     throw std::invalid_argument("Missing file path");
@@ -62,11 +63,7 @@ ActsExamples::RootSimHitWriter::RootSimHitWriter(
   m_outputTree->Branch("sensitive_id", &m_sensitiveId);
 }
 
-ActsExamples::RootSimHitWriter::~RootSimHitWriter() {
-  if (m_outputFile) {
-    m_outputFile->Close();
-  }
-}
+ActsExamples::RootSimHitWriter::~RootSimHitWriter() {}
 
 ActsExamples::ProcessCode ActsExamples::RootSimHitWriter::endRun() {
   if (m_outputFile) {
@@ -74,6 +71,7 @@ ActsExamples::ProcessCode ActsExamples::RootSimHitWriter::endRun() {
     m_outputTree->Write();
     ACTS_VERBOSE("Wrote hits to tree '" << m_cfg.treeName << "' in '"
                                         << m_cfg.filePath << "'");
+    m_outputFile->Close();
   }
   return ProcessCode::SUCCESS;
 }
@@ -94,10 +92,10 @@ ActsExamples::ProcessCode ActsExamples::RootSimHitWriter::writeT(
     m_particleId = hit.particleId().value();
     m_geometryId = hit.geometryId().value();
     // write hit position
-    m_tx = hit.position4().x() / Acts::UnitConstants::mm;
-    m_ty = hit.position4().y() / Acts::UnitConstants::mm;
-    m_tz = hit.position4().z() / Acts::UnitConstants::mm;
-    m_tt = hit.position4().w() / Acts::UnitConstants::ns;
+    m_tx = hit.fourPosition().x() / Acts::UnitConstants::mm;
+    m_ty = hit.fourPosition().y() / Acts::UnitConstants::mm;
+    m_tz = hit.fourPosition().z() / Acts::UnitConstants::mm;
+    m_tt = hit.fourPosition().w() / Acts::UnitConstants::ns;
     // write four-momentum before interaction
     m_tpx = hit.momentum4Before().x() / Acts::UnitConstants::GeV;
     m_tpy = hit.momentum4Before().y() / Acts::UnitConstants::GeV;

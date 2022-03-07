@@ -7,8 +7,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Result.hpp"
 
 namespace Acts {
@@ -34,11 +34,15 @@ class GaussianGridTrackDensity {
   static_assert(mainGridSize > trkGridSize);
 
  public:
-  /// @struct Config The configuration struct
+  using MainGridVector = Eigen::Matrix<float, mainGridSize, 1>;
+  using TrackGridVector = Eigen::Matrix<float, trkGridSize, 1>;
+
+  /// The configuration struct
   struct Config {
-    /// @param zMinMax The minimum and maximum z-values (in mm) that
-    /// should be covered by the main 1-dim density grid along the z-axis
-    /// Note: This value together with 'mainGridSize' determines the
+    /// @param zMinMax_ The minimum and maximum z-values (in mm) that
+    ///                 should be covered by the main 1-dim density grid along
+    ///                 the z-axis
+    /// @note The value of @p zMinMax_ together with @p mainGridSize determines the
     /// overall bin size to be used as seen below
     Config(float zMinMax_ = 100) : zMinMax(zMinMax_) {
       binSize = 2. * zMinMax / mainGridSize;
@@ -70,7 +74,7 @@ class GaussianGridTrackDensity {
   /// @param mainGrid The main 1-dim density grid along the z-axis
   ///
   /// @return The z position of maximum track density
-  Result<float> getMaxZPosition(ActsVectorF<mainGridSize>& mainGrid) const;
+  Result<float> getMaxZPosition(MainGridVector& mainGrid) const;
 
   /// @brief Returns the z position of maximum track density and
   /// the estimated width
@@ -79,7 +83,7 @@ class GaussianGridTrackDensity {
   ///
   /// @return The z position of maximum track density and width
   Result<std::pair<float, float>> getMaxZPositionAndWidth(
-      ActsVectorF<mainGridSize>& mainGrid) const;
+      MainGridVector& mainGrid) const;
 
   /// @brief Adds a single track to the overall grid density
   ///
@@ -89,9 +93,8 @@ class GaussianGridTrackDensity {
   /// @return A pair storing information about the z-bin position
   /// the track was added (int) and the 1-dim density contribution
   /// of the track itself
-  std::pair<int, ActsVectorF<trkGridSize>> addTrack(
-      const BoundTrackParameters& trk,
-      ActsVectorF<mainGridSize>& mainGrid) const;
+  std::pair<int, TrackGridVector> addTrack(const BoundTrackParameters& trk,
+                                           MainGridVector& mainGrid) const;
 
   /// @brief Removes a track from the overall grid density
   ///
@@ -99,9 +102,8 @@ class GaussianGridTrackDensity {
   /// removed from
   /// @param trkGrid The 1-dim density contribution of the track
   /// @param mainGrid The main 1-dim density grid along the z-axis
-  void removeTrackGridFromMainGrid(int zBin,
-                                   const ActsVectorF<trkGridSize>& trkGrid,
-                                   ActsVectorF<mainGridSize>& mainGrid) const;
+  void removeTrackGridFromMainGrid(int zBin, const TrackGridVector& trkGrid,
+                                   MainGridVector& mainGrid) const;
 
  private:
   /// @brief Helper function that acutally adds the track to the
@@ -110,8 +112,8 @@ class GaussianGridTrackDensity {
   /// @param zBin The center z-bin position the track
   /// @param trkGrid The 1-dim density contribution of the track
   /// @param mainGrid The main 1-dim density grid along the z-axis
-  void addTrackGridToMainGrid(int zBin, const ActsVectorF<trkGridSize>& trkGrid,
-                              ActsVectorF<mainGridSize>& mainGrid) const;
+  void addTrackGridToMainGrid(int zBin, const TrackGridVector& trkGrid,
+                              MainGridVector& mainGrid) const;
 
   /// @brief Helper function that modifies the main density grid
   /// (either adds or removes a track)
@@ -121,9 +123,8 @@ class GaussianGridTrackDensity {
   /// @param mainGrid The main 1-dim density grid along the z-axis
   /// @param modifyModeSign Sign that determines the mode of modification,
   /// +1 for adding a track, -1 for removing a track
-  void modifyMainGridWithTrackGrid(int zBin,
-                                   const ActsVectorF<trkGridSize>& trkGrid,
-                                   ActsVectorF<mainGridSize>& mainGrid,
+  void modifyMainGridWithTrackGrid(int zBin, const TrackGridVector& trkGrid,
+                                   MainGridVector& mainGrid,
                                    int modifyModeSign) const;
 
   /// @brief Function that creates a 1-dim track grid (i.e. a vector)
@@ -136,22 +137,20 @@ class GaussianGridTrackDensity {
   /// bin center in the 2-dim grid
   /// @param distCtrZ The distance in z0 from the track position to its
   /// bin center in the 2-dim grid
-  ActsVectorF<trkGridSize> createTrackGrid(int offset, const SymMatrix2D& cov,
-                                           float distCtrD,
-                                           float distCtrZ) const;
+  TrackGridVector createTrackGrid(int offset, const SymMatrix2& cov,
+                                  float distCtrD, float distCtrZ) const;
 
   /// @brief Function that estimates the seed width based on the FWHM of
   /// the maximum density peak
   ///
   /// @param mainGrid The main 1-dim density grid along the z-axis
-  /// @maxZ z-position of the maximum density value
+  /// @param maxZ z-position of the maximum density value
   ///
   /// @return The width
-  Result<float> estimateSeedWidth(ActsVectorF<mainGridSize>& mainGrid,
-                                  float maxZ) const;
+  Result<float> estimateSeedWidth(MainGridVector& mainGrid, float maxZ) const;
 
   /// @brief Helper to retrieve values according to a 2-dim normal distribution
-  float normal2D(float d, float z, const SymMatrix2D& cov) const;
+  float normal2D(float d, float z, const SymMatrix2& cov) const;
 
   /// @brief Checks the (up to) first three density maxima (only those that have
   /// a maximum relative deviation of 'relativeDensityDev' from the main
@@ -161,17 +160,16 @@ class GaussianGridTrackDensity {
   /// @param mainGrid The main 1-dim density grid along the z-axis
   ///
   /// @return The z-bin position
-  int getHighestSumZPosition(ActsVectorF<mainGridSize>& mainGrid) const;
+  int getHighestSumZPosition(MainGridVector& mainGrid) const;
 
   /// @brief Calculates the density sum of a z-bin and its two neighboring bins
   /// as needed for 'getHighestSumZPosition'
   ///
-  /// @parem mainGrid The main 1-dim density grid along the z-axis
+  /// @param mainGrid The main 1-dim density grid along the z-axis
   /// @param pos The center z-bin positon
   ///
   /// @return The sum
-  double getDensitySum(const ActsVectorF<mainGridSize>& mainGrid,
-                       int pos) const;
+  double getDensitySum(const MainGridVector& mainGrid, int pos) const;
 
   Config m_cfg;
 };

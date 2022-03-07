@@ -8,6 +8,7 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/NeutralTrackParameters.hpp"
 #include "Acts/Geometry/CuboidVolumeBuilder.hpp"
 #include "Acts/Geometry/CylinderVolumeBounds.hpp"
@@ -32,7 +33,6 @@
 #include "Acts/Propagator/StraightLineStepper.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/detail/Axis.hpp"
 #include "Acts/Utilities/detail/Grid.hpp"
@@ -47,7 +47,7 @@ namespace Acts {
 struct MaterialCollector {
   struct this_result {
     std::vector<Material> matTrue;
-    std::vector<Vector3D> position;
+    std::vector<Vector3> position;
   };
   using result_type = this_result;
 
@@ -87,29 +87,29 @@ BOOST_AUTO_TEST_CASE(SurfaceMaterialMapper_tests) {
 
   // Build a vacuum volume
   CuboidVolumeBuilder::VolumeConfig vCfg1;
-  vCfg1.position = Vector3D(0.5_m, 0., 0.);
-  vCfg1.length = Vector3D(1_m, 1_m, 1_m);
+  vCfg1.position = Vector3(0.5_m, 0., 0.);
+  vCfg1.length = Vector3(1_m, 1_m, 1_m);
   vCfg1.name = "Vacuum volume";
   vCfg1.volumeMaterial = std::make_shared<const ProtoVolumeMaterial>(bu1);
 
   // Build a material volume
   CuboidVolumeBuilder::VolumeConfig vCfg2;
-  vCfg2.position = Vector3D(1.5_m, 0., 0.);
-  vCfg2.length = Vector3D(1_m, 1_m, 1_m);
+  vCfg2.position = Vector3(1.5_m, 0., 0.);
+  vCfg2.length = Vector3(1_m, 1_m, 1_m);
   vCfg2.name = "First material volume";
   vCfg2.volumeMaterial = std::make_shared<const ProtoVolumeMaterial>(bu2);
 
   // Build another material volume with different material
   CuboidVolumeBuilder::VolumeConfig vCfg3;
-  vCfg3.position = Vector3D(2.5_m, 0., 0.);
-  vCfg3.length = Vector3D(1_m, 1_m, 1_m);
+  vCfg3.position = Vector3(2.5_m, 0., 0.);
+  vCfg3.length = Vector3(1_m, 1_m, 1_m);
   vCfg3.name = "Second material volume";
   vCfg3.volumeMaterial = std::make_shared<const ProtoVolumeMaterial>(bu3);
 
   // Configure world
   CuboidVolumeBuilder::Config cfg;
-  cfg.position = Vector3D(1.5_m, 0., 0.);
-  cfg.length = Vector3D(3_m, 1_m, 1_m);
+  cfg.position = Vector3(1.5_m, 0., 0.);
+  cfg.length = Vector3(3_m, 1_m, 1_m);
   cfg.volumeCfg = {vCfg1, vCfg2, vCfg3};
 
   GeometryContext gc;
@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE(SurfaceMaterialMapper_tests) {
   std::shared_ptr<const TrackingGeometry> tGeometry = tgb.trackingGeometry(gc);
 
   /// We need a Navigator, Stepper to build a Propagator
-  Navigator navigator(tGeometry);
+  Navigator navigator({tGeometry});
   StraightLineStepper stepper;
   VolumeMaterialMapper::StraightLinePropagator propagator(std::move(stepper),
                                                           std::move(navigator));
@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(SurfaceMaterialMapper_tests) {
   auto mState = vmMapper.createState(gCtx, mfCtx, *tGeometry);
 
   /// Test if this is not null
-  BOOST_CHECK_EQUAL(mState.recordedMaterial.size(), 3u);
+  BOOST_CHECK_EQUAL(mState.materialBin.size(), 3u);
 }
 
 /// @brief Test case for comparison between the mapped material and the
@@ -154,32 +154,32 @@ BOOST_AUTO_TEST_CASE(VolumeMaterialMapper_comparison_tests) {
 
   // Build a vacuum volume
   CuboidVolumeBuilder::VolumeConfig vCfg1;
-  vCfg1.position = Vector3D(0.5_m, 0., 0.);
-  vCfg1.length = Vector3D(1_m, 1_m, 1_m);
+  vCfg1.position = Vector3(0.5_m, 0., 0.);
+  vCfg1.length = Vector3(1_m, 1_m, 1_m);
   vCfg1.name = "Vacuum volume";
   vCfg1.volumeMaterial =
       std::make_shared<const HomogeneousVolumeMaterial>(Material());
 
   // Build a material volume
   CuboidVolumeBuilder::VolumeConfig vCfg2;
-  vCfg2.position = Vector3D(1.5_m, 0., 0.);
-  vCfg2.length = Vector3D(1_m, 1_m, 1_m);
+  vCfg2.position = Vector3(1.5_m, 0., 0.);
+  vCfg2.length = Vector3(1_m, 1_m, 1_m);
   vCfg2.name = "First material volume";
   vCfg2.volumeMaterial =
       std::make_shared<HomogeneousVolumeMaterial>(makeSilicon());
 
   // Build another material volume with different material
   CuboidVolumeBuilder::VolumeConfig vCfg3;
-  vCfg3.position = Vector3D(2.5_m, 0., 0.);
-  vCfg3.length = Vector3D(1_m, 1_m, 1_m);
+  vCfg3.position = Vector3(2.5_m, 0., 0.);
+  vCfg3.length = Vector3(1_m, 1_m, 1_m);
   vCfg3.name = "Second material volume";
   vCfg3.volumeMaterial =
       std::make_shared<const HomogeneousVolumeMaterial>(Material());
 
   // Configure world
   CuboidVolumeBuilder::Config cfg;
-  cfg.position = Vector3D(1.5_m, 0., 0.);
-  cfg.length = Vector3D(3_m, 1_m, 1_m);
+  cfg.position = Vector3(1.5_m, 0., 0.);
+  cfg.length = Vector3(3_m, 1_m, 1_m);
   cfg.volumeCfg = {vCfg1, vCfg2, vCfg3};
 
   GeometryContext gc;
@@ -208,8 +208,8 @@ BOOST_AUTO_TEST_CASE(VolumeMaterialMapper_comparison_tests) {
   // Sample the Material in the detector
   RecordedMaterialVolumePoint matRecord;
   for (unsigned int i = 0; i < 1e4; i++) {
-    Vector3D pos(disX(gen), disYZ(gen), disYZ(gen));
-    std::vector<Vector3D> volPos;
+    Vector3 pos(disX(gen), disYZ(gen), disYZ(gen));
+    std::vector<Vector3> volPos;
     volPos.push_back(pos);
     Material tv =
         (detector->lowestTrackingVolume(gc, pos)->volumeMaterial() != nullptr)
@@ -222,21 +222,34 @@ BOOST_AUTO_TEST_CASE(VolumeMaterialMapper_comparison_tests) {
 
   // Build the material grid
   Grid3D Grid = createGrid(xAxis, yAxis, zAxis);
-  std::function<Vector3D(Vector3D)> transfoGlobalToLocal =
-      [](Vector3D pos) -> Vector3D {
+  std::function<Vector3(Vector3)> transfoGlobalToLocal =
+      [](Vector3 pos) -> Vector3 {
     return {pos.x(), pos.y(), pos.z()};
   };
-  MaterialGrid3D matGrid =
-      mapMaterialPoints(Grid, matRecord, transfoGlobalToLocal);
+
+  // Walk over each properties
+  for (const auto& rm : matRecord) {
+    // Walk over each point associated with the properties
+    for (const auto& point : rm.second) {
+      // Search for fitting grid point and accumulate
+      Acts::Grid3D::index_t index =
+          Grid.localBinsFromLowerLeftEdge(transfoGlobalToLocal(point));
+      Grid.atLocalBins(index).accumulate(rm.first);
+    }
+  }
+
+  MaterialGrid3D matGrid = mapMaterialPoints(Grid);
 
   // Construct a simple propagation through the detector
   StraightLineStepper sls;
-  Navigator nav(std::move(detector));
+  Navigator::Config navCfg;
+  navCfg.trackingGeometry = std::move(detector);
+  Navigator nav(navCfg);
   Propagator<StraightLineStepper, Navigator> prop(sls, nav);
 
   // Set some start parameters
-  Vector4D pos4(0., 0., 0., 42_ns);
-  Vector3D dir(1., 0., 0.);
+  Vector4 pos4(0., 0., 0., 42_ns);
+  Vector3 dir(1., 0., 0.);
   NeutralCurvilinearTrackParameters sctp(pos4, dir, 1 / 1_GeV);
 
   MagneticFieldContext mc;

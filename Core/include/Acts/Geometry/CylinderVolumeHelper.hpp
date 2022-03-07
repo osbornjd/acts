@@ -8,13 +8,14 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/BoundarySurfaceFace.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Geometry/ILayerArrayCreator.hpp"
-#include "Acts/Geometry/ITrackingVolumeArrayCreator.hpp"
 #include "Acts/Geometry/ITrackingVolumeHelper.hpp"
+#include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,6 +27,8 @@ class TrackingVolume;
 class VolumeBounds;
 class CylinderVolumeBounds;
 class IVolumeMaterial;
+class ILayerArrayCreator;
+class ITrackingVolumeArrayCreator;
 
 /// @class CylinderVolumeHelper
 ///
@@ -57,7 +60,6 @@ class CylinderVolumeHelper : public ITrackingVolumeHelper {
                        std::unique_ptr<const Logger> logger = getDefaultLogger(
                            "CylinderVolumeHelper", Logging::INFO));
 
-  /// Destructor
   ~CylinderVolumeHelper() override = default;
 
   /// Create a TrackingVolume* from a set of layers and (optional) parameters
@@ -78,7 +80,7 @@ class CylinderVolumeHelper : public ITrackingVolumeHelper {
       const GeometryContext& gctx, const LayerVector& layers,
       std::shared_ptr<const IVolumeMaterial> volumeMaterial,
       VolumeBoundsPtr volumeBounds, MutableTrackingVolumeVector mtvVector = {},
-      const Transform3D& transform = Transform3D::Identity(),
+      const Transform3& transform = Transform3::Identity(),
       const std::string& volumeName = "UndefinedVolume",
       BinningType bType = arbitrary) const override;
 
@@ -203,7 +205,7 @@ class CylinderVolumeHelper : public ITrackingVolumeHelper {
   bool estimateAndCheckDimension(
       const GeometryContext& gctx, const LayerVector& layers,
       const CylinderVolumeBounds*& cylinderVolumeBounds,
-      const Transform3D& transform, double& rMinClean, double& rMaxClean,
+      const Transform3& transform, double& rMinClean, double& rMaxClean,
       double& zMinClean, double& zMaxClean, BinningValue& bValue,
       BinningType bType = arbitrary) const;
 
@@ -245,8 +247,8 @@ class CylinderVolumeHelper : public ITrackingVolumeHelper {
 
   /// Private method - helper method not to duplicate code
   ///
-  /// @param tVolume is the volume to which faces are added
-  /// @param bsf is the boundary surface to which faces are added
+  /// @param tvol is the volume to which faces are added
+  /// @param glueFace the boundary surface to which faces are added
   /// @param vols are the voluems which are added
   void addFaceVolumes(const MutableTrackingVolumePtr& tvol,
                       BoundarySurfaceFace glueFace,

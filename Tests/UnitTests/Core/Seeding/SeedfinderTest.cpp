@@ -26,6 +26,8 @@
 #include "ATLASCuts.hpp"
 #include "SpacePoint.hpp"
 
+using namespace Acts::UnitLiterals;
+
 std::vector<const SpacePoint*> readFile(std::string filename) {
   std::string line;
   int layer;
@@ -114,28 +116,40 @@ int main(int argc, char** argv) {
 
   Acts::SeedfinderConfig<SpacePoint> config;
   // silicon detector max
-  config.rMax = 160.;
-  config.deltaRMin = 5.;
-  config.deltaRMax = 160.;
-  config.collisionRegionMin = -250.;
-  config.collisionRegionMax = 250.;
-  config.zMin = -2800.;
-  config.zMax = 2800.;
+  config.rMax = 160._mm;
+  config.deltaRMin = 5._mm;
+  config.deltaRMax = 160._mm;
+  config.deltaRMinTopSP = config.deltaRMin;
+  config.deltaRMinBottomSP = config.deltaRMin;
+  config.deltaRMaxTopSP = config.deltaRMax;
+  config.deltaRMaxBottomSP = config.deltaRMax;
+  config.collisionRegionMin = -250._mm;
+  config.collisionRegionMax = 250._mm;
+  config.zMin = -2800._mm;
+  config.zMax = 2800._mm;
   config.maxSeedsPerSpM = 5;
   // 2.7 eta
   config.cotThetaMax = 7.40627;
   config.sigmaScattering = 1.00000;
 
-  config.minPt = 500.;
-  config.bFieldInZ = 0.00199724;
+  config.minPt = 500._MeV;
+  config.bFieldInZ = 1.99724_T;
 
-  config.beamPos = {-.5, -.5};
-  config.impactMax = 10.;
+  config.beamPos = {-.5_mm, -.5_mm};
+  config.impactMax = 10._mm;
+
+  config.useVariableMiddleSPRange = false;
+  Acts::Extent rRangeSPExtent;
+
+  int numPhiNeighbors = 1;
+
+  std::vector<std::pair<int, int>> zBinNeighborsTop;
+  std::vector<std::pair<int, int>> zBinNeighborsBottom;
 
   auto bottomBinFinder = std::make_shared<Acts::BinFinder<SpacePoint>>(
-      Acts::BinFinder<SpacePoint>());
+      Acts::BinFinder<SpacePoint>(zBinNeighborsBottom, numPhiNeighbors));
   auto topBinFinder = std::make_shared<Acts::BinFinder<SpacePoint>>(
-      Acts::BinFinder<SpacePoint>());
+      Acts::BinFinder<SpacePoint>(zBinNeighborsTop, numPhiNeighbors));
   Acts::SeedFilterConfig sfconf;
   Acts::ATLASCuts<SpacePoint> atlasCuts = Acts::ATLASCuts<SpacePoint>();
   config.seedFilter = std::make_unique<Acts::SeedFilter<SpacePoint>>(
@@ -143,8 +157,11 @@ int main(int argc, char** argv) {
   Acts::Seedfinder<SpacePoint> a(config);
 
   // covariance tool, sets covariances per spacepoint as required
-  auto ct = [=](const SpacePoint& sp, float, float, float) -> Acts::Vector2D {
-    return {sp.varianceR, sp.varianceZ};
+  auto ct = [=](const SpacePoint& sp, float, float,
+                float) -> std::pair<Acts::Vector3, Acts::Vector2> {
+    Acts::Vector3 position(sp.x(), sp.y(), sp.z());
+    Acts::Vector2 covariance(sp.varianceR, sp.varianceZ);
+    return std::make_pair(position, covariance);
   };
 
   // setup spacepoint grid config
@@ -164,12 +181,14 @@ int main(int argc, char** argv) {
                                                  std::move(grid), config);
 
   std::vector<std::vector<Acts::Seed<SpacePoint>>> seedVector;
+  decltype(a)::State state;
   auto start = std::chrono::system_clock::now();
   auto groupIt = spGroup.begin();
   auto endOfGroups = spGroup.end();
   for (; !(groupIt == endOfGroups); ++groupIt) {
-    seedVector.push_back(a.createSeedsForGroup(
-        groupIt.bottom(), groupIt.middle(), groupIt.top()));
+    auto& v = seedVector.emplace_back();
+    a.createSeedsForGroup(state, std::back_inserter(v), groupIt.bottom(),
+                          groupIt.middle(), groupIt.top(), rRangeSPExtent);
   }
   auto end = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds = end - start;
@@ -188,10 +207,10 @@ int main(int argc, char** argv) {
         std::cout << " (" << sp->x() << ", " << sp->y() << ", " << sp->z()
                   << ") ";
         sp = seed->sp()[1];
-        std::cout << sp->surface << " (" << sp->x() << ", " << sp->y() << ", "
+        std::cout << sp->layer << " (" << sp->x() << ", " << sp->y() << ", "
                   << sp->z() << ") ";
         sp = seed->sp()[2];
-        std::cout << sp->surface << " (" << sp->x() << ", " << sp->y() << ", "
+        std::cout << sp->layer << " (" << sp->x() << ", " << sp->y() << ", "
                   << sp->z() << ") ";
         std::cout << std::endl;
       }

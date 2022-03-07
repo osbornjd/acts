@@ -7,18 +7,20 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Utilities/BinningData.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <array>
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <vector>
 
 namespace Acts {
 
-///  @class BinUtility
+/// @class BinUtility
 ///
 /// The BinUtility class that translated global and local position into a bins
 /// of a BinnedArray, most performant is equidistant binning without a
@@ -33,15 +35,15 @@ class BinUtility {
   /// Constructor for equidistant
   BinUtility()
       : m_binningData(),
-        m_transform(Transform3D::Identity()),
-        m_itransform(Transform3D::Identity()) {
+        m_transform(Transform3::Identity()),
+        m_itransform(Transform3::Identity()) {
     m_binningData.reserve(3);
   }
 
-  /// Constructor with only a Transform3D
+  /// Constructor with only a Transform3
   ///
   /// @param tForm is the local to global transform
-  BinUtility(const Transform3D& tForm)
+  BinUtility(const Transform3& tForm)
       : m_binningData(), m_transform(tForm), m_itransform(tForm.inverse()) {
     m_binningData.reserve(3);
   }
@@ -51,7 +53,7 @@ class BinUtility {
   /// @param bData is the provided binning data
   /// @param tForm is the (optional) transform
   BinUtility(const BinningData& bData,
-             const Transform3D& tForm = Transform3D::Identity())
+             const Transform3& tForm = Transform3::Identity())
       : m_binningData(), m_transform(tForm), m_itransform(tForm.inverse()) {
     m_binningData.reserve(3);
     m_binningData.push_back(bData);
@@ -67,7 +69,7 @@ class BinUtility {
   /// @param tForm is the (optional) transform
   BinUtility(size_t bins, float min, float max, BinningOption opt = open,
              BinningValue value = binX,
-             const Transform3D& tForm = Transform3D::Identity())
+             const Transform3& tForm = Transform3::Identity())
       : m_binningData(), m_transform(tForm), m_itransform(tForm.inverse()) {
     m_binningData.reserve(3);
     m_binningData.push_back(BinningData(opt, value, bins, min, max));
@@ -81,7 +83,7 @@ class BinUtility {
   /// @param tForm is the (optional) transform
   BinUtility(std::vector<float>& bValues, BinningOption opt = open,
              BinningValue value = binPhi,
-             const Transform3D& tForm = Transform3D::Identity())
+             const Transform3& tForm = Transform3::Identity())
       : m_binningData(), m_transform(tForm), m_itransform(tForm.inverse()) {
     m_binningData.reserve(3);
     m_binningData.push_back(BinningData(opt, value, bValues));
@@ -107,7 +109,7 @@ class BinUtility {
     return (*this);
   }
 
-  /// Operator++ to make multidimensional BinUtility
+  /// Operator+= to make multidimensional BinUtility
   ///
   /// @param gbu is the additional BinUtility to be chosen
   BinUtility& operator+=(const BinUtility& gbu) {
@@ -125,7 +127,13 @@ class BinUtility {
   /// Virtual Destructor
   ~BinUtility() = default;
 
-  /// return the binning data vector
+  /// Equality operator
+  bool operator==(const BinUtility& other) const {
+    return (m_transform.isApprox(other.m_transform) and
+            m_binningData == other.binningData());
+  }
+
+  /// Return the binning data vector
   const std::vector<BinningData>& binningData() const { return m_binningData; }
 
   /// Return the total number of bins
@@ -138,9 +146,9 @@ class BinUtility {
   /// @param position is the 3D position to be evaluated
   ///
   /// @return is the bin value in 3D
-  std::array<size_t, 3> binTriple(const Vector3D& position) const {
+  std::array<size_t, 3> binTriple(const Vector3& position) const {
     /// transform or not
-    const Vector3D bPosition = m_itransform * position;
+    const Vector3 bPosition = m_itransform * position;
     // get the dimension
     size_t mdim = m_binningData.size();
     /// now get the bins
@@ -157,41 +165,12 @@ class BinUtility {
   /// @param ba is the bin dimension
   ///
   /// @return is the bin value
-  size_t bin(const Vector3D& position, size_t ba = 0) const {
+  size_t bin(const Vector3& position, size_t ba = 0) const {
     if (ba >= m_binningData.size()) {
       return 0;
     }
     size_t bEval = m_binningData[ba].searchGlobal(m_itransform * position);
     return bEval;
-  }
-
-  /// Bin neighbour range
-  /// this method calls the increment/decreement methods
-  /// the bin itself is also contained, so if not an edge-case
-  /// this would be
-  ///  | n | c | p |
-  ///
-  /// @param position is the position for the neighbour Range test
-  /// @param ba is the binning accessor
-  ///
-  /// @return a vector of neighbour sizes
-  std::vector<size_t> neighbourRange(const Vector3D& position,
-                                     size_t ba = 0) const {
-    if (ba >= m_binningData.size()) {
-      return {0};
-    }
-    std::vector<size_t> neighbourRange;
-    size_t cbin = bin(position, ba);
-    size_t pbin = cbin;
-    size_t nbin = cbin;
-    if (m_binningData[ba].decrement(pbin)) {
-      neighbourRange.push_back(pbin);
-    }
-    neighbourRange.push_back(cbin);
-    if (m_binningData[ba].increment(nbin) && nbin != pbin) {
-      neighbourRange.push_back(nbin);
-    }
-    return neighbourRange;
   }
 
   /// Return the oder direction for fast interlinking
@@ -203,7 +182,7 @@ class BinUtility {
   /// @todo the
   ///
   /// @return the next bin
-  int nextDirection(const Vector3D& position, const Vector3D& direction,
+  int nextDirection(const Vector3& position, const Vector3& direction,
                     size_t ba = 0) const {
     if (ba >= m_binningData.size()) {
       return 0;
@@ -222,19 +201,19 @@ class BinUtility {
   /// @param ba is the bin dimension
   ///
   /// @return bin calculated from local
-  size_t bin(const Vector2D& lposition, size_t ba = 0) const {
+  size_t bin(const Vector2& lposition, size_t ba = 0) const {
     if (ba >= m_binningData.size()) {
       return 0;
     }
     return m_binningData[ba].searchLocal(lposition);
   }
-  /// Check if bin is inside from Vector2D - optional transform applied
+  /// Check if bin is inside from Vector2 - optional transform applied
   ///
   /// @param position is the global position to be evaluated
   /// @return is a boolean check
-  bool inside(const Vector3D& position) const {
+  bool inside(const Vector3& position) const {
     /// transform or not
-    const Vector3D& bPosition = m_itransform * position;
+    const Vector3& bPosition = m_itransform * position;
     // loop and break
     for (auto& bData : m_binningData) {
       if (!(bData.inside(bPosition))) {
@@ -245,11 +224,11 @@ class BinUtility {
     return true;
   }
 
-  /// Check if bin is inside from Vector2D - no optional transform applied
+  /// Check if bin is inside from Vector2 - no optional transform applied
   ///
   /// @param lposition is the local position to be evaluated
   /// @return is a boolean check
-  bool inside(const Vector2D& lposition) const {
+  bool inside(const Vector2& lposition) const {
     return true;
     std::vector<BinningData>::const_iterator bdIter = m_binningData.begin();
     for (; bdIter != m_binningData.end(); ++bdIter) {
@@ -291,7 +270,7 @@ class BinUtility {
   /// Transform applied to global positions before lookup
   ///
   /// @return Shared pointer to transform
-  const Transform3D& transform() const { return m_transform; }
+  const Transform3& transform() const { return m_transform; }
 
   /// The type/value of the binning
   ///
@@ -350,8 +329,8 @@ class BinUtility {
 
  private:
   std::vector<BinningData> m_binningData;  /// vector of BinningData
-  Transform3D m_transform;                 /// shared transform
-  Transform3D m_itransform;                /// unique inverse transform
+  Transform3 m_transform;                  /// shared transform
+  Transform3 m_itransform;                 /// unique inverse transform
 };
 
 /// Overload of << operator for std::ostream for debug output

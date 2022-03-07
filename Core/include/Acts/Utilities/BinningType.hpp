@@ -6,10 +6,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// BinningType.h, Acts project
-///////////////////////////////////////////////////////////////////
-
 #pragma once
 #include <string>
 #include <vector>
@@ -50,7 +46,10 @@ enum BinningValue : int {
 };
 
 /// @brief screen output option
-static const std::vector<std::string> binningValueNames = {
-    "binX",    "binY", "binZ",   "binR",  "binPhi",
-    "binRPhi", "binH", "binEta", "binMag"};
+inline const std::vector<std::string>& binningValueNames() {
+  static const std::vector<std::string> _binningValueNames = {
+      "binX",    "binY", "binZ",   "binR",  "binPhi",
+      "binRPhi", "binH", "binEta", "binMag"};
+  return _binningValueNames;
+}
 }  // namespace Acts

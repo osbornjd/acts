@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2018-2021 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -9,13 +9,10 @@
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
 #include "ActsFatras/EventData/Particle.hpp"
-#include "ActsFatras/Physics/Scattering/GaussianMixture.hpp"
-#include "ActsFatras/Physics/Scattering/GeneralMixture.hpp"
-#include "ActsFatras/Physics/Scattering/Highland.hpp"
+#include "ActsFatras/Physics/ElectroMagnetic/Scattering.hpp"
 
 #include <limits>
 #include <random>
@@ -34,7 +31,7 @@ void test(const Scattering& scattering, uint32_t seed,
 
   const auto outgoing = scattering(gen, Acts::Test::makePercentSlab(), after);
   // scattering leaves absolute energy/momentum unchanged
-  CHECK_CLOSE_REL(after.absMomentum(), before.absMomentum(), eps);
+  CHECK_CLOSE_REL(after.absoluteMomentum(), before.absoluteMomentum(), eps);
   CHECK_CLOSE_REL(after.energy(), before.energy(), eps);
   // scattering has changed the direction
   BOOST_CHECK_LT(before.unitDirection().dot(after.unitDirection()), 1);

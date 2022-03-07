@@ -10,11 +10,11 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Propagator/AbortList.hpp"
 #include "Acts/Propagator/ConstrainedStep.hpp"
 #include "Acts/Propagator/StandardAborters.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Utilities/detail/Extendable.hpp"
 
 namespace bdata = boost::unit_test::data;
@@ -95,7 +95,22 @@ struct PropagatorState {
 };
 
 /// This is a struct to mimic the stepper
-struct Stepper {};
+struct Stepper {
+  auto outputStepSize(const PropagatorState::StepperState&) const {
+    return std::string{};
+  }
+
+  double getStepSize(const PropagatorState::StepperState& state,
+                     ConstrainedStep::Type stype) const {
+    return state.stepSize.value(stype);
+  }
+
+  void setStepSize(PropagatorState::StepperState& state, double stepSize,
+                   ConstrainedStep::Type stype = ConstrainedStep::actor,
+                   bool release = true) const {
+    state.stepSize.update(stepSize, stype, release);
+  }
+};
 
 /// This is a simple result struct to mimic the
 /// propagator result

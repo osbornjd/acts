@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2018 CERN for the benefit of the Acts project
+// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,19 +8,35 @@
 
 #include "ActsExamples/EventData/SimParticle.hpp"
 #include "ActsExamples/EventData/SimVertex.hpp"
-#include "ActsExamples/Plugins/HepMC3/HepMC3Event.hpp"
-#include "ActsExamples/Plugins/HepMC3/HepMC3Reader.hpp"
+#include "ActsExamples/Io/HepMC3/HepMC3Event.hpp"
+#include "ActsExamples/Io/HepMC3/HepMC3Options.hpp"
+#include "ActsExamples/Io/HepMC3/HepMC3Reader.hpp"
+#include "ActsExamples/Options/CommonOptions.hpp"
+#include "ActsFatras/Utilities/ParticleData.hpp"
 
 #include <fstream>
 
-#include "HepMC3/ReaderAscii.h"
-#include "HepPID/ParticleName.hh"
+#include <HepMC3/GenEvent.h>
+#include <HepMC3/ReaderAscii.h>
 
 ///
 /// Straight forward example of reading a HepMC3 file.
 ///
-int main(int /*argc*/, char** /*argv*/) {
-  ActsExamples::HepMC3ReaderAscii simReader;
+int main(int argc, char** argv) {
+  // Declare the supported program options.
+  // Setup and parse options
+  auto desc = ActsExamples::Options::makeDefaultOptions();
+  ActsExamples::Options::addHepMC3ReaderOptions(desc);
+  auto vm = ActsExamples::Options::parse(desc, argc, argv);
+  if (vm.empty()) {
+    return EXIT_FAILURE;
+  }
+
+  auto logLevel = ActsExamples::Options::readLogLevel(vm);
+
+  // Create the reader
+  auto hepMC3ReaderConfig = ActsExamples::Options::readHepMC3ReaderOptions(vm);
+  ActsExamples::HepMC3AsciiReader simReader(hepMC3ReaderConfig, logLevel);
 
   std::cout << "Preparing reader " << std::flush;
   HepMC3::ReaderAscii reader("test.hepmc3");
@@ -30,7 +46,7 @@ int main(int /*argc*/, char** /*argv*/) {
     std::cout << "failed" << std::endl;
   }
 
-  std::shared_ptr<HepMC3::GenEvent> genevt(new HepMC3::GenEvent());
+  HepMC3::GenEvent genevt;
 
   std::cout << "Reading event " << std::flush;
   if (simReader.readEvent(reader, genevt)) {
@@ -40,47 +56,54 @@ int main(int /*argc*/, char** /*argv*/) {
   }
   std::cout << std::endl;
 
-  ActsExamples::HepMC3Event simEvent;
-
+  using namespace ActsExamples::HepMC3Event;
   std::cout << "Event data:" << std::endl;
   std::cout << "Units: ";
-  if (simEvent.momentumUnit(genevt) == Acts::UnitConstants::GeV)
+  if (momentumUnit(genevt) == Acts::UnitConstants::GeV)
     std::cout << "[GEV], ";
-  else if (simEvent.momentumUnit(genevt) == Acts::UnitConstants::MeV)
+  else if (momentumUnit(genevt) == Acts::UnitConstants::MeV)
     std::cout << "[MeV], ";
-  if (simEvent.lengthUnit(genevt) == Acts::UnitConstants::mm)
+  if (lengthUnit(genevt) == Acts::UnitConstants::mm)
     std::cout << "[mm]" << std::endl;
-  else if (simEvent.lengthUnit(genevt) == Acts::UnitConstants::cm)
+  else if (lengthUnit(genevt) == Acts::UnitConstants::cm)
     std::cout << "[cm]" << std::endl;
-  Acts::Vector3D evtPos = simEvent.eventPos(genevt);
+  Acts::Vector3 evtPos = eventPos(genevt);
   std::cout << "Event position: " << evtPos(0) << ", " << evtPos(1) << ", "
             << evtPos(2) << std::endl;
-  std::cout << "Event time: " << simEvent.eventTime(genevt) << std::endl;
+  std::cout << "Event time: " << eventTime(genevt) << std::endl;
 
   std::cout << "Beam particles: ";
-  std::vector<std::unique_ptr<ActsExamples::SimParticle>> beam =
-      simEvent.beams(genevt);
+  std::vector<ActsExamples::SimParticle> beam = beams(genevt);
   if (beam.empty())
     std::cout << "none" << std::endl;
   else {
-    for (auto& pbeam : beam)
-      std::cout << HepPID::particleName(pbeam->pdg()) << " ";
+    for (auto& pbeam : beam) {
+      std::cout << ActsFatras::findName(
+                       static_cast<Acts::PdgParticle>(pbeam.pdg()))
+                << " ";
+    }
     std::cout << std::endl;
   }
 
   std::cout << std::endl << "Vertices: ";
   std::vector<std::unique_ptr<ActsExamples::SimVertex>> vertices =
-      simEvent.vertices(genevt);
+      ActsExamples::HepMC3Event::vertices(genevt);
   if (vertices.empty())
     std::cout << "none" << std::endl;
   else {
     std::cout << std::endl;
     for (auto& vertex : vertices) {
-      for (auto& particle : vertex->incoming)
-        std::cout << HepPID::particleName(particle.pdg()) << " ";
+      for (auto& particle : vertex->incoming) {
+        std::cout << ActsFatras::findName(
+                         static_cast<Acts::PdgParticle>(particle.pdg()))
+                  << " ";
+      }
       std::cout << "-> ";
-      for (auto& particle : vertex->outgoing)
-        std::cout << HepPID::particleName(particle.pdg()) << " ";
+      for (auto& particle : vertex->outgoing) {
+        std::cout << ActsFatras::findName(
+                         static_cast<Acts::PdgParticle>(particle.pdg()))
+                  << " ";
+      }
       std::cout << "\t@(" << vertex->time() << ", " << vertex->position()(0)
                 << ", " << vertex->position()(1) << ", "
                 << vertex->position()(2) << ")" << std::endl;
@@ -89,22 +112,29 @@ int main(int /*argc*/, char** /*argv*/) {
   }
 
   std::cout << "Total particle record:" << std::endl;
-  std::vector<std::unique_ptr<ActsExamples::SimParticle>> particles =
-      simEvent.particles(genevt);
-  for (auto& particle : particles)
-    std::cout << HepPID::particleName(particle->pdg())
-              << "\tID:" << particle->particleId() << ", momentum: ("
-              << particle->momentum4()(0) << ", " << particle->momentum4()(1)
-              << ", " << particle->momentum4()(2)
-              << "), mass:  " << particle->mass() << std::endl;
+  std::vector<ActsExamples::SimParticle> particles =
+      ActsExamples::HepMC3Event::particles(genevt);
+  for (auto& particle : particles) {
+    std::cout << ActsFatras::findName(
+                     static_cast<Acts::PdgParticle>(particle.pdg()))
+              << "\tID:" << particle.particleId() << ", momentum: ("
+              << particle.fourMomentum()(0) << ", "
+              << particle.fourMomentum()(1) << ", "
+              << particle.fourMomentum()(2) << "), mass:  " << particle.mass()
+              << std::endl;
+  }
 
   std::cout << std::endl << "Initial to final state: ";
-  std::vector<std::unique_ptr<ActsExamples::SimParticle>> fState =
-      simEvent.finalState(genevt);
-  for (auto& pbeam : beam)
-    std::cout << HepPID::particleName(pbeam->pdg()) << " ";
+  std::vector<ActsExamples::SimParticle> fState = finalState(genevt);
+  for (auto& pbeam : beam) {
+    std::cout << ActsFatras::findName(
+                     static_cast<Acts::PdgParticle>(pbeam.pdg()))
+              << " ";
+  }
   std::cout << "-> ";
-  for (auto& fs : fState)
-    std::cout << HepPID::particleName(fs->pdg()) << " ";
+  for (auto& fs : fState) {
+    std::cout << ActsFatras::findName(static_cast<Acts::PdgParticle>(fs.pdg()))
+              << " ";
+  }
   std::cout << std::endl;
 }

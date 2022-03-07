@@ -8,19 +8,21 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/AbstractVolume.hpp"
 #include "Acts/Geometry/ApproachDescriptor.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Geometry/GeometryObject.hpp"
-#include "Acts/Geometry/GeometryStatics.hpp"
 #include "Acts/Material/IMaterialDecorator.hpp"
+#include "Acts/Surfaces/BoundaryCheck.hpp"
 #include "Acts/Surfaces/SurfaceArray.hpp"
 #include "Acts/Utilities/BinnedArray.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 
-#include <map>
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace Acts {
 
@@ -31,6 +33,10 @@ class Volume;
 class VolumeBounds;
 class TrackingVolume;
 class ApproachDescriptor;
+class IMaterialDecorator;
+
+template <typename T>
+struct NavigationOptions;
 
 // Simple surface intersection
 using SurfaceIntersection = ObjectIntersection<Surface>;
@@ -93,8 +99,8 @@ class Layer : public virtual GeometryObject {
 
   /// Assignment operator - forbidden, layer assignment must not be ambiguous
   ///
-  /// @param lay is the source layer for assignment
-  Layer& operator=(const Layer&) = delete;
+  /// @param layer is the source layer for assignment
+  Layer& operator=(const Layer& layer) = delete;
 
   /// Return the entire SurfaceArray, returns a nullptr if no SurfaceArray
   const SurfaceArray* surfaceArray() const;
@@ -123,7 +129,7 @@ class Layer : public virtual GeometryObject {
   /// @param bcheck is the boundary check directive
   ///
   /// @return boolean that indicates success of the operation
-  virtual bool isOnLayer(const GeometryContext& gctx, const Vector3D& position,
+  virtual bool isOnLayer(const GeometryContext& gctx, const Vector3& position,
                          const BoundaryCheck& bcheck = true) const;
 
   /// Return method for the approach descriptor, can be nullptr
@@ -155,37 +161,30 @@ class Layer : public virtual GeometryObject {
 
   /// @brief Decompose Layer into (compatible) surfaces
   ///
-  /// @tparam options_t The navigation options type
-  ///
   /// @param gctx The current geometry context object, e.g. alignment
   /// @param position Position parameter for searching
-  /// @param momentum Momentum parameter for searching
-  /// @param options The templated naivation options
+  /// @param direction Direction of the parameters for searching
+  /// @param options The navigation options
   ///
   /// @return list of intersection of surfaces on the layer
-  template <typename options_t>
-  std::vector<SurfaceIntersection> compatibleSurfaces(
-      const GeometryContext& gctx, const Vector3D& position,
-      const Vector3D& direction, const options_t& options) const;
+  boost::container::small_vector<SurfaceIntersection, 10> compatibleSurfaces(
+      const GeometryContext& gctx, const Vector3& position,
+      const Vector3& direction,
+      const NavigationOptions<Surface>& options) const;
 
   /// Surface seen on approach
-  ///
-  /// @tparam options_t The navigation options type
-  ///
   /// for layers without sub structure, this is the surfaceRepresentation
   /// for layers with sub structure, this is the approachSurface
   ///
   /// @param gctx The current geometry context object, e.g. alignment
   /// @param position Position for searching
   /// @param direction Direction for searching
-  /// @param options The templated naivation options
+  /// @param options The  navigation options
   ///
   /// @return the Surface intersection of the approach surface
-  template <typename options_t>
-  const SurfaceIntersection surfaceOnApproach(const GeometryContext& gctx,
-                                              const Vector3D& position,
-                                              const Vector3D& direction,
-                                              const options_t& options) const;
+  SurfaceIntersection surfaceOnApproach(
+      const GeometryContext& gctx, const Vector3& position,
+      const Vector3& direction, const NavigationOptions<Layer>& options) const;
 
   /// Fast navigation to next layer
   ///
@@ -194,8 +193,8 @@ class Layer : public virtual GeometryObject {
   /// @param direction is the direction for the search
   ///
   /// @return the pointer to the next layer
-  const Layer* nextLayer(const GeometryContext& gctx, const Vector3D& position,
-                         const Vector3D& direction) const;
+  const Layer* nextLayer(const GeometryContext& gctx, const Vector3& position,
+                         const Vector3& direction) const;
 
   /// Get the confining TrackingVolume
   ///
@@ -236,7 +235,7 @@ class Layer : public virtual GeometryObject {
   NextLayers m_nextLayers;
 
   /// A binutility to find the next layer
-  /// @TODO check if this is needed
+  /// @todo check if this is needed
   const BinUtility* m_nextLayerUtility = nullptr;
 
   /// SurfaceArray on this layer Surface

@@ -10,18 +10,20 @@
 
 #include "Acts/Material/MaterialSlab.hpp"
 
+#include <ostream>
+
 Acts::BinnedSurfaceMaterial::BinnedSurfaceMaterial(
     const BinUtility& binUtility, MaterialSlabVector fullProperties,
-    double splitFactor)
-    : ISurfaceMaterial(splitFactor), m_binUtility(binUtility) {
+    double splitFactor, Acts::MappingType mappingType)
+    : ISurfaceMaterial(splitFactor, mappingType), m_binUtility(binUtility) {
   // fill the material with deep copy
   m_fullMaterial.push_back(std::move(fullProperties));
 }
 
 Acts::BinnedSurfaceMaterial::BinnedSurfaceMaterial(
     const BinUtility& binUtility, MaterialSlabMatrix fullProperties,
-    double splitFactor)
-    : ISurfaceMaterial(splitFactor),
+    double splitFactor, Acts::MappingType mappingType)
+    : ISurfaceMaterial(splitFactor, mappingType),
       m_binUtility(binUtility),
       m_fullMaterial(std::move(fullProperties)) {}
 
@@ -36,7 +38,7 @@ Acts::BinnedSurfaceMaterial& Acts::BinnedSurfaceMaterial::operator*=(
 }
 
 const Acts::MaterialSlab& Acts::BinnedSurfaceMaterial::materialSlab(
-    const Vector2D& lp) const {
+    const Vector2& lp) const {
   // the first bin
   size_t ibin0 = m_binUtility.bin(lp, 0);
   size_t ibin1 = m_binUtility.max(1) != 0u ? m_binUtility.bin(lp, 1) : 0;
@@ -44,7 +46,7 @@ const Acts::MaterialSlab& Acts::BinnedSurfaceMaterial::materialSlab(
 }
 
 const Acts::MaterialSlab& Acts::BinnedSurfaceMaterial::materialSlab(
-    const Acts::Vector3D& gp) const {
+    const Acts::Vector3& gp) const {
   // the first bin
   size_t ibin0 = m_binUtility.bin(gp, 0);
   size_t ibin1 = m_binUtility.max(1) != 0u ? m_binUtility.bin(gp, 1) : 0;

@@ -32,7 +32,7 @@ class RootSimHitWriter final : public WriterT<SimHitContainer> {
  public:
   struct Config {
     /// Input particle collection to write.
-    std::string inputSimulatedHits;
+    std::string inputSimHits;
     /// Path to the output file.
     std::string filePath;
     /// Output file access mode.
@@ -43,9 +43,9 @@ class RootSimHitWriter final : public WriterT<SimHitContainer> {
 
   /// Construct the particle writer.
   ///
-  /// @params cfg is the configuration object
-  /// @params lvl is the logging level
-  RootSimHitWriter(const Config& cfg, Acts::Logging::Level lvl);
+  /// @param config is the configuration object
+  /// @param level is the logging level
+  RootSimHitWriter(const Config& config, Acts::Logging::Level level);
 
   /// Ensure underlying file is closed.
   ~RootSimHitWriter() final override;

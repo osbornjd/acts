@@ -6,25 +6,24 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// TrackingVolumeArrayCreator.cpp, Acts project
-///////////////////////////////////////////////////////////////////
-
 #include "Acts/Geometry/TrackingVolumeArrayCreator.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryObjectSorter.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/Geometry/VolumeBounds.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinnedArrayXD.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+
+#include <algorithm>
+#include <vector>
 
 std::shared_ptr<const Acts::TrackingVolumeArray>
 Acts::TrackingVolumeArrayCreator::trackingVolumeArray(
     const GeometryContext& gctx, const TrackingVolumeVector& tVolumes,
     BinningValue bValue) const {
   // MSG_VERBOSE("Create VolumeArray of "<< tVolumes.size() << " TrackingVolumes
-  // with binning in : " << binningValueNames[bValue] );
+  // with binning in : " << binningValueNames()[bValue] );
   // let's copy and sort
   TrackingVolumeVector volumes(tVolumes);
   // sort it accordingly to the binning value
@@ -42,7 +41,7 @@ Acts::TrackingVolumeArrayCreator::trackingVolumeArray(
   // let's loop over the (sorted) volumes
   for (auto& tVolume : volumes) {
     // get the binning position
-    Vector3D binningPosition = tVolume->binningPosition(gctx, bValue);
+    Vector3 binningPosition = tVolume->binningPosition(gctx, bValue);
     double binningBorder = tVolume->volumeBounds().binningBorder(bValue);
     // get the center value according to the bin
     double value = tVolume->binningPositionValue(gctx, bValue);

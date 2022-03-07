@@ -48,7 +48,8 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
         result.pathLength += s;
         ACTS_VERBOSE("Step with size = " << s << " performed");
       } else {
-        ACTS_ERROR("Step failed: " << res.error());
+        ACTS_ERROR("Step failed with " << res.error() << ": "
+                                       << res.error().message());
         // pass error to caller
         return res.error();
       }
@@ -117,7 +118,11 @@ auto Acts::Propagator<S, N>::propagate(
   using OptionsType = decltype(eOptions);
   // Initialize the internal propagator state
   using StateType = State<OptionsType>;
-  StateType state(start, eOptions);
+  StateType state{
+      start, eOptions,
+      m_stepper.makeState(eOptions.geoContext, eOptions.magFieldContext, start,
+                          eOptions.direction, eOptions.maxStepSize,
+                          eOptions.tolerance)};
 
   static_assert(
       Concepts ::has_method<const S, Result<double>, Concepts ::Stepper::step_t,
@@ -138,13 +143,13 @@ auto Acts::Propagator<S, N>::propagate(
     auto curvState = m_stepper.curvilinearState(state.stepping);
     auto& curvParameters = std::get<CurvilinearTrackParameters>(curvState);
     // Fill the end parameters
-    propRes.endParameters = std::make_unique<const CurvilinearTrackParameters>(
-        std::move(curvParameters));
+    propRes.endParameters =
+        std::make_unique<CurvilinearTrackParameters>(std::move(curvParameters));
     // Only fill the transport jacobian when covariance transport was done
     if (state.stepping.covTransport) {
       auto& tJacobian = std::get<Jacobian>(curvState);
       propRes.transportJacobian =
-          std::make_unique<const Jacobian>(std::move(tJacobian));
+          std::make_unique<Jacobian>(std::move(tJacobian));
     }
     return result;
   } else {
@@ -184,7 +189,11 @@ auto Acts::Propagator<S, N>::propagate(
 
   // Initialize the internal propagator state
   using StateType = State<OptionsType>;
-  StateType state(start, eOptions);
+  StateType state{
+      start, eOptions,
+      m_stepper.makeState(eOptions.geoContext, eOptions.magFieldContext, start,
+                          eOptions.direction, eOptions.maxStepSize,
+                          eOptions.tolerance)};
   state.navigation.targetSurface = &target;
 
   static_assert(
@@ -203,16 +212,22 @@ auto Acts::Propagator<S, N>::propagate(
   if (result.ok()) {
     auto& propRes = *result;
     // Compute the final results and mark the propagation as successful
-    auto bs = m_stepper.boundState(state.stepping, target);
+    auto bsRes = m_stepper.boundState(state.stepping, target);
+    if (!bsRes.ok()) {
+      return bsRes.error();
+    }
+
+    const auto& bs = *bsRes;
+
     auto& boundParams = std::get<BoundTrackParameters>(bs);
     // Fill the end parameters
     propRes.endParameters =
-        std::make_unique<const BoundTrackParameters>(std::move(boundParams));
+        std::make_unique<BoundTrackParameters>(std::move(boundParams));
     // Only fill the transport jacobian when covariance transport was done
     if (state.stepping.covTransport) {
       auto& tJacobian = std::get<Jacobian>(bs);
       propRes.transportJacobian =
-          std::make_unique<const Jacobian>(std::move(tJacobian));
+          std::make_unique<Jacobian>(std::move(tJacobian));
     }
     return result;
   } else {
