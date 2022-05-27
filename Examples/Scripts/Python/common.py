@@ -1,5 +1,8 @@
 import acts
 import acts.examples
+import os
+import sys
+
 
 from pathlib import Path
 
@@ -11,12 +14,41 @@ def getOpenDataDetectorDirectory():
 
 
 def getOpenDataDetector(mdecorator=None):
-    import acts.examples.dd4hep
-
     odd_dir = getOpenDataDetectorDirectory()
 
+    odd_xml = odd_dir / "xml" / "OpenDataDetector.xml"
+    if not odd_xml.exists():
+        raise RuntimeError(f"OpenDataDetector.xml not found at {odd_xml}")
+
+    env_vars = []
+    map_name = "libOpenDataDetector.components"
+    lib_name = None
+    if sys.platform == "linux":
+        env_vars = ["LD_LIBRARY_PATH"]
+        lib_name = "libOpenDataDetector.so"
+    elif sys.platform == "darwin":
+        env_vars = ["DYLD_LIBRARY_PATH", "DD4HEP_LIBRARY_PATH"]
+        lib_name = "libOpenDataDetector.dylib"
+
+    if lib_name is not None and len(env_vars) > 0:
+        found = False
+        for env_var in env_vars:
+            for lib_dir in os.environ.get(env_var, "").split(":"):
+                lib_dir = Path(lib_dir)
+                if (lib_dir / map_name).exists() and (lib_dir / lib_name).exists():
+                    found = True
+                    break
+        if not found:
+            msg = (
+                "Unable to find OpenDataDetector factory library. "
+                f"You might need to point {'/'.join(env_vars)} to build/thirdparty/OpenDataDetector/factory or other ODD install location"
+            )
+            raise RuntimeError(msg)
+
+    import acts.examples.dd4hep
+
     dd4hepConfig = acts.examples.dd4hep.DD4hepGeometryService.Config(
-        xmlFileNames=[str(odd_dir / "xml/OpenDataDetector.xml")]
+        xmlFileNames=[str(odd_xml)]
     )
     detector = acts.examples.dd4hep.DD4hepDetector()
 
@@ -44,48 +76,23 @@ def addPythia8(
     vertexStddev: acts.Vector4 = acts.Vector4(0, 0, 0, 0),
     vertexMean: acts.Vector4 = acts.Vector4(0, 0, 0, 0),
 ):
-    vertexGenerator = acts.examples.GaussianVertexGenerator(
-        stddev=vertexStddev, mean=vertexMean
+    """This function steers the particle generation using Pythia8
+
+    NB. this version is included here only for compatibility. Please use pythia8.addPythia8 instead.
+    """
+    import pythia8
+
+    evGen = pythia8.addPythia8(
+        sequencer,
+        rnd=rnd,
+        nhard=nhard,
+        npileup=npileup,
+        beam=(beam0, beam1),
+        cmsEnergy=cmsEnergy,
+        vtxGen=acts.examples.GaussianVertexGenerator(
+            stddev=vertexStddev, mean=vertexMean
+        ),
+        returnEvGen=True,
     )
-
-    generators = []
-    if nhard > 0:
-        generators.append(
-            acts.examples.EventGenerator.Generator(
-                multiplicity=acts.examples.FixedMultiplicityGenerator(n=nhard),
-                vertex=vertexGenerator,
-                particles=acts.examples.pythia8.Pythia8Generator(
-                    level=acts.logging.INFO,
-                    pdgBeam0=beam0,
-                    pdgBeam1=beam1,
-                    cmsEnergy=cmsEnergy,
-                    settings=["HardQCD:all = on"],
-                ),
-            )
-        )
-    if npileup > 0:
-        generators.append(
-            acts.examples.EventGenerator.Generator(
-                multiplicity=acts.examples.FixedMultiplicityGenerator(n=npileup),
-                vertex=vertexGenerator,
-                particles=acts.examples.pythia8.Pythia8Generator(
-                    level=acts.logging.INFO,
-                    pdgBeam0=beam0,
-                    pdgBeam1=beam1,
-                    cmsEnergy=cmsEnergy,
-                    settings=["SoftQCD:all = on"],
-                ),
-            )
-        )
-
-    # Input
-    evGen = acts.examples.EventGenerator(
-        level=acts.logging.INFO,
-        generators=generators,
-        outputParticles="particles_input",
-        randomNumbers=rnd,
-    )
-
-    sequencer.addReader(evGen)
 
     return evGen

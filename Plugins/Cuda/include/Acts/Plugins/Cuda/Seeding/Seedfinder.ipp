@@ -66,11 +66,9 @@ Seedfinder<external_spacepoint_t, Acts::Cuda>::createSeedsForGroup(
   // Algorithm 0. Matrix Flattening
   //---------------------------------
 
-  std::vector<const Acts::InternalSpacePoint<external_spacepoint_t>*>
-      middleSPvec;
-  std::vector<const Acts::InternalSpacePoint<external_spacepoint_t>*>
-      bottomSPvec;
-  std::vector<const Acts::InternalSpacePoint<external_spacepoint_t>*> topSPvec;
+  std::vector<Acts::InternalSpacePoint<external_spacepoint_t>*> middleSPvec;
+  std::vector<Acts::InternalSpacePoint<external_spacepoint_t>*> bottomSPvec;
+  std::vector<Acts::InternalSpacePoint<external_spacepoint_t>*> topSPvec;
 
   // Get the size of spacepoints
   int nSpM(0);
@@ -288,8 +286,8 @@ Seedfinder<external_spacepoint_t, Acts::Cuda>::createSeedsForGroup(
             std::make_unique<const InternalSeed<external_spacepoint_t>>(
                 bottomSP, middleSP, topSP, Zob)));
       }
-
-      m_config.seedFilter->filterSeeds_1SpFixed(seedsPerSpM,
+      int numQualitySeeds = 0;  // not used but needs to be fixed
+      m_config.seedFilter->filterSeeds_1SpFixed(seedsPerSpM, numQualitySeeds,
                                                 std::back_inserter(outputVec));
     }
   }
