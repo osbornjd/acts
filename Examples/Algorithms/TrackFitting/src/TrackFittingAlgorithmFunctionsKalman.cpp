@@ -20,6 +20,7 @@
 #include "ActsExamples/MagneticField/MagneticField.hpp"
 #include "ActsExamples/TrackFitting/TrackFittingAlgorithm.hpp"
 
+
 namespace {
 
 using Updater = Acts::GainMatrixUpdater;
@@ -94,6 +95,7 @@ struct TrackFitterFunctionImpl
   };
 };
 
+
 struct DirectedFitterFunctionImpl
     : public ActsExamples::TrackFittingAlgorithm::DirectedTrackFitterFunction {
   DirectFitter fitter;
@@ -125,6 +127,37 @@ struct DirectedFitterFunctionImpl
 
 }  // namespace
 
+struct sPHENIXTrackFitterFunctionImpl : public TrackFitterFunctionImpl {
+  ResidualOutlierFinder oFinder;
+  bool use_OF = false;
+  
+  void outlierFinder(const ResidualOutlierFinder& finder) override {
+    oFinder = finder; 
+    use_OF = true;
+  }
+
+  sPHENIXTrackFitterFunctionImpl(Fitter&& f) : TrackFitterFunctionImpl(std::move(f)) {}
+
+  ActsExamples::TrackFittingAlgorithm::TrackFitterResult operator()(
+      const std::vector<std::reference_wrapper<
+          const ActsExamples::IndexSourceLink>>& sourceLinks,
+      const ActsExamples::TrackParameters& initialParameters,
+      const ActsExamples::TrackFittingAlgorithm::GeneralFitterOptions& options)
+      const override {
+    auto kfOptions = makeKfOptions(*this, options);
+    kfOptions.extensions.calibrator
+      .connect<&ActsExamples::MeasurementCalibrator::calibrate>(
+               &options.calibrator.get());
+    
+    if(use_OF) {
+      kfOptions.extensions.outlierFinder.connect<&ResidualOutlierFinder::operator()>(&oFinder);
+    }
+
+    return trackFitter.fit(sourceLinks.begin(), sourceLinks.end(),
+			   initialParameters, kfOptions);
+  };
+};
+
 std::shared_ptr<ActsExamples::TrackFittingAlgorithm::TrackFitterFunction>
 ActsExamples::TrackFittingAlgorithm::makeKalmanFitterFunction(
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry,
@@ -143,7 +176,7 @@ ActsExamples::TrackFittingAlgorithm::makeKalmanFitterFunction(
 
   // build the fitter functions. owns the fitter object.
   auto fitterFunction =
-      std::make_shared<TrackFitterFunctionImpl>(std::move(trackFitter));
+    std::make_shared<sPHENIXTrackFitterFunctionImpl>(std::move(trackFitter));
   fitterFunction->multipleScattering = multipleScattering;
   fitterFunction->energyLoss = energyLoss;
   fitterFunction->reverseFilteringLogic.momentumThreshold =

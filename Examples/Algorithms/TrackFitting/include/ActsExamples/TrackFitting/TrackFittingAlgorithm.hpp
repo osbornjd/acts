@@ -16,6 +16,7 @@
 #include "ActsExamples/EventData/Track.hpp"
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
 #include "ActsExamples/MagneticField/MagneticField.hpp"
+#include "ActsExamples/TrackFitting/ResidualOutlierFinder.hpp"
 
 #include <functional>
 #include <memory>
@@ -55,6 +56,8 @@ class TrackFittingAlgorithm final : public BareAlgorithm {
     virtual TrackFitterResult operator()(
         const std::vector<std::reference_wrapper<const IndexSourceLink>>&,
         const TrackParameters&, const GeneralFitterOptions&) const = 0;
+
+    virtual void outlierFinder(const ResidualOutlierFinder&) {}
   };
 
   /// Fit function that takes the above parameters plus a sorted surface
