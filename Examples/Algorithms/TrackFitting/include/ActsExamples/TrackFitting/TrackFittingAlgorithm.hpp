@@ -45,6 +45,7 @@ class TrackFittingAlgorithm final : public BareAlgorithm {
     std::reference_wrapper<const MeasurementCalibrator> calibrator;
     const Acts::Surface* referenceSurface = nullptr;
     Acts::LoggerWrapper logger;
+    Acts::PropagatorPlainOptions propOptions;
   };
 
   /// Fit function that takes the above parameters and runs a fit
