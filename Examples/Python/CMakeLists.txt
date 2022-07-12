@@ -5,6 +5,8 @@ set(_python_dir "${CMAKE_BINARY_DIR}/python")
 file(MAKE_DIRECTORY ${_python_dir})
 file(MAKE_DIRECTORY ${_python_dir}/acts)
 
+set(_python_install_dir "python/acts")
+
 pybind11_add_module(ActsPythonBindings 
   src/ModuleEntry.cpp
   src/Base.cpp
@@ -22,9 +24,9 @@ pybind11_add_module(ActsPythonBindings
   src/TrackFinding.cpp
   src/Vertexing.cpp
 )
-install(TARGETS ActsPythonBindings DESTINATION .)
+install(TARGETS ActsPythonBindings DESTINATION ${_python_install_dir})
 
-set_target_properties(ActsPythonBindings PROPERTIES INSTALL_RPATH "\$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
+set_target_properties(ActsPythonBindings PROPERTIES INSTALL_RPATH "\$ORIGIN/../../${CMAKE_INSTALL_LIBDIR}")
 set_target_properties(ActsPythonBindings PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${_python_dir}/acts)
 
 target_link_libraries(ActsPythonBindings PUBLIC 
@@ -48,6 +50,7 @@ target_link_libraries(ActsPythonBindings PUBLIC
   ActsExamplesVertexing
   ActsExamplesFatras
   ActsExamplesPrinters
+  ActsExamplesDetectorTelescope
 )
 
 set(py_files 
@@ -70,8 +73,8 @@ if(ACTS_BUILD_PLUGIN_DD4HEP AND ACTS_BUILD_EXAMPLES_DD4HEP)
     ActsExamplesDetectorDD4hep)
   add_dependencies(ActsPythonBindings ActsPythonBindingsDD4hep)
 
-  install(TARGETS ActsPythonBindingsDD4hep DESTINATION .)
-  set_target_properties(ActsPythonBindingsDD4hep PROPERTIES INSTALL_RPATH "\$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
+  install(TARGETS ActsPythonBindingsDD4hep DESTINATION ${_python_install_dir})
+  set_target_properties(ActsPythonBindingsDD4hep PROPERTIES INSTALL_RPATH "\$ORIGIN../../${CMAKE_INSTALL_LIBDIR}")
   set_target_properties(ActsPythonBindingsDD4hep PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${_python_dir}/acts)
   list(APPEND py_files examples/dd4hep.py)
 endif()
@@ -97,8 +100,8 @@ if(ACTS_BUILD_EXAMPLES_GEANT4)
     ActsPythonUtilities)
   add_dependencies(ActsPythonBindings ActsPythonBindingsGeant4)
 
-  install(TARGETS ActsPythonBindingsGeant4 DESTINATION .)
-  set_target_properties(ActsPythonBindingsGeant4 PROPERTIES INSTALL_RPATH "\$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
+  install(TARGETS ActsPythonBindingsGeant4 DESTINATION ${_python_install_dir})
+  set_target_properties(ActsPythonBindingsGeant4 PROPERTIES INSTALL_RPATH "\$ORIGIN../../${CMAKE_INSTALL_LIBDIR}")
   set_target_properties(ActsPythonBindingsGeant4 PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${_python_dir}/acts)
   list(APPEND py_files examples/geant4/__init__.py)
 
@@ -110,8 +113,8 @@ if(ACTS_BUILD_EXAMPLES_GEANT4)
       ActsExamplesDetectorDD4hep)
     add_dependencies(ActsPythonBindings ActsPythonBindingsDDG4)
 
-    install(TARGETS ActsPythonBindingsDDG4 DESTINATION .)
-    set_target_properties(ActsPythonBindingsDDG4 PROPERTIES INSTALL_RPATH "\$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
+    install(TARGETS ActsPythonBindingsDDG4 DESTINATION ${_python_install_dir})
+    set_target_properties(ActsPythonBindingsDDG4 PROPERTIES INSTALL_RPATH "\$ORIGIN../../${CMAKE_INSTALL_LIBDIR}")
     set_target_properties(ActsPythonBindingsDDG4 PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${_python_dir}/acts)
     list(APPEND py_files examples/geant4/dd4hep.py)
   endif()
@@ -134,10 +137,24 @@ else()
   target_sources(ActsPythonBindings PRIVATE src/HepMC3Stub.cpp)
 endif()
 
+if(ACTS_BUILD_EXAMPLES_EXATRKX)
+  target_link_libraries(ActsPythonBindings PUBLIC ActsExamplesTrackFindingExaTrkX)
+  target_sources(ActsPythonBindings PRIVATE src/ExaTrkXTrackFinding.cpp)
+else()
+  target_sources(ActsPythonBindings PRIVATE src/ExaTrkXTrackFindingStub.cpp)
+endif()
+
+if(ACTS_BUILD_EXAMPLES_EDM4HEP)
+  target_link_libraries(ActsPythonBindings PUBLIC ActsExamplesIoEDM4hep)
+  target_sources(ActsPythonBindings PRIVATE src/EDM4hep.cpp)
+  list(APPEND py_files examples/edm4hep.py)
+else()
+  target_sources(ActsPythonBindings PRIVATE src/EDM4hepStub.cpp)
+endif()
 
 add_custom_target(ActsPythonGlueCode)
-configure_file(setup.sh.in ${_python_dir}/setup.sh)
-
+configure_file(setup.sh.in ${_python_dir}/setup.sh @ONLY)
+install(FILES setup.sh.in DESTINATION "python" RENAME setup.sh)
 
 foreach(f ${py_files})
 set(_target ${_python_dir}/acts/${f})
@@ -146,5 +163,7 @@ file(MAKE_DIRECTORY ${_dir})
 
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/python/acts/${f} ${_target} SYMBOLIC)
 endforeach()
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/acts/ DESTINATION ${_python_install_dir})
 
 add_dependencies(ActsPythonBindings ActsPythonGlueCode)

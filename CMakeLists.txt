@@ -24,12 +24,14 @@ project(Acts VERSION ${_acts_version} LANGUAGES CXX)
 option(ACTS_BUILD_EVERYTHING "Build with most options enabled (except HepMC3 and documentation)" OFF)
 # core related options
 set(ACTS_PARAMETER_DEFINITIONS_HEADER "" CACHE FILEPATH "Use a different (track) parameter definitions header")
-set(ACTS_LOG_FAILURE_THRESHOLD "" CACHE STRING "Log level above which an exception should be automatically thrown")
+option(ACTS_FORCE_ASSERTIONS "Force assertions regardless of build type" OFF)
 # plugins related options
 option(ACTS_BUILD_PLUGIN_AUTODIFF "Build the autodiff plugin" OFF)
 option(ACTS_USE_SYSTEM_AUTODIFF "Use autodiff provided by the system instead of the bundled version" OFF)
 option(ACTS_BUILD_PLUGIN_CUDA "Build CUDA plugin" OFF)
 option(ACTS_BUILD_PLUGIN_DD4HEP "Build DD4hep plugin" OFF)
+option(ACTS_BUILD_PLUGIN_EXATRKX "Build the Exa.TrkX plugin" OFF)
+option(ACTS_USE_SYSTEM_ACTSDD4HEP "Use the ActsDD4hep glue library provided by the system instead of building it" OFF)
 option(ACTS_BUILD_PLUGIN_IDENTIFICATION "Build Identification plugin" OFF)
 option(ACTS_BUILD_PLUGIN_JSON "Build json plugin" OFF)
 option(ACTS_USE_SYSTEM_NLOHMANN_JSON "Use nlohmann::json provided by the system instead of the bundled version" OFF)
@@ -47,21 +49,32 @@ option(ACTS_BUILD_ALIGNMENT "Build Alignment package" OFF)
 # examples related options
 option(ACTS_BUILD_EXAMPLES "Build standalone examples" OFF)
 option(ACTS_BUILD_EXAMPLES_DD4HEP "Build DD4hep-based code in the examples" OFF)
+option(ACTS_BUILD_EXAMPLES_EDM4HEP "Build EDM4hep-based code in the examples" OFF)
+option(ACTS_BUILD_EXAMPLES_EXATRKX "Build the Exa.TrkX example code" OFF)
 option(ACTS_BUILD_EXAMPLES_GEANT4 "Build Geant4-based code in the examples" OFF)
 option(ACTS_BUILD_EXAMPLES_HEPMC3 "Build HepMC3-based code in the examples" OFF)
 option(ACTS_BUILD_EXAMPLES_PYTHIA8 "Build Pythia8-based code in the examples" OFF)
 option(ACTS_BUILD_EXAMPLES_PYTHON_BINDINGS "Build python bindings for the examples" OFF)
+option(ACTS_USE_SYSTEM_PYBIND11 "Use a system installation of pybind11" OFF )
 option(ACTS_BUILD_ANALYSIS_APPS "Build Analysis applications in the examples" OFF)
 # test related options
 option(ACTS_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ACTS_BUILD_INTEGRATIONTESTS "Build integration tests" OFF)
 option(ACTS_BUILD_UNITTESTS "Build unit tests" OFF)
+option(ACTS_RUN_CLANG_TIDY "Run clang-tidy static analysis" OFF)
 # other options
 option(ACTS_BUILD_DOCS "Build documentation" OFF)
 option(ACTS_SETUP_BOOST "Explicitly set up Boost for the project" ON)
 option(ACTS_USE_SYSTEM_BOOST "Use a system-provided boost" ON)
 option(ACTS_SETUP_EIGEN3 "Explicitly set up Eigen3 for the project" ON)
 option(ACTS_USE_SYSTEM_EIGEN3 "Use a system-provided eigen3" ON)
+option(ACTS_BUILD_ODD "Build the OpenDataDetector" OFF)
+# profiling related optios
+option(ACTS_ENABLE_CPU_PROFILING "Enable CPU profiling using gperftools" OFF)
+option(ACTS_ENABLE_MEMORY_PROFILING "Enable memory profiling using gperftools" OFF)
+
+option(ACTS_ENABLE_LOG_FAILURE_THRESHOLD "Enable failing on log messages with level above certain threshold" OFF)
+set(ACTS_LOG_FAILURE_THRESHOLD "" CACHE STRING "Log level above which an exception should be automatically thrown. If ACTS_ENABLE_LOG_FAILURE_THRESHOLD is set and this is unset, this will enable a runtime check of the log level.")
 
 # handle option inter-dependencies and the everything flag
 # NOTE: ordering is important here. dependencies must come before dependees
@@ -77,18 +90,22 @@ set_option_if(ACTS_BUILD_EXAMPLES_PYTHIA8 ACTS_BUILD_EVERYTHING)
 set_option_if(ACTS_BUILD_FATRAS_GEANT4 ACTS_BUILD_EVERYTHING)
 set_option_if(ACTS_BUILD_FATRAS ACTS_BUILD_FATRAS_GEANT4)
 set_option_if(ACTS_BUILD_ALIGNMENT ACTS_BUILD_EVERYTHING)
+
 # any examples component activates the general examples option
 set_option_if(
   ACTS_BUILD_EXAMPLES
   ACTS_BUILD_EXAMPLES_DD4HEP
+  OR ACTS_BUILD_EXAMPLES_EDM4HEP
   OR ACTS_BUILD_EXAMPLES_GEANT4
   OR ACTS_BUILD_EXAMPLES_HEPMC3
   OR ACTS_BUILD_EXAMPLES_PYTHIA8
+  OR ACTS_BUILD_EXAMPLES_EXATRKX
   OR ACTS_BUILD_EVERYTHING)
 # core plugins might be required by examples or depend on each other
 set_option_if(
   ACTS_BUILD_PLUGIN_DD4HEP
-  ACTS_BUILD_EXAMPLES_DD4HEP OR ACTS_BUILD_EVERYTHING)
+  ACTS_BUILD_EXAMPLES_DD4HEP OR ACTS_BUILD_EVERYTHING OR
+  ACTS_BUILD_EXAMPLES_EDM4HEP)
 set_option_if(
   ACTS_BUILD_PLUGIN_TGEO
   ACTS_BUILD_PLUGIN_DD4HEP OR ACTS_BUILD_EXAMPLES OR ACTS_BUILD_EVERYTHING)
@@ -103,6 +120,7 @@ set_option_if(
   ACTS_BUILD_EXAMPLES OR ACTS_BUILD_EVERYTHING)
 set_option_if(ACTS_BUILD_PLUGIN_LEGACY ACTS_BUILD_EVERYTHING)
 set_option_if(ACTS_BUILD_PLUGIN_AUTODIFF ACTS_BUILD_EVERYTHING)
+set_option_if(ACTS_BUILD_EXAMPLES_EXATRKX ACTS_BUILD_PLUGIN_EXATRKX)
 
 # feature tests
 include(CheckCXXSourceCompiles)
@@ -122,9 +140,17 @@ endfunction()
 include(GNUInstallDirs) # GNU-like installation paths, e.g. lib/, include/, ...
 include(ActsCompilerOptions) # default compile options
 include(ActsComponentsHelpers) # handle components via add_..._if commands
-# place build products in `<build_dir>/bin` and `<build_dir>/lib` for simple use
+include(ActsStaticAnalysis)
+
+# place build products in `<build>/bin` and `<build>/lib` for simple use
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
+
+# This needs to happen before we set up any targets
+if(ACTS_FORCE_ASSERTIONS)
+  message(STATUS "Injecting headers to force assertions. This can have side-effects, USE WITH CAUTION!")
+  include_directories(BEFORE SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/cmake/assert_include)
+endif()
 
 # minimal dependency versions. they are defined here in a single place so
 # they can be easily upgraded, although they might not be used if the
@@ -132,6 +158,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR
 set(_acts_autodiff_version 0.6)
 set(_acts_boost_version 1.71.0)
 set(_acts_dd4hep_version 1.11)
+set(_acts_actsdd4hep_version 1.0.0)
+set(_acts_edm4hep_version v00-04-01)
 set(_acts_doxygen_version 1.8.15)
 set(_acts_eigen3_version 3.3.7)
 set(_acts_hepmc3_version 3.2.1)
@@ -179,6 +207,20 @@ macro(project)
   set(${PROJECT_NAME}_VERSION "${${PROJECT_NAME}_VERSION}" CACHE INTERNAL "")
 endmacro()
 
+# CUDA settings are collected here in a macro, so that they can be reused by different plugins
+macro(enable_cuda)
+  enable_language(CUDA)
+  set(CMAKE_CUDA_STANDARD 14 CACHE STRING "CUDA C++ standard to use")
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON CACHE BOOL
+    "Force the C++ standard requirement")
+  if(NOT CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES "35;52;75" CACHE STRING
+        "CUDA architectures to generate code for")
+  endif()
+  set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g -G")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda")
+endmacro()
+
 # optional packages
 #
 # find packages explicitly for each component even if this means searching for
@@ -186,45 +228,37 @@ endmacro()
 # when a particular package is actually needed.
 # plugin dependencies
 if(ACTS_BUILD_EXAMPLES_PYTHON_BINDINGS)
+  find_package(Python COMPONENTS Interpreter Development)
+  if(ACTS_USE_SYSTEM_PYBIND11) 
+    find_package(pybind11 CONFIG REQUIRED)
+  else()
     add_subdirectory(thirdparty/pybind11)
+  endif()
 endif()
 if(ACTS_BUILD_PLUGIN_AUTODIFF)
   if(ACTS_USE_SYSTEM_AUTODIFF)
     find_package(autodiff ${_acts_autodiff_version} CONFIG REQUIRED)
     message(STATUS "Using system installation of autodiff")
   else()
-    # This policy allows to set the options outside without changing autodiff's CMakeLists.txt
-    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-    set(AUTODIFF_BUILD_TESTS OFF)
-    set(AUTODIFF_BUILD_PYTHON OFF)
-    set(AUTODIFF_BUILD_EXAMPLES OFF)
-    set(AUTODIFF_BUILD_DOCS OFF)
     add_subdirectory(thirdparty/autodiff)
-    # Mark autodiff as system include directories so that no warnings trigger
-    get_target_property(_autodiff_includes autodiff INTERFACE_INCLUDE_DIRECTORIES)
-    set_target_properties(autodiff PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_autodiff_includes}")
-    message(STATUS "Using bundled autodiff")
   endif()
 endif()
 if(ACTS_BUILD_PLUGIN_CUDA)
-  enable_language(CUDA)
-  set(CMAKE_CUDA_STANDARD 14 CACHE STRING "CUDA C++ standard to use")
-  set(CMAKE_CUDA_STANDARD_REQUIRED ON CACHE BOOL
-    "Force the C++ standard requirement")
-  set(CMAKE_CUDA_ARCHITECTURES "35;52;75" CACHE STRING
-    "CUDA architectures to generate code for")
-  set(CMAKE_CUDA_FLAGS_DEBUG "-g -G")
+  enable_cuda()
 endif()
 if(ACTS_BUILD_PLUGIN_DD4HEP)
   find_package(DD4hep ${_acts_dd4hep_version} REQUIRED CONFIG COMPONENTS DDCore DDDetectors)
+  if(ACTS_USE_SYSTEM_ACTSDD4HEP)
+    find_package(ActsDD4hep ${_acts_actsdd4hep_version} CONFIG REQUIRED)
+  else()
+    add_subdirectory(thirdparty/actsdd4hep)
+  endif()
 endif()
 if(ACTS_BUILD_PLUGIN_JSON)
   if(ACTS_USE_SYSTEM_NLOHMANN_JSON)
     message(STATUS "Using system installation of nlohmann::json")
     find_package(nlohmann_json ${_acts_nlohmanjson_version} REQUIRED CONFIG)
   else()
-    message(STATUS "Using bundled nlohmann::json")
-    set(JSON_BuildTests OFF CACHE INTERNAL "")
     add_subdirectory(thirdparty/nlohmann_json)
   endif()
 endif()
@@ -238,6 +272,15 @@ if(ACTS_BUILD_PLUGIN_TGEO)
   find_package(ROOT ${_acts_root_version} REQUIRED CONFIG COMPONENTS Geom)
   check_root_compatibility()
 endif()
+if(ACTS_BUILD_PLUGIN_EXATRKX)
+  enable_cuda()
+  find_package(CUDAToolkit REQUIRED)
+  find_package(Torch REQUIRED)
+  find_package(OnnxRuntime REQUIRED)
+  find_package(cugraph REQUIRED)
+  add_subdirectory(thirdparty/libFRNN)
+endif()
+
 # examples dependencies
 if(ACTS_BUILD_EXAMPLES)
   set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -259,6 +302,9 @@ if(ACTS_BUILD_EXAMPLES_DD4HEP AND ACTS_BUILD_EXAMPLES_GEANT4)
   find_package(DD4hep ${_acts_dd4hep_version} REQUIRED CONFIG COMPONENTS DDCore DDG4 DDDetectors)
 elseif(ACTS_BUILD_EXAMPLES_DD4HEP)
   find_package(DD4hep ${_acts_dd4hep_version} REQUIRED CONFIG COMPONENTS DDCore DDDetectors)
+endif()
+if(ACTS_BUILD_EXAMPLES_EDM4HEP)
+  find_package(EDM4HEP REQUIRED CONFIG)
 endif()
 if(ACTS_BUILD_EXAMPLES_GEANT4)
   find_package(Geant4 REQUIRED CONFIG COMPONENTS gdml)
@@ -284,6 +330,16 @@ add_component(Core Core)
 add_subdirectory(Plugins)
 add_component_if(Fatras Fatras ACTS_BUILD_FATRAS)
 add_component_if(Alignment Alignment ACTS_BUILD_ALIGNMENT)
+
+if(ACTS_BUILD_ODD)
+  if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/thirdparty/OpenDataDetector/CMakeLists.txt")
+    add_subdirectory_if(thirdparty/OpenDataDetector ACTS_BUILD_ODD)
+  else()
+    message(FATAL_ERROR "ODD build was requested, but the ODD directory seems not to be present. "
+                        "Did you init and update the submodule?")
+  endif()
+endif()
+
 
 # examples
 add_subdirectory_if(Examples ACTS_BUILD_EXAMPLES)

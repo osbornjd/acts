@@ -91,6 +91,8 @@ void addDigitization(Context& ctx);
 void addPythia8(Context& ctx);
 void addJson(Context& ctx);
 void addHepMC3(Context& ctx);
+void addExaTrkXTrackFinding(Context& ctx);
+void addEDM4hep(Context& ctx);
 
 }  // namespace Acts::Python
 
@@ -230,4 +232,6 @@ PYBIND11_MODULE(ActsPythonBindings, m) {
   addPythia8(ctx);
   addJson(ctx);
   addHepMC3(ctx);
+  addExaTrkXTrackFinding(ctx);
+  addEDM4hep(ctx);
 }
