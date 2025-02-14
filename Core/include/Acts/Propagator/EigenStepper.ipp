@@ -5,7 +5,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+#include <iostream>
 #include "Acts/EventData/detail/TransformationBoundToFree.hpp"
 #include "Acts/Propagator/ConstrainedStep.hpp"
 #include "Acts/Propagator/detail/CovarianceEngine.hpp"
@@ -114,6 +114,7 @@ Acts::Result<double> Acts::EigenStepper<E, A>::step(
   using namespace UnitLiterals;
 
   // Runge-Kutta integrator state
+  std::cout << "Current STEPPER::stepping state position " << state.stepping.pars.transpose() << std::endl;;
   auto& sd = state.stepping.stepData;
   double error_estimate = 0.;
   double h2 = 0, half_h = 0;
@@ -266,7 +267,7 @@ Acts::Result<double> Acts::EigenStepper<E, A>::step(
     state.stepping.stepSize.setAccuracy(nextAccuracy);
   }
   state.stepping.stepSize.nStepTrials = nStepTrials;
-
+  std::cout <<"at end of step, position is " << state.stepping.pars.template segment<3>(eFreePos0).transpose() << " and direction is " << state.stepping.pars.template segment<3>(eFreeDir0).transpose() << std::endl;
   return h;
 }
 

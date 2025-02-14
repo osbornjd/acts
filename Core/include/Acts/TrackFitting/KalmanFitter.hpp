@@ -389,6 +389,8 @@ class KalmanFitter {
       // Update:
       // - Waiting for a current surface
       auto surface = navigator.currentSurface(state.navigation);
+      if(surface)
+	ACTS_VERBOSE("In operator, navigator surface " << surface->geometryId());
       std::string direction = state.options.direction.toString();
       if (surface != nullptr) {
         // Check if the surface is in the measurement map
@@ -603,6 +605,11 @@ class KalmanFitter {
                         result_type& result) const {
       // Try to find the surface in the measurement surfaces
       auto sourcelink_it = inputMeasurements->find(surface->geometryId());
+      ACTS_VERBOSE("Checking Surface in filter " << surface->geometryId());
+       for (auto measurementIt = inputMeasurements->begin();
+               measurementIt != inputMeasurements->end(); measurementIt++) {
+	 ACTS_VERBOSE("    meas options " << measurementIt->first);
+          }
       if (sourcelink_it != inputMeasurements->end()) {
         // Screen output message
         ACTS_VERBOSE("Measurement surface " << surface->geometryId()
@@ -662,8 +669,12 @@ class KalmanFitter {
         // We only create track states here if there is already measurement
         // detected or if the surface has material (no holes before the first
         // measurement)
+	    ACTS_VERBOSE("else if surface " << surface->geometryId()
+                                            << " detected.");
         if (result.measurementStates > 0 ||
             surface->surfaceMaterial() != nullptr) {
+	      ACTS_VERBOSE("state > 0" << surface->geometryId()
+                                            << " detected.");
           auto trackStateProxyRes = detail::kalmanHandleNoMeasurement(
               state, stepper, *surface, *result.fittedStates,
               result.lastTrackIndex, true, logger(), freeToBoundCorrection);
@@ -683,6 +694,8 @@ class KalmanFitter {
           ++result.processedStates;
         }
         if (surface->surfaceMaterial() != nullptr) {
+	      ACTS_VERBOSE("Measurement surface " << surface->geometryId()
+                                            << " detected.");
           // Update state and stepper with material effects
           materialInteractor(surface, state, stepper, navigator,
                              MaterialUpdateStage::FullUpdate);

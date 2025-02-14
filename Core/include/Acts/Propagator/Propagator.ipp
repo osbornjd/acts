@@ -43,6 +43,9 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state,
       // Pre-Stepping: target setting
       m_navigator.preStep(state, m_stepper);
       // Perform a propagation step - it takes the propagation state
+      if(state.navigation.currentSurface && state.navigation.currentSurface->type() != Acts::Surface::SurfaceType::Perigee)
+      ACTS_VERBOSE("Current propagator::state surface " << state.navigation.currentSurface->geometryId());
+      
       Result<double> res = m_stepper.step(state, m_navigator);
       if (res.ok()) {
         // Accumulate the path length
@@ -55,6 +58,8 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state,
         // pass error to caller
         return res.error();
       }
+      if(state.navigation.currentSurface && state.navigation.currentSurface->type() != Acts::Surface::SurfaceType::Perigee)
+       ACTS_VERBOSE("Post step propagator::state surface " << state.navigation.currentSurface->geometryId());
       // Post-stepping:
       // navigator post step call - action list - aborter list
       m_navigator.postStep(state, m_stepper);
