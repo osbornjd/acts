@@ -606,10 +606,12 @@ class KalmanFitter {
       // Try to find the surface in the measurement surfaces
       auto sourcelink_it = inputMeasurements->find(surface->geometryId());
       ACTS_VERBOSE("Checking Surface in filter " << surface->geometryId());
-       for (auto measurementIt = inputMeasurements->begin();
-               measurementIt != inputMeasurements->end(); measurementIt++) {
-	 ACTS_VERBOSE("    meas options " << measurementIt->first);
-          }
+      ACTS_VERBOSE(" SURFACE location ");
+      surface->toStream(state.geoContext.get(), std::cout);
+      for (auto measurementIt = inputMeasurements->begin();
+           measurementIt != inputMeasurements->end(); measurementIt++) {
+        ACTS_VERBOSE("    meas options " << measurementIt->first);
+      }
       if (sourcelink_it != inputMeasurements->end()) {
         // Screen output message
         ACTS_VERBOSE("Measurement surface " << surface->geometryId()
