@@ -207,7 +207,6 @@ namespace UnitLiterals {
   }                                                          \
   constexpr double operator""_##name(unsigned long long x) { \
     return ::Acts::UnitConstants::name * x;                  \
-
   }
 ACTS_DEFINE_UNIT_LITERAL(fm)
 ACTS_DEFINE_UNIT_LITERAL(pm)
