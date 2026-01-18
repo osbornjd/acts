@@ -8,11 +8,7 @@
 
 #pragma once
 
-#include "Acts/EventData/MultiTrajectoryHelpers.hpp"
-#include "Acts/EventData/SourceLink.hpp"
-#include "Acts/EventData/TrackContainer.hpp"
 #include "Acts/EventData/TrackContainerFrontendConcept.hpp"
-#include "Acts/Utilities/Delegate.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
 #include <memory>
@@ -64,6 +60,9 @@ class GreedyAmbiguityResolution {
     boost::container::flat_set<std::size_t> selectedTracks;
   };
 
+  /// Constructor with configuration and logger
+  /// @param cfg Configuration for ambiguity resolution
+  /// @param logger Logger for diagnostic output
   explicit GreedyAmbiguityResolution(
       const Config& cfg,
       std::unique_ptr<const Logger> logger =

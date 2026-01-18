@@ -8,8 +8,9 @@
 
 #pragma once
 
-#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
+
+#include <Eigen/Dense>
 
 namespace Acts {
 
@@ -78,6 +79,8 @@ std::ostream& operator<<(std::ostream& os, const Ray<T, D>& ray) {
   return os;
 }
 
+/// @brief Type alias for a 3D ray using double precision
+/// @details Specialization of Ray class for three-dimensional space using double precision floating-point values
 using Ray3D = Ray<double, 3>;
 
 }  // namespace Acts

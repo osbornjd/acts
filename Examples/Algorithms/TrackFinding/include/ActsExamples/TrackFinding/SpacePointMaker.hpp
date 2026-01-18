@@ -9,7 +9,6 @@
 #pragma once
 
 #include "Acts/Geometry/GeometryIdentifier.hpp"
-#include "Acts/SpacePointFormation/SpacePointBuilder.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/SimSpacePoint.hpp"
@@ -26,7 +25,6 @@ class TrackingGeometry;
 }
 
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// Create space point representations from measurements.
 ///
@@ -59,6 +57,8 @@ class SpacePointMaker final : public IAlgorithm {
     /// with all components set to zero selects all available measurements. The
     /// selection must not have duplicates.
     std::vector<Acts::GeometryIdentifier> geometrySelection;
+
+    std::vector<Acts::GeometryIdentifier> stripGeometrySelection;
   };
 
   /// Construct the space point maker.
@@ -73,15 +73,20 @@ class SpacePointMaker final : public IAlgorithm {
   /// @return a process code indication success or failure
   ProcessCode execute(const AlgorithmContext& ctx) const override;
 
+  ProcessCode initialize() override;
+
   /// Const access to the config
   const Config& config() const { return m_cfg; }
 
  private:
+  void initializeStripPartners();
+
   Config m_cfg;
 
-  std::optional<IndexSourceLink::SurfaceAccessor> m_slSurfaceAccessor;
+  std::unordered_map<Acts::GeometryIdentifier, Acts::GeometryIdentifier>
+      m_stripPartner;
 
-  Acts::SpacePointBuilder<SimSpacePoint> m_spacePointBuilder;
+  std::optional<IndexSourceLink::SurfaceAccessor> m_slSurfaceAccessor;
 
   ReadDataHandle<MeasurementContainer> m_inputMeasurements{this,
                                                            "InputMeasurements"};
@@ -89,4 +94,5 @@ class SpacePointMaker final : public IAlgorithm {
   WriteDataHandle<SimSpacePointContainer> m_outputSpacePoints{
       this, "OutputSpacePoints"};
 };
+
 }  // namespace ActsExamples

@@ -6,12 +6,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/GeoModel/detail/GeoUnionDoubleTrdConverter.hpp"
+#include "ActsPlugins/GeoModel/detail/GeoUnionDoubleTrdConverter.hpp"
 
-#include "Acts/Plugins/GeoModel/GeoModelConversionError.hpp"
-#include "Acts/Plugins/GeoModel/detail/GeoShiftConverter.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/TrapezoidBounds.hpp"
+#include "ActsPlugins/GeoModel/GeoModelConversionError.hpp"
+#include "ActsPlugins/GeoModel/detail/GeoShiftConverter.hpp"
 
 namespace {
 
@@ -44,11 +44,14 @@ bool trapezoidsAreMergeable(const std::vector<Acts::Vector3> &vtxsa,
 
 }  // namespace
 
-namespace Acts::detail {
+using namespace Acts;
+
+namespace ActsPlugins::detail {
 
 Result<GeoModelSensitiveSurface> GeoUnionDoubleTrdConverter::operator()(
     const PVConstLink &geoPV, const GeoShapeUnion &geoUnion,
-    const Transform3 &absTransform, bool sensitive) const {
+    const Transform3 &absTransform, SurfaceBoundFactory &boundFactory,
+    bool sensitive) const {
   const auto shiftA = dynamic_cast<const GeoShapeShift *>(geoUnion.getOpA());
   const auto shiftB = dynamic_cast<const GeoShapeShift *>(geoUnion.getOpB());
 
@@ -56,13 +59,13 @@ Result<GeoModelSensitiveSurface> GeoUnionDoubleTrdConverter::operator()(
     return GeoModelConversionError::WrongShapeForConverter;
   }
 
-  auto shiftARes =
-      detail::GeoShiftConverter{}(geoPV, *shiftA, absTransform, sensitive);
+  auto shiftARes = detail::GeoShiftConverter{}(geoPV, *shiftA, absTransform,
+                                               boundFactory, sensitive);
   if (!shiftARes.ok()) {
     return shiftARes.error();
   }
-  auto shiftBRes =
-      detail::GeoShiftConverter{}(geoPV, *shiftB, absTransform, sensitive);
+  auto shiftBRes = detail::GeoShiftConverter{}(geoPV, *shiftB, absTransform,
+                                               boundFactory, sensitive);
   if (!shiftBRes.ok()) {
     return shiftBRes.error();
   }
@@ -127,7 +130,7 @@ Result<GeoModelSensitiveSurface> GeoUnionDoubleTrdConverter::operator()(
   auto hlxpy = boundsB.values()[TrapezoidBounds::eHalfLengthXnegY];
 
   auto trapezoidBounds =
-      std::make_shared<TrapezoidBounds>(hlxpy, hlxny, halfLengthY);
+      boundFactory.makeBounds<TrapezoidBounds>(hlxpy, hlxny, halfLengthY);
 
   // Create transform from the transform of surfaceA and translate it in y
   // direction using the half length
@@ -151,4 +154,4 @@ Result<GeoModelSensitiveSurface> GeoUnionDoubleTrdConverter::operator()(
   return std::make_tuple(detectorElement, surface);
 }
 
-}  // namespace Acts::detail
+}  // namespace ActsPlugins::detail

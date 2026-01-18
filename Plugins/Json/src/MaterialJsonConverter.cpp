@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/Json/MaterialJsonConverter.hpp"
+#include "ActsPlugins/Json/MaterialJsonConverter.hpp"
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
@@ -21,14 +21,14 @@
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Material/ProtoSurfaceMaterial.hpp"
 #include "Acts/Material/ProtoVolumeMaterial.hpp"
-#include "Acts/Plugins/Json/GeometryJsonKeys.hpp"
-#include "Acts/Plugins/Json/GridJsonConverter.hpp"
-#include "Acts/Plugins/Json/UtilitiesJsonConverter.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/Grid.hpp"
 #include "Acts/Utilities/GridAxisGenerators.hpp"
 #include "Acts/Utilities/TypeList.hpp"
+#include "ActsPlugins/Json/GeometryJsonKeys.hpp"
+#include "ActsPlugins/Json/GridJsonConverter.hpp"
+#include "ActsPlugins/Json/UtilitiesJsonConverter.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -116,10 +116,10 @@ void convertIndexedGridMaterial(
 
     // Global and bound -> grid local
     jMaterial["global_to_grid_local"] = Acts::GridAccessJsonConverter::toJson(
-        *(indexedMaterial->globalToGridLocal().instance()));
+        *(indexedMaterial->globalToGridLocalDelegate().instance()));
 
     jMaterial["bound_to_grid_local"] = Acts::GridAccessJsonConverter::toJson(
-        *(indexedMaterial->boundToGridLocal().instance()));
+        *(indexedMaterial->boundToGridLocalDelegate().instance()));
   }
 }
 
@@ -140,7 +140,7 @@ Acts::ISurfaceMaterial* indexedMaterialFromJson(nlohmann::json& jMaterial) {
   nlohmann::json jMaterialAccessor = jMaterial["accessor"];
 
   // Prepare the material and its accessor
-  IndexedAccessorType materialAccessor{};
+  IndexedAccessorType materialAccessor(std::vector<Acts::MaterialSlab>{});
 
   // If it's locally indexed, we need to load the material vector
   if constexpr (std::is_same_v<IndexedAccessorType,

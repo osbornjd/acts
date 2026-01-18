@@ -1,5 +1,5 @@
-add_library(
-    ActsExamplesIoRoot
+acts_add_library(
+    ExamplesIoRoot
     SHARED
     src/RootMeasurementWriter.cpp
     src/RootMaterialDecorator.cpp
@@ -26,10 +26,11 @@ add_library(
     src/RootNuclearInteractionParametersWriter.cpp
     src/detail/NuclearInteractionParametrisation.cpp
     src/TrackFinderPerformanceWriter.cpp
-    src/SeedingPerformanceWriter.cpp
     src/TrackFinderNTupleWriter.cpp
     src/TrackFitterPerformanceWriter.cpp
     src/VertexNTupleWriter.cpp
+    src/RootMuonSpacePointWriter.cpp
+    src/RootMuonSpacePointReader.cpp
 )
 target_include_directories(
     ActsExamplesIoRoot
@@ -38,14 +39,14 @@ target_include_directories(
 target_link_libraries(
     ActsExamplesIoRoot
     PUBLIC
-        ActsCore
-        ActsExamplesDigitization
-        ActsExamplesFramework
-        ActsExamplesPropagation
-        ActsExamplesTruthTracking
-        ActsExamplesMaterialMapping
+        Acts::PluginRoot
+        Acts::ExamplesDigitization
+        Acts::ExamplesFramework
+        Acts::ExamplesPropagation
+        Acts::ExamplesTruthTracking
+        Acts::ExamplesMaterialMapping
         Threads::Threads
-    PRIVATE ROOT::Core ROOT::Hist ROOT::Tree
+    PRIVATE ROOT::Core ROOT::Hist ROOT::Tree ROOT::TreePlayer
 )
 
 root_generate_dictionary(
@@ -53,5 +54,3 @@ root_generate_dictionary(
 )
 set_target_properties(ActsExamplesIoRootDict PROPERTIES CXX_CLANG_TIDY "")
 target_compile_options(ActsExamplesIoRootDict PRIVATE "-Wno-old-style-cast")
-
-install(TARGETS ActsExamplesIoRoot LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

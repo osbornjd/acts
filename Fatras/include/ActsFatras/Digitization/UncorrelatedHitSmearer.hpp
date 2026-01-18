@@ -13,6 +13,7 @@
 #include "Acts/Geometry/DetectorElementBase.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Result.hpp"
+#include "ActsFatras/Digitization/DigitizationError.hpp"
 #include "ActsFatras/EventData/Hit.hpp"
 
 #include <array>
@@ -41,15 +42,24 @@ using SingleParameterSmearFunction =
 /// vector and associated covariance matrix.
 template <typename generator_t, std::size_t kSize>
 struct BoundParametersSmearer {
+  /// Type alias for parameter vector of dimension kSize
   using ParametersVector = Acts::ActsVector<kSize>;
+  /// Type alias for covariance matrix of dimension kSize x kSize
   using CovarianceMatrix = Acts::ActsSquareMatrix<kSize>;
+  /// Type alias for smearing result containing parameters and covariance
   using Result = Acts::Result<std::pair<ParametersVector, CovarianceMatrix>>;
 
   /// Parameter indices that will be used to create the smeared measurements.
   std::array<Acts::BoundIndices, kSize> indices{};
+  /// Array of smearing functions for each measurement parameter
   std::array<SingleParameterSmearFunction<generator_t>, kSize> smearFunctions{};
+  /// Array of flags to force positive values after smearing
   std::array<bool, kSize> forcePositive = {};
+  /// Maximum number of retries for generating positive values when forced
+  std::size_t maxRetries = 0;
 
+  /// Get the number of bound parameters that will be smeared
+  /// @return Number of bound parameters (kSize)
   static constexpr std::size_t size() { return kSize; }
 
   /// Generate smeared measured for configured parameters.
@@ -83,23 +93,33 @@ struct BoundParametersSmearer {
     }
 
     const auto& boundParams = *boundParamsRes;
+    Acts::BoundVector smearedBoundParams = boundParams;
 
-    ParametersVector par = ParametersVector::Zero();
-    CovarianceMatrix cov = CovarianceMatrix::Zero();
-    for (std::size_t i = 0; i < kSize; ++i) {
-      auto res = smearFunctions[i](boundParams[indices[i]], rng);
-      if (!res.ok()) {
-        return Result::failure(res.error());
+    for (std::size_t k = 0; k < maxRetries + 1; ++k) {
+      ParametersVector par = ParametersVector::Zero();
+      CovarianceMatrix cov = CovarianceMatrix::Zero();
+      for (std::size_t i = 0; i < kSize; ++i) {
+        auto res = smearFunctions[i](boundParams[indices[i]], rng);
+        if (!res.ok()) {
+          return Result::failure(res.error());
+        }
+        auto [value, stddev] = res.value();
+        par[i] = value;
+        if (forcePositive[i]) {
+          par[i] = std::abs(value);
+        }
+        smearedBoundParams[indices[i]] = par[i];
+        cov(i, i) = stddev * stddev;
       }
-      auto [value, stddev] = res.value();
-      par[i] = value;
-      if (forcePositive[i]) {
-        par[i] = std::abs(value);
+
+      if (!surface.insideBounds(smearedBoundParams.head<2>())) {
+        continue;
       }
-      cov(i, i) = stddev * stddev;
+
+      return Result::success(std::make_pair(par, cov));
     }
 
-    return Result::success(std::make_pair(par, cov));
+    return Result::failure(DigitizationError::MaximumRetriesExceeded);
   }
 };
 
@@ -115,14 +135,20 @@ struct BoundParametersSmearer {
 ///   individually is not recommended
 template <typename generator_t, std::size_t kSize>
 struct FreeParametersSmearer {
+  /// Type alias for parameter vector of dimension kSize
   using ParametersVector = Acts::ActsVector<kSize>;
+  /// Type alias for covariance matrix of dimension kSize x kSize
   using CovarianceMatrix = Acts::ActsSquareMatrix<kSize>;
+  /// Type alias for smearing result containing parameters and covariance
   using Result = Acts::Result<std::pair<ParametersVector, CovarianceMatrix>>;
 
   /// Parameter indices that will be used to create the smeared measurements.
   std::array<Acts::FreeIndices, kSize> indices{};
+  /// Array of smearing functions for each free parameter
   std::array<SingleParameterSmearFunction<generator_t>, kSize> smearFunctions;
 
+  /// Get the number of free parameters that will be smeared
+  /// @return Number of free parameters (kSize)
   static constexpr std::size_t size() { return kSize; }
 
   /// Generate smeared measured for configured parameters.

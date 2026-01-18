@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -165,6 +166,9 @@ enum Level {
   MAX           ///< Must be kept above the maximum supported debug level
 };
 
+/// Get the string name for a logging level
+/// @param level The logging level
+/// @return String representation of the logging level
 inline std::string_view levelName(Level level) {
   switch (level) {
     case Level::VERBOSE:
@@ -195,6 +199,7 @@ inline std::string_view levelName(Level level) {
 /// @note Depending on preprocessor settings @c ACTS_ENABLE_LOG_FAILURE_THRESHOLD
 ///       and @c ACTS_LOG_FAILURE_THRESHOLD, this operations is either constexpr
 ///       or a runtime operation.
+/// @return The log level threshold for failure
 Level getFailureThreshold();
 
 #else
@@ -229,6 +234,7 @@ constexpr Level getFailureThreshold() {
 /// @note This function is only available if @c ACTS_LOG_FAILURE_THRESHOLD is
 ///       unset, i.e. no compile-time threshold is used. Otherwise an
 ///       exception is thrown.
+/// @param level Log level above which exceptions will be thrown
 void setFailureThreshold(Level level);
 
 /// Custom exception class so threshold failures can be caught
@@ -240,6 +246,8 @@ class ThresholdFailure : public std::runtime_error {
 /// lifetime.
 class ScopedFailureThreshold {
  public:
+  /// Constructor that sets the failure threshold for the scope
+  /// @param level The logging level to set as failure threshold
   explicit ScopedFailureThreshold(Level level) { setFailureThreshold(level); }
   ScopedFailureThreshold(const ScopedFailureThreshold&) = delete;
   ScopedFailureThreshold& operator=(const ScopedFailureThreshold&) = delete;
@@ -586,6 +594,15 @@ class DefaultPrintPolicy final : public OutputPrintPolicy {
   /// @param [in] lvl   debug level of debug message
   /// @param [in] input text of debug message
   void flush(const Level& lvl, const std::string& input) final {
+    // Mutex to serialize access to std::cout
+    static std::mutex s_stdoutMutex;
+    std::unique_lock lock{s_stdoutMutex,
+                          std::defer_lock};  // prep empty, we might not need it
+
+    if (m_out == &std::cout) {
+      lock.lock();  // lock only if we are printing to std::cout
+    }
+
     (*m_out) << input << std::endl;
     if (lvl >= getFailureThreshold()) {
       throw ThresholdFailure(
@@ -681,6 +698,7 @@ class Logger {
   /// Make a copy of this logger, optionally changing the name or the level
   /// @param _name the optional new name
   /// @param _level the optional new level
+  /// @return Unique pointer to a cloned logger
   std::unique_ptr<Logger> clone(
       const std::optional<std::string>& _name = std::nullopt,
       const std::optional<Logging::Level>& _level = std::nullopt) const {
@@ -701,6 +719,7 @@ class Logger {
   /// name. You can also optionally supply a new level
   /// @param suffix the suffix to add to the end of the name
   /// @param _level the optional new level
+  /// @return Unique pointer to a cloned logger with modified name
   std::unique_ptr<Logger> cloneWithSuffix(
       const std::string& suffix,
       std::optional<Logging::Level> _level = std::nullopt) const {
@@ -709,6 +728,7 @@ class Logger {
 
   /// Helper function so a logger reference can be used as is with the logging
   /// macros
+  /// @return Reference to this logger
   const Logger& operator()() const { return *this; }
 
  private:
@@ -736,6 +756,8 @@ std::unique_ptr<const Logger> getDefaultLogger(
     const std::string& name, const Logging::Level& lvl,
     std::ostream* log_stream = &std::cout);
 
+/// Get a dummy logger that discards all output
+/// @return Reference to dummy logger instance
 const Logger& getDummyLogger();
 
 }  // namespace Acts

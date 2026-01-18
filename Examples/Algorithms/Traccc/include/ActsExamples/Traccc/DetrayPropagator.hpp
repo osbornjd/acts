@@ -18,19 +18,20 @@
 
 #include <detray/navigation/navigator.hpp>
 #include <detray/propagator/actor_chain.hpp>
+#include <detray/propagator/propagation_config.hpp>
 #include <detray/propagator/propagator.hpp>
 #include <detray/test/utils/inspectors.hpp>
-#include <detray/test/utils/material_validation_utils.hpp>
+#include <detray/test/validation/material_validation_utils.hpp>
 
 namespace ActsExamples {
 
 /// Define the algebra type
-using DetrayAlgebraType = typename Acts::DetrayHostDetector::algebra_type;
+using DetrayAlgebraType =
+    typename ActsPlugins::DetrayHostDetector::algebra_type;
 
 /// Type that holds the intersection information
-using DetrayIntersection =
-    detray::intersection2D<typename Acts::DetrayHostDetector::surface_type,
-                           DetrayAlgebraType>;
+using DetrayIntersection = detray::intersection2D<
+    typename ActsPlugins::DetrayHostDetector::surface_type, DetrayAlgebraType>;
 
 /// Inspector that records all encountered surfaces
 using DetrayObjectTracer =
@@ -98,7 +99,7 @@ class DetrayPropagator : public PropagatorInterface {
 
       // Navigation with inspection
       using DetrayNavigator =
-          detray::navigator<Acts::DetrayHostDetector,
+          detray::navigator<ActsPlugins::DetrayHostDetector,
                             detray::navigation::default_cache_size,
                             DetrayInspector>;
 
@@ -106,14 +107,18 @@ class DetrayPropagator : public PropagatorInterface {
           detray::material_validator::material_tracer<double, vecmem::vector>;
 
       // Propagator with empty actor chain (for the moment)
-      using Propagator = detray::propagator<
-          stepper_t, DetrayNavigator,
-          detray::actor_chain<detray::dtuple, MaterialTracer>>;
+      using Propagator =
+          detray::propagator<stepper_t, DetrayNavigator,
+                             detray::actor_chain<MaterialTracer>>;
 
-      typename Propagator::state propagation(track,
-                                             m_cfg.detrayStore->detector);
-
-      Propagator propagator;
+      using DetrayContext = typename Propagator::state::context_type;
+      DetrayContext dCtx{};
+      using DetrayConfig = detray::propagation::config;
+      DetrayConfig dCfg{};
+      // Add common configuration here
+      typename Propagator::state propagation(track, m_cfg.detrayStore->detector,
+                                             dCtx);
+      Propagator propagator(dCfg);
 
       MaterialTracer::state materialTracerState{
           *m_cfg.detrayStore->memoryResource};
@@ -152,17 +157,22 @@ class DetrayPropagator : public PropagatorInterface {
     } else {
       // Navigation with inspection
       using DetrayNavigator =
-          detray::navigator<Acts::DetrayHostDetector,
+          detray::navigator<ActsPlugins::DetrayHostDetector,
                             detray::navigation::default_cache_size>;
 
       // Propagator with empty actor chain (for the moment)
       using Propagator =
           detray::propagator<stepper_t, DetrayNavigator, detray::actor_chain<>>;
 
-      typename Propagator::state propagation(track,
-                                             m_cfg.detrayStore->detector);
+      using DetrayContext = typename Propagator::state::context_type;
+      DetrayContext dCtx{};
+      using DetrayConfig = detray::propagation::config;
+      DetrayConfig dCfg{};
+      // Add common configuration here
+      typename Propagator::state propagation(track, m_cfg.detrayStore->detector,
+                                             dCtx);
+      Propagator propagator(dCfg);
 
-      Propagator propagator;
       // Run the actual propagation
       propagator.propagate(propagation);
     }

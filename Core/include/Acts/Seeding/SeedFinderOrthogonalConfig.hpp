@@ -8,15 +8,17 @@
 
 #pragma once
 
-#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Definitions/Units.hpp"
+#include "Acts/Material/Interactions.hpp"
 #include "Acts/Seeding/SeedConfirmationRangeConfig.hpp"
 #include "Acts/Utilities/Delegate.hpp"
 
+#include <cmath>
 #include <memory>
 #include <numbers>
 
 namespace Acts {
+
 // forward declaration to avoid cyclic dependence
 template <typename T>
 class SeedFilter;
@@ -24,16 +26,20 @@ class SeedFilter;
 /// @brief Structure that holds configuration parameters for the orthogonal seed finder algorithm
 template <typename SpacePoint>
 struct SeedFinderOrthogonalConfig {
+  /// Shared pointer to the seed filter for quality assessment
   std::shared_ptr<Acts::SeedFilter<SpacePoint>> seedFilter;
 
   /// Seeding parameters for geometry settings and detector ROI
 
   // Limiting location of all measurements
   float phiMin = -std::numbers::pi_v<float>;
+  /// Maximum phi angle for space-point selection
   float phiMax = std::numbers::pi_v<float>;
   /// limiting location of measurements
   float zMin = -2800 * Acts::UnitConstants::mm;
+  /// Maximum z coordinate for space-point selection
   float zMax = 2800 * Acts::UnitConstants::mm;
+  /// Maximum radius for space-point selection
   float rMax = 600 * Acts::UnitConstants::mm;
   /// @warning If rMin is smaller than impactMax, the bin size will be 2*pi,
   /// which will make seeding very slow!
@@ -47,6 +53,7 @@ struct SeedFinderOrthogonalConfig {
   /// useVariableMiddleSPRange is set to false and the vector rRangeMiddleSP is
   /// empty, we use (rMinMiddle, rMaxMiddle) to cut the middle space-points
   float rMinMiddle = 60.f * Acts::UnitConstants::mm;
+  /// Maximum radius for middle space-point selection
   float rMaxMiddle = 120.f * Acts::UnitConstants::mm;
   /// If useVariableMiddleSPRange is set to false, the vector rRangeMiddleSP can
   /// be used to define a fixed r range for each z bin: {{rMin, rMax}, ...}
@@ -57,6 +64,7 @@ struct SeedFinderOrthogonalConfig {
   /// based on the maximum and minimum r values of the space-points in the event
   /// and a deltaR (deltaRMiddleMinSPRange, deltaRMiddleMaxSPRange)
   float deltaRMiddleMinSPRange = 10. * Acts::UnitConstants::mm;
+  /// Maximum delta R for variable middle SP range calculation
   float deltaRMiddleMaxSPRange = 10. * Acts::UnitConstants::mm;
 
   /// Vector containing minimum and maximum z boundaries for cutting middle
@@ -85,11 +93,12 @@ struct SeedFinderOrthogonalConfig {
 
   /// Maximum allowed cotTheta between two space-points in doublet, used to
   /// check if forward angle is within bounds
-  float cotThetaMax = 7.40627;  // equivalent to 2.7 eta (pseudorapidity)
+  float cotThetaMax = 10.01788;  // equivalent to eta = 3 (pseudorapidity)
 
   /// Limiting location of collision region in z-axis used to check if doublet
   /// origin is within reasonable bounds
   float collisionRegionMin = -150 * Acts::UnitConstants::mm;
+  /// Maximum z extent of collision region for doublet validation
   float collisionRegionMax = +150 * Acts::UnitConstants::mm;
 
   /// Enable cut on the compatibility between interaction point and doublet,
@@ -140,52 +149,33 @@ struct SeedFinderOrthogonalConfig {
 
   /// derived values, set on SeedFinder construction
   float highland = 0;
+  /// Squared maximum scattering angle for track validation
   float maxScatteringAngle2 = 0;
 
-  // Delegate to apply experiment specific cuts
+  /// Delegate to apply experiment specific cuts during seeding
   Delegate<bool(float /*bottomRadius*/, float /*cotTheta*/)> experimentCuts{
       DelegateFuncTag<&noopExperimentCuts>{}};
 
-  bool isInInternalUnits = false;
-
-  SeedFinderOrthogonalConfig calculateDerivedQuantities() const {
-    if (!isInInternalUnits) {
-      throw std::runtime_error(
-          "SeedFinderOrthogonalConfig not in ACTS internal units in "
-          "calculateDerivedQuantities");
-    }
-    SeedFinderOrthogonalConfig config = *this;
-    /// calculation of scattering using the highland formula
-    /// convert pT to p once theta angle is known
-    config.highland = 13.6 * std::sqrt(radLengthPerSeed) *
-                      (1 + 0.038 * std::log(radLengthPerSeed));
-    config.maxScatteringAngle2 = std::pow(config.highland / config.minPt, 2);
-    return config;
+  /// defaults experimental cuts to no operation in both seeding algorithms
+  /// @return Always returns true (no cuts applied)
+  static bool noopExperimentCuts(float /*bottomRadius*/, float /*cotTheta*/) {
+    return true;
   }
 
-  SeedFinderOrthogonalConfig toInternalUnits() const {
-    if (isInInternalUnits) {
-      throw std::runtime_error(
-          "SeedFinderOrthogonalConfig already in ACTS internal units in "
-          "toInternalUnits");
-    }
-    using namespace Acts::UnitLiterals;
-    SeedFinderOrthogonalConfig config = *this;
-    config.isInInternalUnits = true;
-    config.minPt /= 1_MeV;
-    config.deltaRMinTopSP /= 1_mm;
-    config.deltaRMaxTopSP /= 1_mm;
-    config.deltaRMinBottomSP /= 1_mm;
-    config.deltaRMaxBottomSP /= 1_mm;
-    config.impactMax /= 1_mm;
-    config.maxPtScattering /= 1_MeV;
-    config.collisionRegionMin /= 1_mm;
-    config.collisionRegionMax /= 1_mm;
-    config.zMin /= 1_mm;
-    config.zMax /= 1_mm;
-    config.rMax /= 1_mm;
-    config.rMin /= 1_mm;
+  /// Flag indicating whether configuration uses ACTS internal units
+  bool isInInternalUnits = true;
 
+  /// Convert to internal units (deprecated, already in internal units)
+  /// @return Copy of this configuration (already in internal units)
+  //[[deprecated("SeedFinderOrthogonalConfig uses internal units")]]
+  SeedFinderOrthogonalConfig toInternalUnits() const { return *this; }
+
+  /// Calculate derived quantities from the basic configuration parameters
+  /// @return New configuration with derived quantities calculated
+  SeedFinderOrthogonalConfig calculateDerivedQuantities() const {
+    SeedFinderOrthogonalConfig config = *this;
+    config.highland = approximateHighlandScattering(config.radLengthPerSeed);
+    config.maxScatteringAngle2 = std::pow(config.highland / config.minPt, 2);
     return config;
   }
 };

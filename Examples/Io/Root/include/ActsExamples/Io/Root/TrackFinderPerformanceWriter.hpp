@@ -16,12 +16,14 @@
 #include "ActsExamples/Framework/WriterT.hpp"
 #include "ActsExamples/Validation/DuplicationPlotTool.hpp"
 #include "ActsExamples/Validation/EffPlotTool.hpp"
-#include "ActsExamples/Validation/FakeRatePlotTool.hpp"
+#include "ActsExamples/Validation/FakePlotTool.hpp"
+#include "ActsExamples/Validation/TrackQualityPlotTool.hpp"
 #include "ActsExamples/Validation/TrackSummaryPlotTool.hpp"
 
 #include <cstddef>
 #include <mutex>
 #include <string>
+#include <vector>
 
 class TFile;
 class TTree;
@@ -33,7 +35,7 @@ namespace ActsExamples {
 struct AlgorithmContext;
 
 /// Write out the performance of CombinatorialKalmanFilter (CKF), e.g. track
-/// efficiency, fake rate etc.
+/// efficiency, fake rate/ratio etc.
 ///
 /// @TODO: add duplication plots
 ///
@@ -52,6 +54,8 @@ class TrackFinderPerformanceWriter final : public WriterT<ConstTrackContainer> {
     std::string inputTrackParticleMatching;
     /// Input track-particle matching.
     std::string inputParticleTrackMatching;
+    /// Input particle measurements map.
+    std::string inputParticleMeasurementsMap;
     /// Output filename.
     std::string filePath = "performance_ckf.root";
     /// Output filemode
@@ -59,9 +63,10 @@ class TrackFinderPerformanceWriter final : public WriterT<ConstTrackContainer> {
 
     /// Plot tool configurations.
     EffPlotTool::Config effPlotToolConfig;
-    FakeRatePlotTool::Config fakeRatePlotToolConfig;
+    FakePlotTool::Config fakePlotToolConfig;
     DuplicationPlotTool::Config duplicationPlotToolConfig;
     TrackSummaryPlotTool::Config trackSummaryPlotToolConfig;
+    TrackQualityPlotTool::Config trackQualityPlotToolConfig;
 
     /// Additional tracksummary plot tool configs for detector regions
     /// Allows e.g. to do pixel/strip only plots based on a list of volumes
@@ -91,25 +96,27 @@ class TrackFinderPerformanceWriter final : public WriterT<ConstTrackContainer> {
   TFile* m_outputFile{nullptr};
   /// Plot tool for efficiency
   EffPlotTool m_effPlotTool;
-  EffPlotTool::EffPlotCache m_effPlotCache;
+  EffPlotTool::Cache m_effPlotCache;
   /// Plot tool for fake rate
-  FakeRatePlotTool m_fakeRatePlotTool;
-  FakeRatePlotTool::FakeRatePlotCache m_fakeRatePlotCache{};
+  FakePlotTool m_fakePlotTool;
+  FakePlotTool::Cache m_fakePlotCache{};
   /// Plot tool for duplication rate
   DuplicationPlotTool m_duplicationPlotTool;
-  DuplicationPlotTool::DuplicationPlotCache m_duplicationPlotCache{};
+  DuplicationPlotTool::Cache m_duplicationPlotCache{};
   /// Plot tool for track hit info
   TrackSummaryPlotTool m_trackSummaryPlotTool;
-  TrackSummaryPlotTool::TrackSummaryPlotCache m_trackSummaryPlotCache{};
-  std::map<std::string, TrackSummaryPlotTool::TrackSummaryPlotCache>
-      m_subDetectorSummaryCaches;
+  TrackSummaryPlotTool::Cache m_trackSummaryPlotCache{};
+  std::map<std::string, TrackSummaryPlotTool::Cache> m_subDetectorSummaryCaches;
+  /// Plot tool for track quality
+  TrackQualityPlotTool m_trackQualityPlotTool;
+  TrackQualityPlotTool::Cache m_trackQualityPlotCache{};
 
   /// For optional output of the matching details
   TTree* m_matchingTree{nullptr};
 
   /// Variables to fill in the TTree
   std::uint32_t m_treeEventNr{};
-  std::uint64_t m_treeParticleId{};
+  std::vector<std::uint32_t> m_treeParticleId{};
   bool m_treeIsMatched{};
 
   // Adding numbers for efficiency, fake, duplicate calculations
@@ -127,6 +134,8 @@ class TrackFinderPerformanceWriter final : public WriterT<ConstTrackContainer> {
       this, "InputTrackParticleMatching"};
   ReadDataHandle<ParticleTrackMatching> m_inputParticleTrackMatching{
       this, "InputParticleTrackMatching"};
+  ReadDataHandle<InverseMultimap<SimBarcode>> m_inputParticleMeasurementsMap{
+      this, "InputParticleMeasurementsMap"};
 };
 
 }  // namespace ActsExamples

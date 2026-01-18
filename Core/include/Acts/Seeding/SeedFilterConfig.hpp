@@ -12,8 +12,6 @@
 #include "Acts/Seeding/SeedConfirmationRangeConfig.hpp"
 
 #include <cstddef>
-#include <cstdint>
-#include <stdexcept>
 
 namespace Acts {
 
@@ -21,10 +19,10 @@ namespace Acts {
 struct SeedFilterConfig {
   /// Allowed difference in curvature (inverted seed radii) between two
   /// compatible seeds
-  float deltaInvHelixDiameter = 0.00003 * 1. / Acts::UnitConstants::mm;
+  float deltaInvHelixDiameter = 0.00003 * 1. / UnitConstants::mm;
   /// Minimum distance between compatible outer space-points to be considered.
   /// This is used to avoid counting space-points from the same layer
-  float deltaRMin = 5. * Acts::UnitConstants::mm;
+  float deltaRMin = 5. * UnitConstants::mm;
   /// Seed weight/score is increased by this value if a compatible seed has been
   /// found. This is the c1 factor in the seed score calculation (w = c1 * Nt -
   /// c2 * d0 - c3 * z0)
@@ -51,6 +49,7 @@ struct SeedFilterConfig {
   /// want to increase the weight of the seed by seedWeightIncrement when the
   /// number of compatible seeds is higher than a certain value
   float seedWeightIncrement = 0;
+  /// Number of seeds allowed before increment
   float numSeedIncrement = std::numeric_limits<float>::infinity();
 
   /// Seeding parameters used for quality seed confirmation
@@ -85,20 +84,14 @@ struct SeedFilterConfig {
   /// compatible SPs
   bool useDeltaRorTopRadius = false;
 
-  bool isInInternalUnits = false;
-  SeedFilterConfig toInternalUnits() const {
-    if (isInInternalUnits) {
-      throw std::runtime_error(
-          "Repeated conversion to internal units for SeedFilterConfig");
-    }
-    using namespace Acts::UnitLiterals;
-    SeedFilterConfig config = *this;
-    config.isInInternalUnits = true;
-    config.deltaRMin /= 1_mm;
-    config.deltaInvHelixDiameter /= 1. / 1_mm;
+  /// Flag indicating whether configuration values are in internal units
+  bool isInInternalUnits = true;
 
-    return config;
-  }
+  /// Convert configuration to internal units.
+  /// @deprecated SeedFilterConfig already uses internal units
+  /// @return Copy of this configuration (already in internal units)
+  //[[deprecated("SeedFilterConfig uses internal units")]]
+  SeedFilterConfig toInternalUnits() const { return *this; }
 };
 
 }  // namespace Acts

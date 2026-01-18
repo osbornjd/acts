@@ -6,15 +6,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/Json/PortalJsonConverter.hpp"
+#include "ActsPlugins/Json/PortalJsonConverter.hpp"
 
 #include "Acts/Detector/DetectorVolume.hpp"
 #include "Acts/Detector/Portal.hpp"
 #include "Acts/Detector/detail/PortalHelper.hpp"
 #include "Acts/Navigation/PortalNavigation.hpp"
-#include "Acts/Plugins/Json/DetrayJsonHelper.hpp"
-#include "Acts/Plugins/Json/SurfaceJsonConverter.hpp"
-#include "Acts/Plugins/Json/UtilitiesJsonConverter.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
@@ -23,10 +20,14 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Enumerate.hpp"
 #include "Acts/Utilities/VectorHelpers.hpp"
+#include "ActsPlugins/Json/DetrayJsonHelper.hpp"
+#include "ActsPlugins/Json/SurfaceJsonConverter.hpp"
+#include "ActsPlugins/Json/UtilitiesJsonConverter.hpp"
 
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <ranges>
 #include <vector>
 
 namespace {
@@ -143,8 +144,7 @@ Acts::PortalJsonConverter::toJsonDetray(
 
       // Apply the correction from local to global boundaries
       double gCorr = VectorHelpers::cast(transform.translation(), cast);
-      std::for_each(boundaries.begin(), boundaries.end(),
-                    [&gCorr](double& b) { b -= gCorr; });
+      std::ranges::for_each(boundaries, [&gCorr](double& b) { b -= gCorr; });
 
       // Get the volume indices
       auto surfaceType = surfaceAdjusted->type();

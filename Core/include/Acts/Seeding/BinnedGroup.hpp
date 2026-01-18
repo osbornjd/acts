@@ -10,10 +10,7 @@
 
 #include "Acts/Seeding/BinnedGroupIterator.hpp"
 #include "Acts/Utilities/GridBinFinder.hpp"
-#include "Acts/Utilities/GridIterator.hpp"
-#include "Acts/Utilities/Holders.hpp"
 
-#include <memory>
 #include <vector>
 
 namespace Acts {
@@ -27,27 +24,39 @@ namespace Acts {
 template <typename grid_t>
 class BinnedGroup {
  public:
+  /// Friend iterator class for accessing private members
   friend BinnedGroupIterator<grid_t>;
 
+  /// Dimension of the underlying grid
   static constexpr std::size_t DIM = grid_t::DIM;
 
   /// @brief Default constructor
   BinnedGroup() = delete;
 
   /// brief Constructor
-  BinnedGroup(grid_t&& grid, const Acts::GridBinFinder<DIM>& bottomFinder,
-              const Acts::GridBinFinder<DIM>& topFinder,
+  /// @param grid The grid to use for binning
+  /// @param bottomFinder The bottom bin finder
+  /// @param topFinder The top bin finder
+  /// @param navigation The navigation array for grid bins
+  BinnedGroup(grid_t&& grid, const GridBinFinder<DIM>& bottomFinder,
+              const GridBinFinder<DIM>& topFinder,
               std::array<std::vector<std::size_t>, DIM> navigation =
                   std::array<std::vector<std::size_t>, DIM>());
 
+  /// Constructor with grid, mask, and finders
+  /// @param grid Grid object (moved)
+  /// @param mask Vector of boolean masks
+  /// @param bottomFinder Bottom bin finder
+  /// @param topFinder Top bin finder
+  /// @param navigation Navigation array (optional)
   BinnedGroup(grid_t&& grid, std::vector<bool> mask,
-              const Acts::GridBinFinder<DIM>& bottomFinder,
-              const Acts::GridBinFinder<DIM>& topFinder,
+              const GridBinFinder<DIM>& bottomFinder,
+              const GridBinFinder<DIM>& topFinder,
               std::array<std::vector<std::size_t>, DIM> navigation =
                   std::array<std::vector<std::size_t>, DIM>());
 
-  BinnedGroup(grid_t& grid, const Acts::GridBinFinder<DIM>& bottomFinder,
-              const Acts::GridBinFinder<DIM>& topFinder,
+  BinnedGroup(grid_t& grid, const GridBinFinder<DIM>& bottomFinder,
+              const GridBinFinder<DIM>& topFinder,
               std::array<std::vector<std::size_t>, DIM> navigation =
                   std::array<std::vector<std::size_t>, DIM>()) = delete;
 
@@ -85,10 +94,10 @@ class BinnedGroup {
 
   /// @brief Get the begin iterator
   /// @return The iterator
-  Acts::BinnedGroupIterator<grid_t> begin() const;
+  BinnedGroupIterator<grid_t> begin() const;
   /// @brief Get the end iterator
   /// @return The iterator
-  Acts::BinnedGroupIterator<grid_t> end() const;
+  BinnedGroupIterator<grid_t> end() const;
 
  private:
   /// @brief The N-dimentional grid
@@ -97,9 +106,9 @@ class BinnedGroup {
   /// corresponds to the global bins in the grid
   std::vector<bool> m_mask{};
   /// @brief The Grid Bin Finder for bottom candidates
-  const Acts::GridBinFinder<DIM>* m_bottomBinFinder{nullptr};
+  const GridBinFinder<DIM>* m_bottomBinFinder{nullptr};
   /// @brief The Grid Bin Finder for top candidates
-  const Acts::GridBinFinder<DIM>* m_topBinFinder{nullptr};
+  const GridBinFinder<DIM>* m_topBinFinder{nullptr};
   /// @brief Order of bins to loop over when searching for SPs
   std::array<std::vector<std::size_t>, DIM> m_bins{};
 };

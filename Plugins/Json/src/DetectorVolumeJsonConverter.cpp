@@ -6,23 +6,24 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/Json/DetectorVolumeJsonConverter.hpp"
+#include "ActsPlugins/Json/DetectorVolumeJsonConverter.hpp"
 
 #include "Acts/Detector/DetectorVolume.hpp"
 #include "Acts/Detector/Portal.hpp"
 #include "Acts/Detector/PortalGenerators.hpp"
 #include "Acts/Navigation/DetectorVolumeFinders.hpp"
 #include "Acts/Navigation/InternalNavigation.hpp"
-#include "Acts/Plugins/Json/AlgebraJsonConverter.hpp"
-#include "Acts/Plugins/Json/DetrayJsonHelper.hpp"
-#include "Acts/Plugins/Json/IndexedSurfacesJsonConverter.hpp"
-#include "Acts/Plugins/Json/PortalJsonConverter.hpp"
-#include "Acts/Plugins/Json/SurfaceJsonConverter.hpp"
-#include "Acts/Plugins/Json/VolumeBoundsJsonConverter.hpp"
 #include "Acts/Utilities/Enumerate.hpp"
+#include "ActsPlugins/Json/AlgebraJsonConverter.hpp"
+#include "ActsPlugins/Json/DetrayJsonHelper.hpp"
+#include "ActsPlugins/Json/IndexedSurfacesJsonConverter.hpp"
+#include "ActsPlugins/Json/PortalJsonConverter.hpp"
+#include "ActsPlugins/Json/SurfaceJsonConverter.hpp"
+#include "ActsPlugins/Json/VolumeBoundsJsonConverter.hpp"
 
 #include <algorithm>
 #include <ctime>
+#include <ranges>
 
 nlohmann::json Acts::DetectorVolumeJsonConverter::toJson(
     const GeometryContext& gctx, const Experimental::DetectorVolume& volume,
@@ -37,11 +38,10 @@ nlohmann::json Acts::DetectorVolumeJsonConverter::toJson(
   jVolume["bounds"] = VolumeBoundsJsonConverter::toJson(volume.volumeBounds());
   // Write the surfaces
   nlohmann::json jSurfaces;
-  std::for_each(
-      volume.surfaces().begin(), volume.surfaces().end(), [&](const auto& s) {
-        jSurfaces.push_back(
-            SurfaceJsonConverter::toJson(gctx, *s, options.surfaceOptions));
-      });
+  std::ranges::for_each(volume.surfaces(), [&](const auto& s) {
+    jSurfaces.push_back(
+        SurfaceJsonConverter::toJson(gctx, *s, options.surfaceOptions));
+  });
   jVolume["surfaces"] = jSurfaces;
   // And its surface navigation delegates
   nlohmann::json jSurfacesDelegate =
@@ -50,10 +50,9 @@ nlohmann::json Acts::DetectorVolumeJsonConverter::toJson(
 
   // Write the sub volumes
   nlohmann::json jVolumes;
-  std::for_each(
-      volume.volumes().begin(), volume.volumes().end(), [&](const auto& v) {
-        jVolumes.push_back(toJson(gctx, *v, detectorVolumes, portals, options));
-      });
+  std::ranges::for_each(volume.volumes(), [&](const auto& v) {
+    jVolumes.push_back(toJson(gctx, *v, detectorVolumes, portals, options));
+  });
   jVolume["volumes"] = jVolumes;
 
   // Write the portals if pre-converted as link

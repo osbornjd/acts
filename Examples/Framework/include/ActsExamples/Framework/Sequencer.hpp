@@ -8,13 +8,15 @@
 
 #pragma once
 
-#include "Acts/Plugins/FpeMonitoring/FpeMonitor.hpp"
+#include "ActsExamples/Framework/DataHandle.hpp"
 #include "ActsExamples/Framework/IAlgorithm.hpp"
 #include "ActsExamples/Framework/IContextDecorator.hpp"
 #include "ActsExamples/Framework/IReader.hpp"
 #include "ActsExamples/Framework/IWriter.hpp"
 #include "ActsExamples/Framework/SequenceElement.hpp"
+#include "ActsExamples/Framework/WhiteBoard.hpp"
 #include "ActsExamples/Utilities/tbbWrap.hpp"
+#include "ActsPlugins/FpeMonitoring/FpeMonitor.hpp"
 #include <Acts/Utilities/Logger.hpp>
 
 #include <cstddef>
@@ -22,14 +24,12 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include <tbb/enumerable_thread_specific.h>
 
 namespace ActsExamples {
-class DataHandleBase;
 class IAlgorithm;
 class IContextDecorator;
 class IReader;
@@ -45,8 +45,8 @@ class FpeFailure : public std::runtime_error {
 
 class SequenceConfigurationException : public std::runtime_error {
  public:
-  SequenceConfigurationException()
-      : std::runtime_error{"Sequence configuration error"} {}
+  explicit SequenceConfigurationException(const std::string &message)
+      : std::runtime_error{"Sequence configuration error: " + message} {}
 };
 
 /// A simple algorithm sequencer for event processing.
@@ -59,7 +59,7 @@ class Sequencer {
   struct FpeMask {
     std::string file;
     std::pair<std::size_t, std::size_t> lines;
-    Acts::FpeType type;
+    ActsPlugins::FpeType type;
     std::size_t count;
   };
 
@@ -119,7 +119,7 @@ class Sequencer {
   void addWhiteboardAlias(const std::string &aliasName,
                           const std::string &objectName);
 
-  Acts::FpeMonitor::Result fpeResult() const;
+  ActsPlugins::FpeMonitor::Result fpeResult() const;
 
   /// Run the event loop.
   ///
@@ -161,25 +161,27 @@ class Sequencer {
   std::pair<std::size_t, std::size_t> determineEventsRange() const;
 
   std::pair<std::string, std::size_t> fpeMaskCount(
-      const boost::stacktrace::stacktrace &st, Acts::FpeType type) const;
+      const boost::stacktrace::stacktrace &st, ActsPlugins::FpeType type) const;
 
   void fpeReport() const;
 
   struct SequenceElementWithFpeResult {
     std::shared_ptr<SequenceElement> sequenceElement;
-    tbb::enumerable_thread_specific<Acts::FpeMonitor::Result> fpeResult{};
+    tbb::enumerable_thread_specific<ActsPlugins::FpeMonitor::Result>
+        fpeResult{};
   };
 
   Config m_cfg;
   tbbWrap::task_arena m_taskArena;
   std::vector<std::shared_ptr<IContextDecorator>> m_decorators;
   std::vector<std::shared_ptr<IReader>> m_readers;
+  std::vector<std::shared_ptr<IWriter>> m_writers;
   std::vector<SequenceElementWithFpeResult> m_sequenceElements;
   std::unique_ptr<const Acts::Logger> m_logger;
 
-  std::unordered_multimap<std::string, std::string> m_whiteboardObjectAliases;
+  WhiteBoard::AliasMapType m_whiteboardObjectAliases;
 
-  std::unordered_map<std::string, const DataHandleBase *> m_whiteBoardState;
+  DataHandleBase::StateMapType m_whiteBoardState;
 
   std::atomic<std::size_t> m_nUnmaskedFpe = 0;
 

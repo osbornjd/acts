@@ -17,7 +17,6 @@
 #include "Acts/Propagator/NavigationTarget.hpp"
 #include "Acts/Propagator/NavigatorOptions.hpp"
 #include "Acts/Propagator/NavigatorStatistics.hpp"
-#include "Acts/Surfaces/BoundaryTolerance.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
@@ -60,8 +59,11 @@ class DetectorNavigator {
   /// created for every propagation/extrapolation step
   /// and keep thread-local navigation information
   struct State : public NavigationState {
+    /// Construct navigation state with configuration options.
+    /// @param options_ Configuration options for the detector navigator
     explicit State(const Options& options_) : options(options_) {}
 
+    /// Configuration options for the detector navigator
     Options options;
 
     /// Navigation state - external state: the current surface
@@ -161,11 +163,20 @@ class DetectorNavigator {
       ACTS_VERBOSE(volInfo(state)
                    << posInfo(state, position) << "stepping through surface");
     }
+    ++state.surfaceCandidateIndex;
 
-    if (state.surfaceCandidateIndex == state.surfaceCandidates.size()) {
+    if (state.surfaceCandidateIndex ==
+        static_cast<int>(state.surfaceCandidates.size())) {
       ACTS_VERBOSE(volInfo(state)
                    << posInfo(state, position) << "no surface candidates");
-      return NavigationTarget::None();
+      // we run out of surfaces and we are in a portal - try to reinitialize the
+      // navigation state
+      if (state.currentPortal == nullptr) {
+        updateCandidateSurfaces(state, position);
+        state.surfaceCandidateIndex = 0;
+      } else {
+        return NavigationTarget::None();
+      }
     }
 
     // Screen output how much is left to try
@@ -174,11 +185,10 @@ class DetectorNavigator {
                                     state.surfaceCandidateIndex)
                                 << " out of " << state.surfaceCandidates.size()
                                 << " surfaces remain to try.");
+
     // Take the surface
     const auto& candidate = state.surfaceCandidate();
-    const auto& surface = (candidate.surface != nullptr)
-                              ? (*candidate.surface)
-                              : (candidate.portal->surface());
+    const auto& surface = candidate.surface();
     // Screen output which surface you are on
     ACTS_VERBOSE(volInfo(state)
                  << posInfo(state, position)
@@ -188,9 +198,7 @@ class DetectorNavigator {
 
     state.currentSurface = nullptr;
     state.currentPortal = nullptr;
-
-    return NavigationTarget(surface, candidate.objectIntersection.index(),
-                            candidate.boundaryTolerance);
+    return candidate;
   }
 
   bool checkTargetValid(const State& state, const Vector3& position,
@@ -218,7 +226,8 @@ class DetectorNavigator {
       return;
     }
 
-    if (state.surfaceCandidateIndex == state.surfaceCandidates.size()) {
+    if (state.surfaceCandidateIndex ==
+        static_cast<int>(state.surfaceCandidates.size())) {
       ACTS_VERBOSE(volInfo(state)
                    << posInfo(state, position)
                    << "no surface candidates - waiting for target call");
@@ -229,17 +238,11 @@ class DetectorNavigator {
     const Surface* nextSurface = nullptr;
     bool isPortal = false;
 
-    if (state.surfaceCandidate().surface != nullptr) {
-      nextSurface = state.surfaceCandidate().surface;
-    } else if (state.surfaceCandidate().portal != nullptr) {
-      nextPortal = state.surfaceCandidate().portal;
+    nextSurface = &state.surfaceCandidate().surface();
+    if (state.surfaceCandidate().isPortalTarget()) {
+      nextPortal = &state.surfaceCandidate().gen2Portal();
       nextSurface = &nextPortal->surface();
       isPortal = true;
-    } else {
-      std::string msg = "DetectorNavigator: " + volInfo(state) +
-                        posInfo(state, position) +
-                        "panic: not a surface not a portal - what is it?";
-      throw std::runtime_error(msg);
     }
 
     ACTS_VERBOSE(volInfo(state)
@@ -252,7 +255,7 @@ class DetectorNavigator {
       state.currentPortal = nextPortal;
       state.currentSurface = &nextPortal->surface();
       state.surfaceCandidates.clear();
-      state.surfaceCandidateIndex = 0;
+      state.surfaceCandidateIndex = -1;
 
       state.currentPortal->updateDetectorVolume(state.options.geoContext,
                                                 state);
@@ -283,7 +286,6 @@ class DetectorNavigator {
       ACTS_VERBOSE(volInfo(state)
                    << posInfo(state, position) << "current surface set to "
                    << state.currentSurface->geometryId());
-      ++state.surfaceCandidateIndex;
     }
   }
 
@@ -345,11 +347,8 @@ class DetectorNavigator {
 
     // Sort properly the surface candidates
     auto& nCandidates = state.surfaceCandidates;
-    std::ranges::sort(nCandidates, {}, [](const auto& c) {
-      return c.objectIntersection.pathLength();
-    });
-    // Set the surface candidate
-    state.surfaceCandidateIndex = 0;
+    std::ranges::sort(nCandidates, NavigationTarget::pathLengthOrder);
+    state.surfaceCandidateIndex = -1;
   }
 
   void fillNavigationState(const Vector3& position, const Vector3& direction,

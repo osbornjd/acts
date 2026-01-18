@@ -8,25 +8,16 @@
 
 #pragma once
 
-#include "Acts/Definitions/Algebra.hpp"
-
-#include <algorithm>
-#include <limits>
-#include <memory>
-#include <tuple>
-#include <utility>
 #include <vector>
 
 namespace Acts {
+
 /// @brief A description of a triplet candidate.
 /// @tparam external_space_point_t  The external spacepoint type.
 template <typename external_space_point_t>
 struct TripletCandidate {
   /// @brief Default Constructor
   TripletCandidate() = default;
-
-  /// @brief Default Destructor
-  ~TripletCandidate() = default;
 
   /// @brief constructor
   /// @param b The bottom space point
@@ -39,34 +30,17 @@ struct TripletCandidate {
                    external_space_point_t& t, float w, float z, bool q)
       : bottom(&b), middle(&m), top(&t), weight(w), zOrigin(z), isQuality(q) {}
 
-  /// @brief Copy operations
-  TripletCandidate(const TripletCandidate&) = default;
-  TripletCandidate& operator=(const TripletCandidate&) = default;
-
-  /// @brief Move operations
-  TripletCandidate(TripletCandidate&& other) noexcept
-      : bottom(std::exchange(other.bottom, nullptr)),
-        middle(std::exchange(other.middle, nullptr)),
-        top(std::exchange(other.top, nullptr)),
-        weight(other.weight),
-        zOrigin(other.zOrigin),
-        isQuality(other.isQuality) {}
-
-  TripletCandidate& operator=(TripletCandidate&& other) noexcept {
-    bottom = std::exchange(other.bottom, nullptr);
-    middle = std::exchange(other.middle, nullptr);
-    top = std::exchange(other.top, nullptr);
-    weight = other.weight;
-    zOrigin = other.zOrigin;
-    isQuality = other.isQuality;
-    return *this;
-  }
-
+  /// Pointer to bottom space point of the triplet candidate
   external_space_point_t* bottom{nullptr};
+  /// Pointer to middle space point of the triplet candidate
   external_space_point_t* middle{nullptr};
+  /// Pointer to top space point of the triplet candidate
   external_space_point_t* top{nullptr};
+  /// Quality weight of the triplet candidate
   float weight{0.};
+  /// Z-coordinate of the estimated track origin
   float zOrigin{0.};
+  /// Flag indicating whether this is a high-quality candidate
   bool isQuality{false};
 };
 
@@ -87,6 +61,7 @@ concept SatisfyCandidateConcept = requires(external_space_point_t spacePoint) {
 template <SatisfyCandidateConcept external_space_point_t>
 class CandidatesForMiddleSp {
  public:
+  /// Type alias for triplet candidate type stored in this container
   using value_type = TripletCandidate<external_space_point_t>;
 
   /// @brief Setting maximum number of candidates to keep
@@ -101,15 +76,15 @@ class CandidatesForMiddleSp {
 
   /// @brief Adding a new triplet candidate to the collection, should it satisfy the
   /// selection criteria
-  /// @param SpB Bottom space point
-  /// @param SpM Medium space point
-  /// @param SpT Top space point
+  /// @param spB Bottom space point
+  /// @param spM Medium space point
+  /// @param spT Top space point
   /// @param weight The quality of the triplet candidate
   /// @param zOrigin The z-coordinate of the origin
   /// @param isQuality Whether the triplet candidate is high or low quality
   /// @returns whether the triplet candidate has been added or not to the collection
-  bool push(external_space_point_t& SpB, external_space_point_t& SpM,
-            external_space_point_t& SpT, float weight, float zOrigin,
+  bool push(external_space_point_t& spB, external_space_point_t& spM,
+            external_space_point_t& spT, float weight, float zOrigin,
             bool isQuality);
 
   /// @brief Clear the internal storage
@@ -136,21 +111,21 @@ class CandidatesForMiddleSp {
   std::size_t nHighQualityCandidates() const;
 
  private:
-  /// @brief dding a new triplet candidate to the collection, should it satisfy the
+  /// @brief Adding a new triplet candidate to the collection, should it satisfy the
   /// selection criteria
   /// @param indices The collection into which the candidate should be stored
   /// @param n The current number of stored elements in the container
   /// @param nMax The maximum number of elements that can be stored in the container
-  /// @param SpB The bottom space point
-  /// @param SpM The middle space point
-  /// @param SpT The top space point
+  /// @param spB The bottom space point
+  /// @param spM The middle space point
+  /// @param spT The top space point
   /// @param weight The quality of the triplet candidate
   /// @param zOrigin The z-coordinate of the origin
   /// @param isQuality Whether the triplet candidate is high or low quality
   /// @returns whether the triplet candidate has been added or not to the collection
   bool push(std::vector<std::size_t>& indices, std::size_t& n,
-            const std::size_t nMax, external_space_point_t& SpB,
-            external_space_point_t& SpM, external_space_point_t& SpT,
+            const std::size_t nMax, external_space_point_t& spB,
+            external_space_point_t& spM, external_space_point_t& spT,
             float weight, float zOrigin, bool isQuality);
 
   /// @brief Check if an element exists in the collection. The element to be checked

@@ -23,6 +23,7 @@ namespace Acts {
 /// volumes
 class CylinderPortalShell : public PortalShellBase {
  public:
+  /// Type alias for cylinder volume bounds face enumeration
   using Face = CylinderVolumeBounds::Face;
 
   using enum CylinderVolumeBounds::Face;
@@ -61,6 +62,7 @@ std::ostream& operator<<(std::ostream& os, CylinderPortalShell::Face face);
 /// cylinder portal slot.
 class SingleCylinderPortalShell : public CylinderPortalShell {
  public:
+  /// Type alias for base cylinder portal shell class
   using Base = CylinderPortalShell;
 
   /// Construct a single cylinder portal shell for the given volume
@@ -102,7 +104,7 @@ class SingleCylinderPortalShell : public CylinderPortalShell {
 /// the stacking. Depending on the direction, portals on the shells of children
 /// are merged or fused. Subsequently, portal access respects shared portals
 /// between shells. Below is an illustration of a stack in the r direction:
-///
+/// ```
 ///  Fused         +-----------------+
 /// portals ----+  |                 |
 ///   |         |  v           OuterCylinder
@@ -122,7 +124,7 @@ class SingleCylinderPortalShell : public CylinderPortalShell {
 ///   +----->      ^            (if rMin>0)
 ///          z     |                 |
 ///                +-----------------+
-///
+/// ```
 /// @note The shells must be ordered in the given direction
 /// Depending on the stack direction, the portal lookup will return different
 /// portals. In the illustration above, the `PositiveDisc` portal is shared
@@ -130,6 +132,7 @@ class SingleCylinderPortalShell : public CylinderPortalShell {
 /// looked up from the innermost and outermost shell in the r direction.
 class CylinderStackPortalShell : public CylinderPortalShell {
  public:
+  /// Type alias for single cylinder portal shell type used in stacks
   using SingleShell = SingleCylinderPortalShell;
 
   /// Construct the portal shell stack from the given shells

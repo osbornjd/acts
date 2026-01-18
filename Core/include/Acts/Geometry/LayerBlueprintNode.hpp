@@ -8,11 +8,17 @@
 
 #pragma once
 
+#include "Acts/Geometry/ProtoLayer.hpp"
 #include "Acts/Geometry/StaticBlueprintNode.hpp"
 
+#include <memory>
 #include <ostream>
 
 namespace Acts::Experimental {
+
+namespace detail {
+struct LayerBlueprintNodeImpl;
+}
 
 /// The layer node is essentially an auto-sizing wrapper around a set of
 /// surfaces.
@@ -23,11 +29,10 @@ namespace Acts::Experimental {
 ///
 /// The layer volume is created to wrap around the surfaces registered with
 /// this node. The orientation of the resulting volume defaults to the identity
-/// matrix. If another orientation is desired, this can be set with the @ref
-/// Acts::Experimental::LayerBlueprintNode::setTransform. See @ref Acts::ProtoLayer for
-/// details on the auto-sizing from surfaces.
+/// matrix. If another orientation is desired, this can be set with the
+/// @ref setTransform method. See @ref Acts::ProtoLayer for details on the auto-sizing from surfaces.
 ///
-class LayerBlueprintNode : public StaticBlueprintNode {
+class LayerBlueprintNode final : public StaticBlueprintNode {
  public:
   /// Enum that lists out the supported layer types.
   enum class LayerType {
@@ -44,8 +49,9 @@ class LayerBlueprintNode : public StaticBlueprintNode {
 
   /// Constructor for a layer node.
   /// @param name The name of the layer
-  explicit LayerBlueprintNode(const std::string& name)
-      : StaticBlueprintNode{nullptr}, m_name(name) {}
+  explicit LayerBlueprintNode(std::string_view name);
+
+  ~LayerBlueprintNode() override;
 
   /// @copydoc BlueprintNode::name
   const std::string& name() const override;
@@ -55,6 +61,10 @@ class LayerBlueprintNode : public StaticBlueprintNode {
   /// -# Analyze the surfaces provided and produce a wrapping volume
   /// -# Register the surfaces with the volume
   /// -# Return the volume
+  /// @param options Blueprint options for construction
+  /// @param gctx Geometry context for construction
+  /// @param logger Logger for debug output
+  /// @return Reference to constructed Volume
   /// @note At least one surfaces needs to be registered via
   ///       @ref Acts::Experimental::LayerBlueprintNode::setSurfaces before
   ///       geometry construction.
@@ -63,6 +73,7 @@ class LayerBlueprintNode : public StaticBlueprintNode {
 
   /// Register a set of surfaces with the layer node.
   /// @param surfaces The surfaces to register
+  /// @note This will clear any previously registered proto layer
   /// @return Reference to this node for chaining
   LayerBlueprintNode& setSurfaces(
       std::vector<std::shared_ptr<Surface>> surfaces);
@@ -70,6 +81,18 @@ class LayerBlueprintNode : public StaticBlueprintNode {
   /// Access the registered surfaces.
   /// @return The registered surfaces
   const std::vector<std::shared_ptr<Surface>>& surfaces() const;
+
+  /// Register a proto layer with the layer node.
+  /// @param protoLayer The proto layer to register
+  /// @note This will clear any previously registered surfaces
+  /// @return Reference to this node for chaining
+  LayerBlueprintNode& setProtoLayer(
+      std::optional<MutableProtoLayer> protoLayer);
+
+  /// Access the registered proto layer.
+  /// @note This will return nullptr if no proto layer is registered or built yet
+  /// @return The registered proto layer
+  const MutableProtoLayer* protoLayer() const;
 
   /// Set the transformation of the layer node.
   /// This can be used to specifically orient the resulting layer volume.
@@ -95,6 +118,14 @@ class LayerBlueprintNode : public StaticBlueprintNode {
   /// @param layerType The layer type to set
   /// @return Reference to this node for chaining
   LayerBlueprintNode& setLayerType(LayerType layerType);
+
+  /// Set the layer volume to be centered on the center of gravity of the
+  /// surfaces.
+  /// @param x Whether to center the layer volume on the x-axis
+  /// @param y Whether to center the layer volume on the y-axis
+  /// @param z Whether to center the layer volume on the z-axis
+  /// @return Reference to this node for chaining
+  LayerBlueprintNode& setUseCenterOfGravity(bool x, bool y, bool z);
 
   /// Access the layer type of the layer node.
   /// @return The layer type
@@ -131,11 +162,10 @@ class LayerBlueprintNode : public StaticBlueprintNode {
   /// @param logger The logger to use
   void buildVolume(const Extent& extent, const Logger& logger);
 
-  std::string m_name;
-  std::vector<std::shared_ptr<Surface>> m_surfaces{};
-  Transform3 m_transform = Transform3::Identity();
-  ExtentEnvelope m_envelope = ExtentEnvelope::Zero();
-  LayerType m_layerType = LayerType::Cylinder;
+  detail::LayerBlueprintNodeImpl& impl();
+  const detail::LayerBlueprintNodeImpl& impl() const;
+
+  std::unique_ptr<detail::LayerBlueprintNodeImpl> m_impl;
 };
 
 }  // namespace Acts::Experimental

@@ -10,7 +10,9 @@
 
 #include "Acts/Clusterization/TimedClusterization.hpp"
 
-namespace Acts::Test {
+#include <algorithm>
+
+using namespace Acts;
 
 // Define objects
 using Identifier = std::size_t;
@@ -29,8 +31,8 @@ struct Cluster {
   std::vector<Identifier> ids{};
 };
 
-using CellCollection = std::vector<Acts::Test::Cell>;
-using ClusterCollection = std::vector<Acts::Test::Cluster>;
+using CellCollection = std::vector<Cell>;
+using ClusterCollection = std::vector<Cluster>;
 
 // Define functions
 static inline int getCellRow(const Cell& cell) {
@@ -41,10 +43,6 @@ static inline int getCellColumn(const Cell& cell) {
   return cell.column;
 }
 
-static inline int& getCellLabel(Cell& cell) {
-  return cell.label;
-}
-
 static inline double getCellTime(const Cell& cell) {
   return cell.time;
 }
@@ -52,6 +50,8 @@ static inline double getCellTime(const Cell& cell) {
 static void clusterAddCell(Cluster& cl, const Cell& cell) {
   cl.ids.push_back(cell.id);
 }
+
+BOOST_AUTO_TEST_SUITE(ClusterizationSuite)
 
 BOOST_AUTO_TEST_CASE(TimedGrid_1D_withtime) {
   // 1x10 matrix
@@ -80,16 +80,17 @@ BOOST_AUTO_TEST_CASE(TimedGrid_1D_withtime) {
   expectedResults.push_back({7ul, 8ul});
   expectedResults.push_back({4ul, 5ul});
 
-  ClusterCollection clusters =
-      Acts::Ccl::createClusters<CellCollection, ClusterCollection, 1>(
-          cells, Acts::Ccl::TimedConnect<Cell, 1>(0.5));
+  Acts::Ccl::ClusteringData data;
+  ClusterCollection clusters;
+  Acts::Ccl::createClusters<CellCollection, ClusterCollection, 1>(
+      data, cells, clusters, Acts::Ccl::TimedConnect<Cell, 1>(0.5));
 
   BOOST_CHECK_EQUAL(5ul, clusters.size());
 
   for (std::size_t i(0); i < clusters.size(); ++i) {
     std::vector<Identifier>& timedIds = clusters[i].ids;
     const std::vector<Identifier>& expected = expectedResults[i];
-    std::sort(timedIds.begin(), timedIds.end());
+    std::ranges::sort(timedIds);
     BOOST_CHECK_EQUAL(timedIds.size(), expected.size());
 
     for (std::size_t j(0); j < timedIds.size(); ++j) {
@@ -123,17 +124,19 @@ BOOST_AUTO_TEST_CASE(TimedGrid_2D_notime) {
   expectedResults.push_back({1ul, 2ul});
   expectedResults.push_back({6ul});
 
-  ClusterCollection clusters =
-      Acts::Ccl::createClusters<CellCollection, ClusterCollection, 2>(
-          cells,
-          Acts::Ccl::TimedConnect<Cell, 2>(std::numeric_limits<double>::max()));
+  Acts::Ccl::ClusteringData data;
+  ClusterCollection clusters;
+  Acts::Ccl::createClusters<CellCollection, ClusterCollection, 2>(
+      data, cells, clusters,
+      Acts::Ccl::TimedConnect<Cell, 2>(std::numeric_limits<double>::max()));
 
   BOOST_CHECK_EQUAL(4ul, clusters.size());
 
   // Compare against default connect (only space)
-  ClusterCollection defaultClusters =
-      Acts::Ccl::createClusters<CellCollection, ClusterCollection, 2>(
-          cells, Acts::Ccl::DefaultConnect<Cell, 2>());
+  data.clear();
+  ClusterCollection defaultClusters;
+  Acts::Ccl::createClusters<CellCollection, ClusterCollection, 2>(
+      data, cells, defaultClusters, Acts::Ccl::DefaultConnect<Cell, 2>());
 
   BOOST_CHECK_EQUAL(4ul, defaultClusters.size());
   BOOST_CHECK_EQUAL(defaultClusters.size(), expectedResults.size());
@@ -147,8 +150,8 @@ BOOST_AUTO_TEST_CASE(TimedGrid_2D_notime) {
     BOOST_CHECK_EQUAL(timedIds.size(), sizes[i]);
     BOOST_CHECK_EQUAL(timedIds.size(), expected.size());
 
-    std::sort(timedIds.begin(), timedIds.end());
-    std::sort(defaultIds.begin(), defaultIds.end());
+    std::ranges::sort(timedIds);
+    std::ranges::sort(defaultIds);
     for (std::size_t j(0); j < timedIds.size(); ++j) {
       BOOST_CHECK_EQUAL(timedIds[j], defaultIds[j]);
       BOOST_CHECK_EQUAL(timedIds[j], expected[j]);
@@ -191,9 +194,10 @@ BOOST_AUTO_TEST_CASE(TimedGrid_2D_withtime) {
   expectedResults.push_back({1ul, 2ul});
   expectedResults.push_back({6ul});
 
-  ClusterCollection clusters =
-      Acts::Ccl::createClusters<CellCollection, ClusterCollection, 2>(
-          cells, Acts::Ccl::TimedConnect<Cell, 2>(0.5));
+  Acts::Ccl::ClusteringData data;
+  ClusterCollection clusters;
+  Acts::Ccl::createClusters<CellCollection, ClusterCollection, 2>(
+      data, cells, clusters, Acts::Ccl::TimedConnect<Cell, 2>(0.5));
 
   BOOST_CHECK_EQUAL(6ul, clusters.size());
 
@@ -201,7 +205,7 @@ BOOST_AUTO_TEST_CASE(TimedGrid_2D_withtime) {
   for (std::size_t i(0); i < clusters.size(); ++i) {
     std::vector<Identifier>& timedIds = clusters[i].ids;
     BOOST_CHECK_EQUAL(timedIds.size(), sizes[i]);
-    std::sort(timedIds.begin(), timedIds.end());
+    std::ranges::sort(timedIds);
 
     const std::vector<Identifier>& expected = expectedResults[i];
     BOOST_CHECK_EQUAL(timedIds.size(), expected.size());
@@ -241,9 +245,10 @@ BOOST_AUTO_TEST_CASE(TimedGrid_2D_noTollerance) {
   expectedResults.push_back({2ul});
   expectedResults.push_back({6ul});
 
-  ClusterCollection clusters =
-      Acts::Ccl::createClusters<CellCollection, ClusterCollection, 2>(
-          cells, Acts::Ccl::TimedConnect<Cell, 2>(0.));
+  Acts::Ccl::ClusteringData data;
+  ClusterCollection clusters;
+  Acts::Ccl::createClusters<CellCollection, ClusterCollection, 2>(
+      data, cells, clusters, Acts::Ccl::TimedConnect<Cell, 2>(0.));
 
   BOOST_CHECK_EQUAL(7ul, clusters.size());
 
@@ -257,4 +262,4 @@ BOOST_AUTO_TEST_CASE(TimedGrid_2D_noTollerance) {
   }
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()

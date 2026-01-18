@@ -24,7 +24,7 @@
 
 #include <boost/functional/hash.hpp>
 
-namespace Acts::Test {
+using namespace Acts;
 
 using Rectangle = std::array<int, 4>;
 
@@ -90,10 +90,6 @@ int getCellRow(const Cell2D& cell) {
 
 int getCellColumn(const Cell2D& cell) {
   return cell.col;
-}
-
-Ccl::Label& getCellLabel(Cell2D& cell) {
-  return cell.label;
 }
 
 bool operator==(const Cell2D& left, const Cell2D& right) {
@@ -199,6 +195,10 @@ Cluster2D gencluster(int x0, int y0, int x1, int y1, RNG& rng,
   return cl;
 }
 
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(ClusterizationSuite)
+
 BOOST_AUTO_TEST_CASE(Grid_2D_rand) {
   using Cell = Cell2D;
   using CellC = std::vector<Cell>;
@@ -231,7 +231,9 @@ BOOST_AUTO_TEST_CASE(Grid_2D_rand) {
 
     std::shuffle(cells.begin(), cells.end(), rnd);
 
-    ClusterC newCls = Ccl::createClusters<CellC, ClusterC>(cells);
+    Ccl::ClusteringData data;
+    ClusterC newCls;
+    Ccl::createClusters<CellC, ClusterC>(data, cells, newCls);
 
     for (Cluster& cl : newCls) {
       hash(cl);
@@ -246,5 +248,6 @@ BOOST_AUTO_TEST_CASE(Grid_2D_rand) {
     }
   }
 }
+BOOST_AUTO_TEST_SUITE_END()
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

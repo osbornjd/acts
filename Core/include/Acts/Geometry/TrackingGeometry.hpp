@@ -156,7 +156,7 @@ class TrackingGeometry {
     requires(detail::callableWithAnyMutable<Callable>() &&
              !detail::callableWithAnyConst<Callable>())
   {
-    detail::TrackingGeometryLambdaVisitor visitor{
+    detail::TrackingGeometryLambdaMutableVisitor visitor{
         std::forward<Callable>(callable)};
     apply(visitor);
   }
@@ -171,7 +171,7 @@ class TrackingGeometry {
   void apply(Callable&& callable) const
     requires(detail::callableWithAnyConst<Callable>())
   {
-    detail::TrackingGeometryLambdaMutableVisitor visitor{
+    detail::TrackingGeometryLambdaVisitor visitor{
         std::forward<Callable>(callable)};
     apply(visitor);
   }
@@ -191,6 +191,7 @@ class TrackingGeometry {
   const Surface* findSurface(GeometryIdentifier id) const;
 
   /// Access to the GeometryIdentifier - Surface association map
+  /// @return Const reference to the geometry ID to surface map
   const std::unordered_map<GeometryIdentifier, const Surface*>&
   geoIdSurfaceMap() const;
 
@@ -204,6 +205,13 @@ class TrackingGeometry {
                  const ViewConfig& viewConfig = s_viewVolume,
                  const ViewConfig& portalViewConfig = s_viewPortal,
                  const ViewConfig& sensitiveViewConfig = s_viewSensitive) const;
+
+  /// Which *type* of geometry this represents: Gen1 or Gen3
+  enum class GeometryVersion { Gen1, Gen3 };
+
+  /// Return the *generation* of this `TrackingGeometry`
+  /// @return the generation of this `TrackingGeometry`
+  GeometryVersion geometryVersion() const;
 
  private:
   // the known world

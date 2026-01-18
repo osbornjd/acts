@@ -6,10 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/GeoModel/detail/GeoTubeConverter.hpp"
+#include "ActsPlugins/GeoModel/detail/GeoTubeConverter.hpp"
 
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/Plugins/GeoModel/GeoModelConversionError.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
@@ -17,6 +16,7 @@
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Surfaces/StrawSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
+#include "ActsPlugins/GeoModel/GeoModelConversionError.hpp"
 
 #include <GeoModelKernel/GeoFullPhysVol.h>
 #include <GeoModelKernel/GeoLogVol.h>
@@ -24,14 +24,16 @@
 #include <GeoModelKernel/GeoTube.h>
 #include <GeoModelKernel/Units.h>
 
-Acts::Result<Acts::GeoModelSensitiveSurface>
-Acts::detail::GeoTubeConverter::operator()(const PVConstLink& geoPV,
-                                           const GeoTube& geoTube,
-                                           const Transform3& absTransform,
-                                           bool sensitive) const {
+using namespace Acts;
+
+Result<ActsPlugins::GeoModelSensitiveSurface>
+ActsPlugins::detail::GeoTubeConverter::operator()(
+    const PVConstLink& geoPV, const GeoTube& geoTube,
+    const Transform3& absTransform, SurfaceBoundFactory& boundFactory,
+    bool sensitive) const {
   /// auto-calculate the unit length conversion
   static constexpr double unitLength =
-      Acts::UnitConstants::mm / GeoModelKernelUnits::millimeter;
+      UnitConstants::mm / GeoModelKernelUnits::millimeter;
 
   // Create the surface transform
   Transform3 transform = Transform3::Identity();
@@ -45,7 +47,7 @@ Acts::detail::GeoTubeConverter::operator()(const PVConstLink& geoPV,
 
   if (targetShape == Surface::SurfaceType::Straw) {
     // Create the element and the surface
-    auto lineBounds = std::make_shared<LineBounds>(outerRadius, halfZ);
+    auto lineBounds = boundFactory.makeBounds<LineBounds>(outerRadius, halfZ);
     if (!sensitive) {
       auto surface = Surface::makeShared<StrawSurface>(transform, lineBounds);
       return std::make_tuple(nullptr, surface);

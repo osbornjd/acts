@@ -9,11 +9,11 @@
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/AxisDefinitions.hpp"
 #include "Acts/Utilities/BinningData.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/ProtoAxis.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -22,7 +22,9 @@
 #include <utility>
 #include <vector>
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTests {
 
 // the test positions in 3D
 Vector3 xyzPosition(0.5, 1.5, 2.5);
@@ -98,6 +100,9 @@ BinningData xData_add(open, AxisDirection::AxisX, main_sstr,
 // AxisDirection::AxisZ, AxisDirection::AxisR, AxisDirection::AxisPhi,
 // AxisDirection::AxisRPhi, AxisDirection::AxisTheta, AxisDirection::AxisEta }
 //
+
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
+
 // test the different binning values
 BOOST_AUTO_TEST_CASE(BinningData_AxisDirection) {
   // the binnings - arbitrary when switching to binary search - for boundary
@@ -430,7 +435,7 @@ BOOST_AUTO_TEST_CASE(BinningData_from_ProtoAxis) {
   using enum AxisBoundaryType;
 
   // Bound, equidistant axis
-  ProtoAxis epab(AxisX, Bound, 0.0, 1.0, 10);
+  DirectedProtoAxis epab(AxisX, Bound, 0.0, 1.0, 10);
   BinningData bEpab(epab);
 
   BOOST_CHECK_EQUAL(bEpab.bins(), std::size_t{10});
@@ -441,7 +446,7 @@ BOOST_AUTO_TEST_CASE(BinningData_from_ProtoAxis) {
   BOOST_CHECK(bEpab.type == equidistant);
 
   // Bound, equidistant axis, autorange
-  ProtoAxis epa(AxisY, Bound, 10);
+  DirectedProtoAxis epa(AxisY, Bound, 10);
   BinningData bEpa(epa);
   BOOST_CHECK(bEpa.binvalue == AxisY);
   BOOST_CHECK_EQUAL(bEpa.bins(), std::size_t{10});
@@ -449,7 +454,7 @@ BOOST_AUTO_TEST_CASE(BinningData_from_ProtoAxis) {
   BOOST_CHECK(bEpa.type == equidistant);
 
   // Bound, equidistant axis
-  ProtoAxis vpab(AxisZ, Bound, {0.0, 1.0, 10});
+  DirectedProtoAxis vpab(AxisZ, Bound, {0.0, 1.0, 10});
   BinningData bVpab(vpab);
   BOOST_CHECK(bVpab.binvalue == AxisZ);
   BOOST_CHECK_EQUAL(bVpab.bins(), std::size_t{2});
@@ -457,4 +462,6 @@ BOOST_AUTO_TEST_CASE(BinningData_from_ProtoAxis) {
   BOOST_CHECK(bVpab.type == arbitrary);
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

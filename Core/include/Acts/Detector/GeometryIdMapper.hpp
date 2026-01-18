@@ -15,6 +15,7 @@
 #include "Acts/Surfaces/Surface.hpp"
 
 #include <map>
+#include <ranges>
 
 namespace Acts::Experimental {
 
@@ -43,8 +44,11 @@ class GeometryIdMapper final : public IGeometryIdGenerator {
 
   /// @brief Cache object
   struct Cache {
+    /// Counter for volume geometry ID assignment
     unsigned int volumeCounter = 0u;
+    /// Counter for portal geometry ID assignment
     unsigned int portalCounter = 0u;
+    /// Counter for surface geometry ID assignment
     unsigned int surfaceCounter = 0u;
   };
 
@@ -85,16 +89,19 @@ class GeometryIdMapper final : public IGeometryIdGenerator {
     }
 
     // Portals
-    std::for_each(dVolume.portalPtrs().begin(), dVolume.portalPtrs().end(),
-                  [&](auto& portal) { assignGeometryId(cache, *portal); });
+    std::ranges::for_each(dVolume.portalPtrs(), [&](auto& portal) {
+      assignGeometryId(cache, *portal);
+    });
 
     // Surfaces
-    std::for_each(dVolume.surfacePtrs().begin(), dVolume.surfacePtrs().end(),
-                  [&](auto& surface) { assignGeometryId(cache, *surface); });
+    std::ranges::for_each(dVolume.surfacePtrs(), [&](auto& surface) {
+      assignGeometryId(cache, *surface);
+    });
 
     // Sub volumes
-    std::for_each(dVolume.volumePtrs().begin(), dVolume.volumePtrs().end(),
-                  [&](auto& volume) { assignGeometryId(cache, *volume); });
+    std::ranges::for_each(dVolume.volumePtrs(), [&](auto& volume) {
+      assignGeometryId(cache, *volume);
+    });
   }
 
   /// @brief Method for assigning a geometry id to a portal

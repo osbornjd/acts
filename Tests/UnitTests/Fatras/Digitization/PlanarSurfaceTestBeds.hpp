@@ -17,9 +17,9 @@
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/TrapezoidBounds.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinningType.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <array>
 #include <numbers>
@@ -125,7 +125,7 @@ struct PlanarSurfaceTestBeds {
         annulus);
 
     auto vertices = annulus->vertices(72);
-    std::for_each(vertices.begin(), vertices.end(), [&](Acts::Vector2& v) {
+    std::ranges::for_each(vertices, [&](Acts::Vector2& v) {
       double r = Acts::VectorHelpers::perp(v);
       rmin = std::min(rmin, r);
       rmax = std::max(rmax, r);

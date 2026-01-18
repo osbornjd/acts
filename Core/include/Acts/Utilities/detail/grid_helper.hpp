@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Utilities/Axis.hpp"
 #include "Acts/Utilities/IAxis.hpp"
 
@@ -58,6 +57,12 @@ class GlobalNeighborHoodIndices {
 
   class iterator {
    public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = std::size_t*;
+    using reference = std::size_t&;
+
     iterator() = default;
 
     iterator(const GlobalNeighborHoodIndices& parent,

@@ -8,14 +8,11 @@
 
 #pragma once
 
-#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Utilities/Frustum.hpp"
 #include "Acts/Utilities/Ray.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
 
-#include <array>
 #include <memory>
-#include <tuple>
 #include <vector>
 
 namespace Acts {
@@ -68,10 +65,12 @@ class AxisAlignedBoundingBox {
   static const std::size_t dim = DIM;
 
   /// Copy constructor from other bounding box.
+  /// @param other The other bounding box to copy from
   AxisAlignedBoundingBox(const self_t& other) = default;
 
   /// Copy assignment operator from other bounding box.
   /// @param other The other AABB
+  /// @return Reference to this bounding box after copying
   AxisAlignedBoundingBox& operator=(const self_t& other) = default;
 
   /// Constructor from an entity pointer, and the min and max vertices.

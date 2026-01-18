@@ -62,6 +62,7 @@ class LayerStructureBuilder : public IInternalStructureBuilder {
 
     /// Return the surfaces from the holder
     /// @param gctx is the geometry context
+    /// @return Vector of surfaces held by this holder
     std::vector<std::shared_ptr<Surface>> surfaces(
         [[maybe_unused]] const GeometryContext& gctx) const final {
       return m_surfaces;
@@ -83,7 +84,7 @@ class LayerStructureBuilder : public IInternalStructureBuilder {
     /// Definition of Supports
     std::vector<ProtoSupport> supports = {};
     /// Definition of Binnings
-    std::vector<std::tuple<ProtoAxis, std::size_t>> binnings = {};
+    std::vector<std::tuple<DirectedProtoAxis, std::size_t>> binnings = {};
     /// Optional extent (if already parsed), will trigger binning autorange
     /// check
     std::optional<Extent> extent = std::nullopt;

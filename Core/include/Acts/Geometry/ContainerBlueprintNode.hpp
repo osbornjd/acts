@@ -10,6 +10,7 @@
 
 #include "Acts/Geometry/BlueprintNode.hpp"
 #include "Acts/Geometry/BlueprintOptions.hpp"
+#include "Acts/Geometry/PortalShell.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/Geometry/VolumeAttachmentStrategy.hpp"
 #include "Acts/Geometry/VolumeResizeStrategy.hpp"
@@ -46,12 +47,22 @@ class ContainerBlueprintNode : public BlueprintNode {
   /// @param name The name of the node (for debug only)
   /// @param axis The stacking axis direction in local reference frame
   /// @param attachmentStrategy The attachment strategy for the stack
-  /// @param resizeStrategy The resize strategy
+  /// @param resizeStrategy The resize strategy for the stack
   ContainerBlueprintNode(
       const std::string& name, AxisDirection axis,
       VolumeAttachmentStrategy attachmentStrategy =
           VolumeAttachmentStrategy::Midpoint,
       VolumeResizeStrategy resizeStrategy = VolumeResizeStrategy::Expand);
+
+  /// Main constructor for the container node.
+  /// @param name The name of the node (for debug only)
+  /// @param axis The stacking axis direction in local reference frame
+  /// @param attachmentStrategy The attachment strategy for the stack
+  /// @param resizeStrategies The resize strategies for the stack
+  ContainerBlueprintNode(
+      const std::string& name, AxisDirection axis,
+      VolumeAttachmentStrategy attachmentStrategy,
+      std::pair<VolumeResizeStrategy, VolumeResizeStrategy> resizeStrategies);
 
   /// @copydoc BlueprintNode::name
   const std::string& name() const override;
@@ -100,9 +111,17 @@ class ContainerBlueprintNode : public BlueprintNode {
 
   /// Setter for the resize strategy
   /// @param resizeStrategy The resize strategy
+  /// @note @p resizeStrategy is used for both sides of the container
   /// @return This node for chaining
   ContainerBlueprintNode& setResizeStrategy(
       VolumeResizeStrategy resizeStrategy);
+
+  /// Setter for the resize strategies
+  /// @param inner The inner resize strategy
+  /// @param outer The outer resize strategy
+  /// @return This node for chaining
+  ContainerBlueprintNode& setResizeStrategies(VolumeResizeStrategy inner,
+                                              VolumeResizeStrategy outer);
 
   /// Accessor to the stacking direction
   /// @return The stacking direction
@@ -114,7 +133,13 @@ class ContainerBlueprintNode : public BlueprintNode {
 
   /// Accessor to the resize strategy
   /// @return The resize strategy
+  [[deprecated("Use resizeStrategies() instead")]]
   VolumeResizeStrategy resizeStrategy() const;
+
+  /// Accessor to the resize strategies
+  /// @return The resize strategies
+  std::pair<VolumeResizeStrategy, VolumeResizeStrategy> resizeStrategies()
+      const;
 
   /// @copydoc BlueprintNode::addToGraphviz
   void addToGraphviz(std::ostream& os) const override;
@@ -192,19 +217,30 @@ class ContainerBlueprintNode : public BlueprintNode {
                                const GeometryContext& gctx, VolumeStack* stack,
                                const std::string& prefix, const Logger& logger);
 
+  /// Name of the container node for debugging purposes
   std::string m_name;
+  /// Stacking axis direction in local reference frame
   AxisDirection m_direction = AxisDirection::AxisZ;
+  /// Volume attachment strategy for connecting volumes in the stack
   VolumeAttachmentStrategy m_attachmentStrategy{
       VolumeAttachmentStrategy::Midpoint};
-  VolumeResizeStrategy m_resizeStrategy{VolumeResizeStrategy::Expand};
 
+  /// Resize strategies for inner and outer sides of the container
+  std::pair<VolumeResizeStrategy, VolumeResizeStrategy> m_resizeStrategies{
+      VolumeResizeStrategy::Expand, VolumeResizeStrategy::Expand};
+
+  /// Container of child volumes managed by this blueprint node
   std::vector<Volume*> m_childVolumes;
-  // This is going to be an instance of a *stack* of volumes, which is created
-  // by the derived classes
+  /// Volume stack instance created by derived classes during build phase
+  /// @note This is populated during the build process by makeStack implementations
   std::unique_ptr<VolumeStack> m_stack{nullptr};
+  /// Mapping from child volumes to their corresponding blueprint nodes
   std::map<const Volume*, BlueprintNode*> m_volumeToNode;
 
+  /// Portal shell representation of this container for geometry connection
   std::unique_ptr<PortalShellBase> m_shell{nullptr};
+  /// Container of gap volumes and their portal shells created between child
+  /// volumes
   std::vector<std::pair<std::unique_ptr<PortalShellBase>,
                         std::unique_ptr<TrackingVolume>>>
       m_gaps;

@@ -21,7 +21,11 @@
 #include <utility>
 #include <vector>
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
 // OPEN - equidistant binning tests
 BOOST_AUTO_TEST_CASE(BinUtility_equidistant_binning) {
@@ -72,7 +76,7 @@ BOOST_AUTO_TEST_CASE(BinUtility_equidistant_binning) {
 // OPEN - equidistant binning tests
 BOOST_AUTO_TEST_CASE(BinUtility_arbitrary_binning) {
   std::vector<float> bvalues = {-5., 0., 1., 1.1, 8.};
-  BinUtility xUtil(bvalues, Acts::open, Acts::AxisDirection::AxisX);
+  BinUtility xUtil(bvalues, open, AxisDirection::AxisX);
 
   // Underflow
   BOOST_CHECK_EQUAL(xUtil.bin(Vector3(-6., 0., 0.)), 0u);
@@ -136,15 +140,17 @@ BOOST_AUTO_TEST_CASE(BinUtility_from_ProtoAxis) {
   using enum AxisDirection;
   using enum AxisBoundaryType;
 
-  ProtoAxis epabX(AxisX, Bound, 0.0, 1.0, 10);
+  DirectedProtoAxis epabX(AxisX, Bound, 0.0, 1.0, 10);
   BinUtility buX(epabX);
   BOOST_CHECK_EQUAL(buX.bins(), std::size_t{10});
   BOOST_CHECK_EQUAL(buX.dimensions(), std::size_t{1});
 
-  ProtoAxis epabY(AxisY, Bound, 0.0, 1.0, 10);
+  DirectedProtoAxis epabY(AxisY, Bound, 0.0, 1.0, 10);
   BinUtility buXY({epabX, epabY});
   BOOST_CHECK_EQUAL(buXY.bins(), std::size_t{100});
   BOOST_CHECK_EQUAL(buXY.dimensions(), std::size_t{2});
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

@@ -12,6 +12,7 @@
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Material/MaterialInteraction.hpp"
 #include "Acts/Material/MaterialInteractionAssignment.hpp"
+#include "Acts/Material/TrackingGeometryMaterial.hpp"
 #include "Acts/Material/interface/IAssignmentFinder.hpp"
 #include "Acts/Material/interface/ISurfaceMaterialAccumulater.hpp"
 #include "Acts/Utilities/Logger.hpp"
@@ -24,19 +25,21 @@ namespace Acts {
 /// @brief material mapping procedure
 class MaterialMapper {
  public:
-  /// @brief The material maps
-  using SurfaceMaterialMaps =
-      std::map<GeometryIdentifier, std::shared_ptr<const ISurfaceMaterial>>;
-  using VolumeMaterialMaps =
-      std::map<GeometryIdentifier, std::shared_ptr<const IVolumeMaterial>>;
-  using DetectorMaterialMaps =
-      std::pair<SurfaceMaterialMaps, VolumeMaterialMaps>;
+  using SurfaceMaterialMap
+      [[deprecated("Use Acts::SurfaceMaterialMaps directly")]] =
+          SurfaceMaterialMaps;
+  using VolumeMaterialMap
+      [[deprecated("Use Acts::VolumeMaterialMaps directly")]] =
+          VolumeMaterialMaps;
+  using DetectorMaterialMaps
+      [[deprecated("Use Acts::TrackingGeometryMaterial directly")]] =
+          TrackingGeometryMaterial;
 
   /// @brief nested configuration struct
   struct Config {
-    // The assignment finder
+    /// The assignment finder for material interaction assignments
     std::shared_ptr<const IAssignmentFinder> assignmentFinder = nullptr;
-    // The material accumulater for surfaces
+    /// The material accumulator for surfaces
     std::shared_ptr<const ISurfaceMaterialAccumulater>
         surfaceMaterialAccumulater = nullptr;
   };
@@ -45,6 +48,7 @@ class MaterialMapper {
   ///
   /// It holds the states of the sub structs
   struct State {
+    /// State of the surface material accumulator
     std::unique_ptr<ISurfaceMaterialAccumulater::State>
         surfaceMaterialAccumulaterState;
   };
@@ -52,7 +56,7 @@ class MaterialMapper {
   /// @brief nested options struct
   /// holds some options for the delegated calls
   struct Options {
-    // The assignment options (including vetos and re-assignments)
+    /// The assignment options (including vetos and re-assignments)
     MaterialInteractionAssignment::Options assignmentOptions;
   };
 
@@ -66,6 +70,7 @@ class MaterialMapper {
           getDefaultLogger("BinnedSurfaceMaterialAccumulater", Logging::INFO));
 
   /// @brief Factory for creating the state
+  /// @return Unique pointer to a new material mapping state object
   std::unique_ptr<State> createState() const;
 
   /// @brief Map the material interactions to the surfaces
@@ -83,7 +88,9 @@ class MaterialMapper {
       const Options& options = Options{}) const;
 
   /// Finalize the maps
-  DetectorMaterialMaps finalizeMaps(const State& state) const;
+  /// @param state Material mapping state containing collected data
+  /// @return Tracking geometry material map with finalized surface and volume materials
+  TrackingGeometryMaterial finalizeMaps(const State& state) const;
 
  private:
   /// Access method to the logger

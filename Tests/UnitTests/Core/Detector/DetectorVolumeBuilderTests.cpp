@@ -25,6 +25,7 @@
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Logger.hpp"
+#include "Acts/Utilities/ProtoAxis.hpp"
 
 #include <memory>
 #include <numbers>
@@ -37,6 +38,8 @@ using namespace Acts;
 using namespace Acts::Experimental;
 
 GeometryContext tContext;
+
+namespace ActsTests {
 
 /// @brief Mockup external structure builder
 /// @tparam bounds_type the volume bounds type that is constructed
@@ -82,28 +85,27 @@ class InternalSurfaceBuilder : public IInternalStructureBuilder {
   bounds_type m_bounds;
 };
 
-class SurfaceGeoIdGenerator : public Acts::Experimental::IGeometryIdGenerator {
+class SurfaceGeoIdGenerator : public Experimental::IGeometryIdGenerator {
  public:
-  Acts::Experimental::IGeometryIdGenerator::GeoIdCache generateCache()
-      const final {
+  Experimental::IGeometryIdGenerator::GeoIdCache generateCache() const final {
     return std::any();
   }
 
   void assignGeometryId(
-      Acts::Experimental::IGeometryIdGenerator::GeoIdCache& /*cache*/,
-      Acts::Experimental::DetectorVolume& dVolume) const final {
-    for (auto [is, s] : Acts::enumerate(dVolume.surfacePtrs())) {
+      Experimental::IGeometryIdGenerator::GeoIdCache& /*cache*/,
+      Experimental::DetectorVolume& dVolume) const final {
+    for (auto [is, s] : enumerate(dVolume.surfacePtrs())) {
       s->assignGeometryId(GeometryIdentifier().withPassive(is + 1));
     }
   }
 
   void assignGeometryId(
-      Acts::Experimental::IGeometryIdGenerator::GeoIdCache& /*cache*/,
-      Acts::Experimental::Portal& /*portal*/) const final {}
+      Experimental::IGeometryIdGenerator::GeoIdCache& /*cache*/,
+      Experimental::Portal& /*portal*/) const final {}
 
   void assignGeometryId(
-      Acts::Experimental::IGeometryIdGenerator::GeoIdCache& /*cache*/,
-      Acts::Surface& /*surface*/) const final {}
+      Experimental::IGeometryIdGenerator::GeoIdCache& /*cache*/,
+      Surface& /*surface*/) const final {}
 };
 
 /// @brief  Mockup internal surface builder
@@ -132,7 +134,7 @@ class InternalVolumeBuilder : public IInternalStructureBuilder {
   bounds_type m_bounds;
 };
 
-BOOST_AUTO_TEST_SUITE(Detector)
+BOOST_AUTO_TEST_SUITE(DetectorSuite)
 
 BOOST_AUTO_TEST_CASE(DetectorVolumeBuilder_Misconfigured) {
   // Internal and external structure builder is empty
@@ -158,10 +160,10 @@ BOOST_AUTO_TEST_CASE(DetectorVolumeBuilder_EmptyVolume) {
   dvCfg.internalsBuilder = nullptr;
 
   // Assign proto material to
-  dvCfg.portalMaterialBinning[2u] = std::vector<ProtoAxis>{
-      {ProtoAxis(AxisDirection::AxisZ, Acts::AxisBoundaryType::Bound, 50),
-       ProtoAxis(AxisDirection::AxisPhi, Acts::AxisBoundaryType::Closed,
-                 -std::numbers::pi, std::numbers::pi, 12)}};
+  dvCfg.portalMaterialBinning[2u] = {
+      DirectedProtoAxis(AxisDirection::AxisZ, AxisBoundaryType::Bound, 50),
+      DirectedProtoAxis(AxisDirection::AxisPhi, AxisBoundaryType::Closed,
+                        -std::numbers::pi, std::numbers::pi, 12)};
 
   auto dvBuilder = std::make_shared<DetectorVolumeBuilder>(
       dvCfg, getDefaultLogger("DetectorVolumeBuilder", Logging::VERBOSE));
@@ -279,3 +281,5 @@ BOOST_AUTO_TEST_CASE(DetectorVolumeBuilder_VolumeWithVolumeToRoot) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

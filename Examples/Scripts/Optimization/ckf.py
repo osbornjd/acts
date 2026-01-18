@@ -41,7 +41,7 @@ def getArgumentParser():
         dest="sf_cotThetaMax",
         help="cot of maximum theta angle",
         type=float,
-        default=7.40627,
+        default=10.01788,
     )
     parser.add_argument(
         "--sf_sigmaScattering",
@@ -103,7 +103,7 @@ def runCKFTracks(
     inputParticlePath: Optional[Path] = None,
     s=None,
     MaxSeedsPerSpM=1,
-    CotThetaMax=7.40627,
+    CotThetaMax=10.01788,
     SigmaScattering=5,
     RadLengthPerSeed=0.1,
     ImpactMax=3.0,
@@ -227,7 +227,7 @@ def runCKFTracks(
             else (
                 SeedingAlgorithm.TruthEstimated
                 if truthEstimatedSeeded
-                else SeedingAlgorithm.Default
+                else SeedingAlgorithm.GridTriplet
             )
         ),
         initialSigmas=[
@@ -235,10 +235,11 @@ def runCKFTracks(
             1 * u.mm,
             1 * u.degree,
             1 * u.degree,
-            0.1 * u.e / u.GeV,
+            0 * u.e / u.GeV,
             1 * u.ns,
         ],
-        initialSigmaPtRel=0.01,
+        initialSigmaQoverPt=0.1 * u.e / u.GeV,
+        initialSigmaPtRel=0.1,
         initialVarInflation=[1.0] * 6,
         geoSelectionConfigFile=geometrySelection,
         outputDirRoot=outputDir,
@@ -278,10 +279,8 @@ if "__main__" == __name__:
         trackingGeometry,
         decorators,
         field=field,
-        geometrySelection=srcdir
-        / "Examples/Algorithms/TrackFinding/share/geoSelection-genericDetector.json",
-        digiConfigFile=srcdir
-        / "Examples/Algorithms/Digitization/share/default-smearing-config-generic.json",
+        geometrySelection=srcdir / "Examples/Configs/generic-seeding-config.json",
+        digiConfigFile=srcdir / "Examples/Configs/generic-digi-smearing-config.json",
         outputCsv=True,
         truthSmearedSeeded=False,
         truthEstimatedSeeded=False,

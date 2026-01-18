@@ -9,24 +9,35 @@
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Tests/CommonHelpers/CubicTrackingGeometry.hpp"
-#include "Acts/Tests/CommonHelpers/CylindricalTrackingGeometry.hpp"
+#include "ActsTests/CommonHelpers/CubicTrackingGeometry.hpp"
+#include "ActsTests/CommonHelpers/CylindricalTrackingGeometry.hpp"
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTests {
 
 // Create a test context
 GeometryContext tgContext = GeometryContext();
+
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_AUTO_TEST_CASE(CylindricalTrackingGeometryTest) {
   CylindricalTrackingGeometry cGeometry(tgContext);
   auto tGeometry = cGeometry();
   BOOST_CHECK_NE(tGeometry, nullptr);
+
+  BOOST_CHECK(tGeometry->geometryVersion() ==
+              TrackingGeometry::GeometryVersion::Gen1);
 }
 
 BOOST_AUTO_TEST_CASE(CubicTrackingGeometryTest) {
   CubicTrackingGeometry cGeometry(tgContext);
   auto tGeometry = cGeometry();
   BOOST_CHECK_NE(tGeometry, nullptr);
+  BOOST_CHECK(tGeometry->geometryVersion() ==
+              TrackingGeometry::GeometryVersion::Gen1);
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests
