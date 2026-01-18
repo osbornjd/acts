@@ -47,6 +47,17 @@ if "__main__" == __name__:
     geoContext = acts.GeometryContext()
     [detector, contextors, store] = dd4hepDetector.finalize(geoContext, cOptions)
 
+    # OBJ style output
+    surfaces = []
+    viewConfig = acts.ViewConfig()
+    viewConfig.nSegments = 100
+    for vol in detector.volumePtrs():
+        for surf in vol.surfacePtrs():
+            if surf.geometryId.sensitive > 0:
+                surfaces.append(surf)
+    acts.examples.writeSurfacesObj(surfaces, geoContext, viewConfig, "odd-surfaces.obj")
+
+    # SVG style output
     surfaceStyle = acts.svg.Style()
     surfaceStyle.fillColor = [5, 150, 245]
     surfaceStyle.fillOpacity = 0.5
@@ -58,26 +69,28 @@ if "__main__" == __name__:
     volumeOptions = acts.svg.DetectorVolumeOptions()
     volumeOptions.surfaceOptions = surfaceOptions
 
-    for ivol in range(detector.number_volumes()):
-        acts.svg.viewDetector(
-            geoContext,
-            detector,
-            "odd-xy",
-            [[ivol, volumeOptions]],
-            [["xy", ["sensitives"], viewRange]],
-            "vol_" + str(ivol),
-        )
-
-    xyRange = acts.Extent([[acts.Binning.z, [-50, 50]]])
-    zrRange = acts.Extent([[acts.Binning.phi, [-0.1, 0.1]]])
-
-    acts.svg.viewDetector(
+    # Transverse view
+    xyRange = acts.Extent([[acts.AxisDirection.AxisZ, [-50, 50]]])
+    xyView = acts.svg.drawDetector(
         geoContext,
         detector,
         "odd",
-        [[ivol, volumeOptions] for ivol in range(detector.number_volumes())],
-        [["xy", ["sensitives"], xyRange], ["zr", ["materials"], zrRange]],
-        "detector",
+        [[ivol, volumeOptions] for ivol in range(detector.numberVolumes())],
+        [["xy", ["sensitives"], xyRange]],
     )
+    xyFile = acts.svg.file()
+    xyFile.addObjects(xyView)
+    xyFile.write("odd_xy.svg")
 
-    # acts.examples.writeDetectorToJsonDetray(geoContext, detector, "odd-detray")
+    # Longitudinal view
+    zrRange = acts.Extent([[acts.AxisDirection.AxisPhi, [-0.1, 0.1]]])
+    zrView = acts.svg.drawDetector(
+        geoContext,
+        detector,
+        "odd",
+        [[ivol, volumeOptions] for ivol in range(detector.numberVolumes())],
+        [["zr", ["sensitives", "portals"], zrRange]],
+    )
+    zrFile = acts.svg.file()
+    zrFile.addObjects(zrView)
+    zrFile.write("odd_zr.svg")

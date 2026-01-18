@@ -73,9 +73,11 @@ def runMaterialMappingNoTrack(
             fileList=[
                 os.path.join(
                     inputDir,
-                    "optimised-material-map_tracks.root"
-                    if readCachedSurfaceInformation
-                    else "geant4_material_tracks.root",
+                    (
+                        "optimised-material-map_tracks.root"
+                        if readCachedSurfaceInformation
+                        else "geant4_material_tracks.root"
+                    ),
                 )
             ],
             readCachedSurfaceInformation=readCachedSurfaceInformation,
@@ -165,19 +167,18 @@ def runMaterialMappingVariance(
     matDeco = acts.IMaterialDecorator.fromFile(
         str(os.path.join(inputPath, "geometry-map.json"))
     )
-    detectorTemp, trackingGeometryTemp, decoratorsTemp = getOpenDataDetector(matDeco)
+    detectorTemp = getOpenDataDetector(matDeco)
+    trackingGeometryTemp = detectorTemp.trackingGeometry()
     matMapDeco = acts.MappingMaterialDecorator(
         tGeometry=trackingGeometryTemp, level=acts.logging.ERROR
     )
     # Update the binning using the bin map corresponding to this trial
     matMapDeco.setBinningMap(binMap)
 
-    del detectorTemp
-    del trackingGeometryTemp
-    del decoratorsTemp
-
     # Decorate the detector with the MappingMaterialDecorator
-    detector, trackingGeometry, decorators = getOpenDataDetector(matMapDeco)
+    detector = getOpenDataDetector(matMapDeco)
+    trackingGeometry = detector.trackingGeometry()
+    decorators = detector.contextDecorators()
 
     # Sequence for the mapping, only use one thread when mapping material
     sMap = acts.examples.Sequencer(
@@ -197,10 +198,6 @@ def runMaterialMappingVariance(
         s=sMap,
     )
     sMap.run()
-    del sMap  # Need to be deleted to write the material map to cbor
-    del detector
-    del trackingGeometry
-    del decorators
 
     # Compute the variance by rerunning the mapping
     print(
@@ -213,7 +210,9 @@ def runMaterialMappingVariance(
     # Use the material map from the previous mapping as an input
     cborMap = os.path.join(pathExp, (mapName + ".cbor"))
     matDecoVar = acts.IMaterialDecorator.fromFile(cborMap)
-    detectorVar, trackingGeometryVar, decoratorsVar = getOpenDataDetector(matDecoVar)
+    detectorVar = getOpenDataDetector(matDecoVar)
+    trackingGeometryVar = detectorVar.trackingGeometry()
+    decoratorsVar = detectorVar.contextDecorators()
     s = acts.examples.Sequencer(events=events, numThreads=1, logLevel=acts.logging.INFO)
     for decorator in decoratorsVar:
         s.addContextDecorator(decorator)
@@ -229,9 +228,11 @@ def runMaterialMappingVariance(
         fileList=[
             os.path.join(
                 inputPath,
-                "optimised-material-map_tracks.root"
-                if readCachedSurfaceInformation
-                else "geant4_material_tracks.root",
+                (
+                    "optimised-material-map_tracks.root"
+                    if readCachedSurfaceInformation
+                    else "geant4_material_tracks.root"
+                ),
             )
         ],
         readCachedSurfaceInformation=readCachedSurfaceInformation,
@@ -296,11 +297,6 @@ def runMaterialMappingVariance(
     )
     pipeResult.send(score)
 
-    del mapping
-    del s
-    del detectorVar
-    del trackingGeometryVar
-    del decoratorsVar
     os.remove(cborMap)
 
 
@@ -472,14 +468,15 @@ if "__main__" == __name__:
     matDeco = acts.IMaterialDecorator.fromFile(
         str(os.path.join(args.inputPath, "geometry-map.json"))
     )
-    detector, trackingGeometry, decorators = getOpenDataDetector(matDeco)
+    detector = getOpenDataDetector(matDeco)
+    trackingGeometry = detector.trackingGeometry()
+    decorators = detector.contextDecorators()
 
     # Use the MappingMaterialDecorator to create a binning map that can be optimised
     matMapDeco = acts.MappingMaterialDecorator(
         tGeometry=trackingGeometry, level=acts.logging.WARNING
     )
     binDict = matMapDeco.binningMap()
-    del detector, decorators
 
     # Create the pipes that will be used to transfer data to/from the jobs
     from multiprocessing import Process, Pipe
@@ -601,8 +598,6 @@ if "__main__" == __name__:
             s=rMap,
         )
         rMap.run()
-        del rMap  # Need to be deleted to write the material map to cbor
-        del resultDetector, resultTrackingGeometry, resultDecorators
     print(
         datetime.now().strftime("%H:%M:%S")
         + "    Waiting for all the score to have been stored",

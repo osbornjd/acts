@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Detector/Portal.hpp"
 
@@ -26,15 +26,16 @@ Portal::Portal(std::shared_ptr<RegularSurface> surface)
 }
 
 const Acts::RegularSurface& Portal::surface() const {
-  return *m_surface.get();
+  return *m_surface;
 }
 
 Acts::RegularSurface& Portal::surface() {
-  return *m_surface.get();
+  return *m_surface;
 }
 
-const Portal::DetectorVolumeUpdaters& Portal::detectorVolumeUpdaters() const {
-  return m_volumeUpdaters;
+const std::array<Acts::Experimental::ExternalNavigationDelegate, 2u>&
+Portal::portalNavigation() const {
+  return m_portalNavigation;
 }
 
 Portal::AttachedDetectorVolumes& Portal::attachedDetectorVolumes() {
@@ -52,13 +53,13 @@ std::shared_ptr<Portal> Portal::fuse(std::shared_ptr<Portal>& aPortal,
   }
 
   auto bothConnected = [](const auto& p) {
-    return p.m_volumeUpdaters[0u].connected() &&
-           p.m_volumeUpdaters[1u].connected();
+    return p.m_portalNavigation[0u].connected() &&
+           p.m_portalNavigation[1u].connected();
   };
 
   auto noneConnected = [](const auto& p) {
-    return !p.m_volumeUpdaters[0u].connected() &&
-           !p.m_volumeUpdaters[1u].connected();
+    return !p.m_portalNavigation[0u].connected() &&
+           !p.m_portalNavigation[1u].connected();
   };
 
   if (bothConnected(*aPortal) || bothConnected(*bPortal)) {
@@ -77,10 +78,10 @@ std::shared_ptr<Portal> Portal::fuse(std::shared_ptr<Portal>& aPortal,
   std::shared_ptr<Portal> fused = std::make_shared<Portal>(aPortal->m_surface);
 
   // Get the connection directions
-  Direction getA = (aPortal->m_volumeUpdaters[0].connected())
+  Direction getA = (aPortal->m_portalNavigation[0].connected())
                        ? Direction::fromIndex(0)
                        : Direction::fromIndex(1);
-  Direction getB = (bPortal->m_volumeUpdaters[0].connected())
+  Direction getB = (bPortal->m_portalNavigation[0].connected())
                        ? Direction::fromIndex(0)
                        : Direction::fromIndex(1);
 
@@ -107,39 +108,41 @@ std::shared_ptr<Portal> Portal::fuse(std::shared_ptr<Portal>& aPortal,
     setA = setB.invert();
   }
 
-  fused->m_volumeUpdaters[setA.index()] =
-      std::move(aPortal->m_volumeUpdaters[getA.index()]);
+  fused->m_portalNavigation[setA.index()] =
+      std::move(aPortal->m_portalNavigation[getA.index()]);
   fused->m_attachedVolumes[setA.index()] =
       std::move(aPortal->m_attachedVolumes[getA.index()]);
 
-  fused->m_volumeUpdaters[setB.index()] =
-      std::move(bPortal->m_volumeUpdaters[getB.index()]);
+  fused->m_portalNavigation[setB.index()] =
+      std::move(bPortal->m_portalNavigation[getB.index()]);
   fused->m_attachedVolumes[setB.index()] =
       std::move(bPortal->m_attachedVolumes[getB.index()]);
 
   return fused;
 }
 
-void Portal::assignDetectorVolumeUpdater(
-    Direction dir, DetectorVolumeUpdater dVolumeUpdater,
+void Portal::assignPortalNavigation(
+    Direction dir, ExternalNavigationDelegate portalNavigation,
     std::vector<std::shared_ptr<DetectorVolume>> attachedVolumes) {
   auto idx = dir.index();
-  m_volumeUpdaters[idx] = std::move(dVolumeUpdater);
+  m_portalNavigation[idx] = std::move(portalNavigation);
   m_attachedVolumes[idx] = std::move(attachedVolumes);
 }
 
-void Portal::assignDetectorVolumeUpdater(
-    DetectorVolumeUpdater dVolumeUpdater,
+void Portal::assignPortalNavigation(
+    ExternalNavigationDelegate portalNavigation,
     std::vector<std::shared_ptr<DetectorVolume>> attachedVolumes) {
   // Check and throw exceptions
-  if (!m_volumeUpdaters[0u].connected() && !m_volumeUpdaters[1u].connected()) {
+  if (!m_portalNavigation[0u].connected() &&
+      !m_portalNavigation[1u].connected()) {
     throw std::runtime_error("Portal: portal has no link on either side.");
   }
-  if (m_volumeUpdaters[0u].connected() && m_volumeUpdaters[1u].connected()) {
+  if (m_portalNavigation[0u].connected() &&
+      m_portalNavigation[1u].connected()) {
     throw std::runtime_error("Portal: portal already has links on both sides.");
   }
-  std::size_t idx = m_volumeUpdaters[0u].connected() ? 1u : 0u;
-  m_volumeUpdaters[idx] = std::move(dVolumeUpdater);
+  std::size_t idx = m_portalNavigation[0u].connected() ? 1u : 0u;
+  m_portalNavigation[idx] = std::move(portalNavigation);
   m_attachedVolumes[idx] = std::move(attachedVolumes);
 }
 
@@ -149,7 +152,7 @@ void Portal::updateDetectorVolume(const GeometryContext& gctx,
   const auto& direction = nState.direction;
   const Vector3 normal = surface().normal(gctx, position);
   Direction dir = Direction::fromScalar(normal.dot(direction));
-  const auto& vUpdater = m_volumeUpdaters[dir.index()];
+  const auto& vUpdater = m_portalNavigation[dir.index()];
   if (vUpdater.connected()) {
     vUpdater(gctx, nState);
   } else {

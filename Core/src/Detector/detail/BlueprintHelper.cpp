@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Detector/detail/BlueprintHelper.hpp"
 
@@ -12,21 +12,23 @@
 #include "Acts/Definitions/Tolerance.hpp"
 #include "Acts/Geometry/VolumeBounds.hpp"
 
+#include <algorithm>
 #include <array>
 
 namespace {
 
 std::array<Acts::Vector3, 2u> endPointsXYZ(
-    const Acts::Experimental::Blueprint::Node& node, Acts::BinningValue bVal) {
+    const Acts::Experimental::Gen2Blueprint::Node& node,
+    Acts::AxisDirection bVal) {
   unsigned int bIdx = 0;
   switch (bVal) {
-    case Acts::binX:
+    case Acts::AxisDirection::AxisX:
       bIdx = 0;
       break;
-    case Acts::binY:
+    case Acts::AxisDirection::AxisY:
       bIdx = 1;
       break;
-    case Acts::binZ:
+    case Acts::AxisDirection::AxisZ:
       bIdx = 2;
       break;
     default:
@@ -42,8 +44,8 @@ std::array<Acts::Vector3, 2u> endPointsXYZ(
 
 }  // namespace
 
-void Acts::Experimental::detail::BlueprintHelper::sort(Blueprint::Node& node,
-                                                       bool recursive) {
+void Acts::Experimental::detail::BlueprintHelper::sort(
+    Gen2Blueprint::Node& node, bool recursive) {
   if (node.children.size() < 2u) {
     return;
   }
@@ -51,21 +53,18 @@ void Acts::Experimental::detail::BlueprintHelper::sort(Blueprint::Node& node,
   if (node.binning.size() == 1) {
     auto bVal = node.binning.front();
     // x,y,z binning along the axis
-    if (bVal == binX || bVal == binY || bVal == binZ) {
+    if (bVal == AxisDirection::AxisX || bVal == AxisDirection::AxisY ||
+        bVal == AxisDirection::AxisZ) {
       Vector3 nodeCenter = node.transform.translation();
-      Vector3 nodeSortAxis = node.transform.rotation().col(bVal);
-      std::sort(
-          node.children.begin(), node.children.end(),
-          [&](const auto& a, const auto& b) {
-            return (a->transform.translation() - nodeCenter).dot(nodeSortAxis) <
-                   (b->transform.translation() - nodeCenter).dot(nodeSortAxis);
-          });
-    } else if (bVal == binR && node.boundsType == VolumeBounds::eCylinder) {
-      std::sort(node.children.begin(), node.children.end(),
-                [](const auto& a, const auto& b) {
-                  return 0.5 * (a->boundaryValues[0] + a->boundaryValues[1]) <
-                         0.5 * (b->boundaryValues[0] + b->boundaryValues[1]);
-                });
+      Vector3 nodeSortAxis = node.transform.rotation().col(toUnderlying(bVal));
+      std::ranges::sort(node.children, {}, [&](const auto& c) {
+        return (c->transform.translation() - nodeCenter).dot(nodeSortAxis);
+      });
+    } else if (bVal == AxisDirection::AxisR &&
+               node.boundsType == VolumeBounds::eCylinder) {
+      std::ranges::sort(node.children, {}, [](const auto& c) {
+        return c->boundaryValues[0] + c->boundaryValues[1];
+      });
     }
   }
 
@@ -78,7 +77,7 @@ void Acts::Experimental::detail::BlueprintHelper::sort(Blueprint::Node& node,
 }
 
 void Acts::Experimental::detail::BlueprintHelper::fillGaps(
-    Blueprint::Node& node, bool adjustToParent) {
+    Gen2Blueprint::Node& node, bool adjustToParent) {
   // Return if this is a leaf node
   if (node.isLeaf()) {
     return;
@@ -99,7 +98,7 @@ void Acts::Experimental::detail::BlueprintHelper::fillGaps(
 }
 
 void Acts::Experimental::detail::BlueprintHelper::fillGapsCylindrical(
-    Blueprint::Node& node, bool adjustToParent) {
+    Gen2Blueprint::Node& node, bool adjustToParent) {
   // Nodes must be sorted
   sort(node, false);
 
@@ -108,10 +107,9 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCylindrical(
   auto cOuterR = node.boundaryValues[1];
   auto cHalfZ = node.boundaryValues[2];
 
-  std::vector<std::unique_ptr<Blueprint::Node>> gaps;
+  std::vector<std::unique_ptr<Gen2Blueprint::Node>> gaps;
   // Only 1D binning implemented for the moment
-  auto bVal = node.binning.front();
-  if (bVal == binZ) {
+  if (AxisDirection bVal = node.binning.front(); bVal == AxisDirection::AxisZ) {
     // adjust inner/outer radius
     if (adjustToParent) {
       std::for_each(node.children.begin(), node.children.end(),
@@ -125,16 +123,16 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCylindrical(
     unsigned int igap = 0;
     for (auto& child : node.children) {
       auto [neg, pos] = endPointsXYZ(*child, bVal);
-      ActsScalar gapSpan = (neg - negC).norm();
+      double gapSpan = (neg - negC).norm();
       if (gapSpan > s_onSurfaceTolerance) {
         // Fill a gap node
         auto gapName = node.name + "_gap_" + std::to_string(igap);
         auto gapTransform = Transform3::Identity();
         gapTransform.rotate(node.transform.rotation());
         gapTransform.pretranslate(0.5 * (neg + negC));
-        auto gap = std::make_unique<Blueprint::Node>(
+        auto gap = std::make_unique<Gen2Blueprint::Node>(
             gapName, gapTransform, VolumeBounds::eCylinder,
-            std::vector<ActsScalar>{cInnerR, cOuterR, 0.5 * gapSpan});
+            std::vector<double>{cInnerR, cOuterR, 0.5 * gapSpan});
         gaps.push_back(std::move(gap));
         ++igap;
       }
@@ -142,20 +140,20 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCylindrical(
       negC = pos;
     }
     // Check if a last one needs to be filled
-    ActsScalar gapSpan = (negC - posC).norm();
+    double gapSpan = (negC - posC).norm();
     if (gapSpan > s_onSurfaceTolerance) {
       // Fill a gap node
       auto gapName = node.name + "_gap_" + std::to_string(igap);
       auto gapTransform = Transform3::Identity();
       gapTransform.rotate(node.transform.rotation());
       gapTransform.pretranslate(0.5 * (negC + posC));
-      auto gap = std::make_unique<Blueprint::Node>(
+      auto gap = std::make_unique<Gen2Blueprint::Node>(
           gapName, gapTransform, VolumeBounds::eCylinder,
-          std::vector<ActsScalar>{cInnerR, cOuterR, 0.5 * gapSpan});
+          std::vector<double>{cInnerR, cOuterR, 0.5 * gapSpan});
       gaps.push_back(std::move(gap));
     }
 
-  } else if (bVal == binR) {
+  } else if (bVal == AxisDirection::AxisR) {
     // We have binning in R present
     if (adjustToParent) {
       std::for_each(node.children.begin(), node.children.end(),
@@ -166,14 +164,13 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCylindrical(
     }
     // Fill the gaps in R
     unsigned int igap = 0;
-    ActsScalar lastR = cInnerR;
+    double lastR = cInnerR;
     for (auto& child : node.children) {
-      ActsScalar iR = child->boundaryValues[0];
+      double iR = child->boundaryValues[0];
       if (std::abs(iR - lastR) > s_onSurfaceTolerance) {
-        auto gap = std::make_unique<Blueprint::Node>(
+        auto gap = std::make_unique<Gen2Blueprint::Node>(
             node.name + "_gap_" + std::to_string(igap), node.transform,
-            VolumeBounds::eCylinder,
-            std::vector<ActsScalar>{lastR, iR, cHalfZ});
+            VolumeBounds::eCylinder, std::vector<double>{lastR, iR, cHalfZ});
         gaps.push_back(std::move(gap));
         ++igap;
       }
@@ -182,10 +179,9 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCylindrical(
     }
     // Check if a last one needs to be filled
     if (std::abs(lastR - cOuterR) > s_onSurfaceTolerance) {
-      auto gap = std::make_unique<Blueprint::Node>(
+      auto gap = std::make_unique<Gen2Blueprint::Node>(
           node.name + "_gap_" + std::to_string(igap), node.transform,
-          VolumeBounds::eCylinder,
-          std::vector<ActsScalar>{lastR, cOuterR, cHalfZ});
+          VolumeBounds::eCylinder, std::vector<double>{lastR, cOuterR, cHalfZ});
       gaps.push_back(std::move(gap));
     }
   } else {
@@ -208,14 +204,15 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCylindrical(
 }
 
 void Acts::Experimental::detail::BlueprintHelper::fillGapsCuboidal(
-    Blueprint::Node& node, bool adjustToParent) {
+    Gen2Blueprint::Node& node, bool adjustToParent) {
   // Nodes must be sorted
   sort(node, false);
 
   // Cuboidal detector binnings
-  std::array<Acts::BinningValue, 3u> allowedBinVals = {binX, binY, binZ};
+  std::array<Acts::AxisDirection, 3u> allowedBinVals = {
+      AxisDirection::AxisX, AxisDirection::AxisY, AxisDirection::AxisZ};
 
-  std::vector<std::unique_ptr<Blueprint::Node>> gaps;
+  std::vector<std::unique_ptr<Gen2Blueprint::Node>> gaps;
   auto binVal = node.binning.front();
 
   // adjust non-binned directions
@@ -225,8 +222,10 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCuboidal(
         if (bv != binVal) {
           // Both boundary values and translation
           // have to be adjusted
-          child->boundaryValues[bv] = node.boundaryValues[bv];
-          child->transform.translation()[bv] = node.transform.translation()[bv];
+          child->boundaryValues[toUnderlying(bv)] =
+              node.boundaryValues[toUnderlying(bv)];
+          child->transform.translation()[toUnderlying(bv)] =
+              node.transform.translation()[toUnderlying(bv)];
         }
       }
     });
@@ -237,21 +236,21 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCuboidal(
   unsigned int igap = 0;
   for (auto& child : node.children) {
     auto [neg, pos] = endPointsXYZ(*child, binVal);
-    ActsScalar gapSpan = (neg - negC).norm();
+    double gapSpan = (neg - negC).norm();
     if (gapSpan > s_onSurfaceTolerance) {
       // Fill a gap node
       auto gapName = node.name + "_gap_" + std::to_string(igap);
       auto gapTransform = Transform3::Identity();
       gapTransform.rotate(node.transform.rotation());
       gapTransform.pretranslate(0.5 * (neg + negC));
-      std::vector<ActsScalar> gapBounds{0, 0, 0};
-      gapBounds[binVal] = 0.5 * gapSpan;
+      std::vector<double> gapBounds{0, 0, 0};
+      gapBounds[toUnderlying(binVal)] = 0.5 * gapSpan;
       for (auto bv : allowedBinVals) {
         if (bv != binVal) {
-          gapBounds[bv] = node.boundaryValues[bv];
+          gapBounds[toUnderlying(bv)] = node.boundaryValues[toUnderlying(bv)];
         }
       }
-      auto gap = std::make_unique<Blueprint::Node>(
+      auto gap = std::make_unique<Gen2Blueprint::Node>(
           gapName, gapTransform, VolumeBounds::eCuboid, gapBounds);
       gaps.push_back(std::move(gap));
       ++igap;
@@ -260,21 +259,21 @@ void Acts::Experimental::detail::BlueprintHelper::fillGapsCuboidal(
     negC = pos;
   }
   // Check if a last one needs to be filled
-  ActsScalar gapSpan = (negC - posC).norm();
+  double gapSpan = (negC - posC).norm();
   if (gapSpan > s_onSurfaceTolerance) {
     // Fill a gap node
     auto gapName = node.name + "_gap_" + std::to_string(igap);
     auto gapTransform = Transform3::Identity();
     gapTransform.rotate(node.transform.rotation());
     gapTransform.pretranslate(0.5 * (negC + posC));
-    std::vector<ActsScalar> gapBounds{0, 0, 0};
-    gapBounds[binVal] = 0.5 * gapSpan;
+    std::vector<double> gapBounds{0, 0, 0};
+    gapBounds[toUnderlying(binVal)] = 0.5 * gapSpan;
     for (auto bv : allowedBinVals) {
       if (bv != binVal) {
-        gapBounds[bv] = node.boundaryValues[bv];
+        gapBounds[toUnderlying(bv)] = node.boundaryValues[toUnderlying(bv)];
       }
     }
-    auto gap = std::make_unique<Blueprint::Node>(
+    auto gap = std::make_unique<Gen2Blueprint::Node>(
         gapName, gapTransform, VolumeBounds::eCuboid, gapBounds);
     gaps.push_back(std::move(gap));
   }

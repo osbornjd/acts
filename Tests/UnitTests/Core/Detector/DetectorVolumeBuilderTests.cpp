@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -20,13 +20,14 @@
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Navigation/DetectorVolumeFinders.hpp"
-#include "Acts/Navigation/SurfaceCandidatesUpdaters.hpp"
+#include "Acts/Navigation/InternalNavigation.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
 #include <memory>
+#include <numbers>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -92,9 +93,7 @@ class SurfaceGeoIdGenerator : public Acts::Experimental::IGeometryIdGenerator {
       Acts::Experimental::IGeometryIdGenerator::GeoIdCache& /*cache*/,
       Acts::Experimental::DetectorVolume& dVolume) const final {
     for (auto [is, s] : Acts::enumerate(dVolume.surfacePtrs())) {
-      Acts::GeometryIdentifier geoID;
-      geoID.setPassive(is + 1);
-      s->assignGeometryId(geoID);
+      s->assignGeometryId(GeometryIdentifier().withPassive(is + 1));
     }
   }
 
@@ -159,10 +158,10 @@ BOOST_AUTO_TEST_CASE(DetectorVolumeBuilder_EmptyVolume) {
   dvCfg.internalsBuilder = nullptr;
 
   // Assign proto material to
-  dvCfg.portalMaterialBinning[2u] = BinningDescription{
-      {ProtoBinning(binZ, Acts::detail::AxisBoundaryType::Bound, 50),
-       ProtoBinning(binPhi, Acts::detail::AxisBoundaryType::Closed, -M_PI, M_PI,
-                    12)}};
+  dvCfg.portalMaterialBinning[2u] = std::vector<ProtoAxis>{
+      {ProtoAxis(AxisDirection::AxisZ, Acts::AxisBoundaryType::Bound, 50),
+       ProtoAxis(AxisDirection::AxisPhi, Acts::AxisBoundaryType::Closed,
+                 -std::numbers::pi, std::numbers::pi, 12)}};
 
   auto dvBuilder = std::make_shared<DetectorVolumeBuilder>(
       dvCfg, getDefaultLogger("DetectorVolumeBuilder", Logging::VERBOSE));

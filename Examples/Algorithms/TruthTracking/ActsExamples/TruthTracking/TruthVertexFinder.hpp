@@ -1,14 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Utilities/Logger.hpp"
+#include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/ProtoVertex.hpp"
 #include "ActsExamples/EventData/SimParticle.hpp"
 #include "ActsExamples/EventData/Track.hpp"
@@ -19,13 +20,10 @@
 #include <string>
 
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// Group particles into proto vertices using truth information.
 class TruthVertexFinder final : public IAlgorithm {
  public:
-  using HitParticlesMap = ActsExamples::IndexMultimap<ActsFatras::Barcode>;
-
   struct Config {
     /// The input tracks that should be used to create proto vertices.
     std::string inputTracks;
@@ -55,7 +53,7 @@ class TruthVertexFinder final : public IAlgorithm {
 
   ReadDataHandle<ConstTrackContainer> m_inputTracks{this, "InputTracks"};
   ReadDataHandle<SimParticleContainer> m_inputParticles{this, "InputParticles"};
-  ReadDataHandle<HitParticlesMap> m_inputMeasurementParticlesMap{
+  ReadDataHandle<MeasurementParticlesMap> m_inputMeasurementParticlesMap{
       this, "InputMeasurementParticlesMap"};
   WriteDataHandle<ProtoVertexContainer> m_outputProtoVertices{
       this, "OutputProtoVertices"};

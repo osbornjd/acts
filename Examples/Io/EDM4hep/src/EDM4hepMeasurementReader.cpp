@@ -1,14 +1,16 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/Io/EDM4hep/EDM4hepMeasurementReader.hpp"
 
 #include "Acts/Definitions/Units.hpp"
+#include "Acts/Plugins/EDM4hep/TrackerHitCompatibility.hpp"
+#include "Acts/Plugins/Podio/PodioUtil.hpp"
 #include "ActsExamples/EventData/Cluster.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/Framework/WhiteBoard.hpp"
@@ -17,11 +19,8 @@
 #include <list>
 #include <stdexcept>
 
-#include <edm4hep/TrackerHit.h>
-#include <edm4hep/TrackerHitCollection.h>
 #include <edm4hep/TrackerHitPlane.h>
 #include <edm4hep/TrackerHitPlaneCollection.h>
-#include <podio/Frame.h>
 
 namespace ActsExamples {
 
@@ -37,7 +36,6 @@ EDM4hepMeasurementReader::EDM4hepMeasurementReader(
 
   m_outputMeasurements.initialize(m_cfg.outputMeasurements);
   m_outputMeasurementSimHitsMap.initialize(m_cfg.outputMeasurementSimHitsMap);
-  m_outputSourceLinks.initialize(m_cfg.outputSourceLinks);
   m_outputClusters.maybeInitialize(m_cfg.outputClusters);
 }
 
@@ -55,29 +53,26 @@ ProcessCode EDM4hepMeasurementReader::read(const AlgorithmContext& ctx) {
   ClusterContainer clusters;
   // TODO what about those?
   IndexMultimap<Index> measurementSimHitsMap;
-  IndexSourceLinkContainer sourceLinks;
 
   podio::Frame frame = reader().readEntry("events", ctx.eventNumber);
 
   const auto& trackerHitPlaneCollection =
       frame.get<edm4hep::TrackerHitPlaneCollection>("ActsTrackerHitsPlane");
   const auto& trackerHitRawCollection =
-      frame.get<edm4hep::TrackerHitCollection>("ActsTrackerHitsRaw");
+      frame.get<edm4hep::TrackerHit3DCollection>("ActsTrackerHitsRaw");
 
   for (const auto& trackerHitPlane : trackerHitPlaneCollection) {
     Cluster cluster;
-    auto measurement = EDM4hepUtil::readMeasurement(
-        trackerHitPlane, &trackerHitRawCollection, &cluster,
+    EDM4hepUtil::readMeasurement(
+        measurements, trackerHitPlane, &trackerHitRawCollection, &cluster,
         [](std::uint64_t cellId) { return Acts::GeometryIdentifier(cellId); });
 
-    measurements.push_back(std::move(measurement));
     clusters.push_back(std::move(cluster));
   }
 
   // Write the data to the EventStore
   m_outputMeasurements(ctx, std::move(measurements));
   m_outputMeasurementSimHitsMap(ctx, std::move(measurementSimHitsMap));
-  m_outputSourceLinks(ctx, std::move(sourceLinks));
   if (!m_cfg.outputClusters.empty()) {
     m_outputClusters(ctx, std::move(clusters));
   }
@@ -85,7 +80,7 @@ ProcessCode EDM4hepMeasurementReader::read(const AlgorithmContext& ctx) {
   return ProcessCode::SUCCESS;
 }
 
-podio::ROOTFrameReader& EDM4hepMeasurementReader::reader() {
+Acts::PodioUtil::ROOTReader& EDM4hepMeasurementReader::reader() {
   bool exists = false;
   auto& reader = m_reader.local(exists);
   if (!exists) {

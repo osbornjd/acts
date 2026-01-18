@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Definitions/Direction.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
@@ -16,9 +16,9 @@
 #include "Acts/EventData/detail/CorrectedTransformationFreeToBound.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Propagator/DirectNavigator.hpp"
-#include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
+#include "Acts/Propagator/SympyStepper.hpp"
 #include "Acts/TrackFitting/GainMatrixSmoother.hpp"
 #include "Acts/TrackFitting/GainMatrixUpdater.hpp"
 #include "Acts/TrackFitting/KalmanFitter.hpp"
@@ -46,7 +46,7 @@ class TrackingGeometry;
 
 namespace {
 
-using Stepper = Acts::EigenStepper<>;
+using Stepper = Acts::SympyStepper;
 using Propagator = Acts::Propagator<Stepper, Acts::Navigator>;
 using Fitter = Acts::KalmanFitter<Propagator, Acts::VectorMultiTrajectory>;
 using DirectPropagator = Acts::Propagator<Stepper, Acts::DirectNavigator>;
@@ -62,8 +62,18 @@ struct SimpleReverseFilteringLogic {
 
   bool doBackwardFiltering(
       Acts::VectorMultiTrajectory::ConstTrackStateProxy trackState) const {
-    auto momentum = fabs(1 / trackState.filtered()[Acts::eBoundQOverP]);
+    auto momentum = std::abs(1 / trackState.filtered()[Acts::eBoundQOverP]);
     return (momentum <= momentumThreshold);
+  }
+};
+
+struct SimpleOutlierFinder {
+  double chi2Cut = std::numeric_limits<double>::infinity();
+
+  bool isOutlier(
+      Acts::VectorMultiTrajectory::ConstTrackStateProxy trackState) const {
+    double chi2 = Acts::calculatePredictedChi2(trackState);
+    return chi2 > chi2Cut;
   }
 };
 
@@ -76,6 +86,7 @@ struct KalmanFitterFunctionImpl final : public TrackFitterFunction {
   Acts::GainMatrixUpdater kfUpdater;
   Acts::GainMatrixSmoother kfSmoother;
   SimpleReverseFilteringLogic reverseFilteringLogic;
+  SimpleOutlierFinder outlierFinder;
 
   bool multipleScattering = false;
   bool energyLoss = false;
@@ -102,6 +113,8 @@ struct KalmanFitterFunctionImpl final : public TrackFitterFunction {
     extensions.reverseFilteringLogic
         .connect<&SimpleReverseFilteringLogic::doBackwardFiltering>(
             &reverseFilteringLogic);
+    extensions.outlierFinder.connect<&SimpleOutlierFinder::isOutlier>(
+        &outlierFinder);
 
     Acts::KalmanFitterOptions<Acts::VectorMultiTrajectory> kfOptions(
         options.geoContext, options.magFieldContext, options.calibrationContext,
@@ -114,9 +127,15 @@ struct KalmanFitterFunctionImpl final : public TrackFitterFunction {
     kfOptions.freeToBoundCorrection = freeToBoundCorrection;
     kfOptions.extensions.calibrator.connect<&calibrator_t::calibrate>(
         &calibrator);
-    kfOptions.extensions.surfaceAccessor
-        .connect<&IndexSourceLink::SurfaceAccessor::operator()>(
-            &slSurfaceAccessor);
+
+    if (options.doRefit) {
+      kfOptions.extensions.surfaceAccessor
+          .connect<&RefittingCalibrator::accessSurface>();
+    } else {
+      kfOptions.extensions.surfaceAccessor
+          .connect<&IndexSourceLink::SurfaceAccessor::operator()>(
+              &slSurfaceAccessor);
+    }
 
     return kfOptions;
   }
@@ -153,7 +172,7 @@ ActsExamples::makeKalmanFitterFunction(
     std::shared_ptr<const Acts::MagneticFieldProvider> magneticField,
     bool multipleScattering, bool energyLoss,
     double reverseFilteringMomThreshold,
-    Acts::FreeToBoundCorrection freeToBoundCorrection,
+    Acts::FreeToBoundCorrection freeToBoundCorrection, double chi2Cut,
     const Acts::Logger& logger) {
   // Stepper should be copied into the fitters
   const Stepper stepper(std::move(magneticField));
@@ -185,6 +204,7 @@ ActsExamples::makeKalmanFitterFunction(
   fitterFunction->reverseFilteringLogic.momentumThreshold =
       reverseFilteringMomThreshold;
   fitterFunction->freeToBoundCorrection = freeToBoundCorrection;
+  fitterFunction->outlierFinder.chi2Cut = chi2Cut;
 
   return fitterFunction;
 }

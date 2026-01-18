@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -16,9 +16,8 @@
 #include "Acts/Utilities/GridAccessHelpers.hpp"
 #include "Acts/Utilities/GridAxisGenerators.hpp"
 
-#include <array>
-#include <fstream>
 #include <memory>
+#include <numbers>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -27,7 +26,7 @@ BOOST_AUTO_TEST_SUITE(MaterialJsonIO)
 
 BOOST_AUTO_TEST_CASE(IndexedSurfaceMaterial1DTests) {
   std::vector<Acts::MaterialSlab> material;
-  material.emplace_back(Acts::Material(), 0.0);  // vacuum
+  material.emplace_back(Acts::Material::Vacuum(), 0.0);  // vacuum
   material.emplace_back(
       Acts::Material::fromMolarDensity(1.0, 2.0, 3.0, 4.0, 5.0), 1.0);
   material.emplace_back(
@@ -53,11 +52,11 @@ BOOST_AUTO_TEST_CASE(IndexedSurfaceMaterial1DTests) {
   bToX.connect<&Acts::GridAccess::LocalSubspace<0u>::toGridLocal>(
       std::move(localX));
 
-  auto globalX =
-      std::make_unique<const Acts::GridAccess::GlobalSubspace<Acts::binX>>();
+  auto globalX = std::make_unique<
+      const Acts::GridAccess::GlobalSubspace<Acts::AxisDirection::AxisX>>();
   Acts::IndexedSurfaceMaterial<EqGrid>::GlobalToGridLocalDelegate gToX;
-  gToX.connect<&Acts::GridAccess::GlobalSubspace<Acts::binX>::toGridLocal>(
-      std::move(globalX));
+  gToX.connect<&Acts::GridAccess::GlobalSubspace<
+      Acts::AxisDirection::AxisX>::toGridLocal>(std::move(globalX));
 
   Acts::IndexedSurfaceMaterial<EqGrid> ism(
       std::move(eqGrid), Acts::IndexedMaterialAccessor{std::move(material)},
@@ -95,7 +94,7 @@ BOOST_AUTO_TEST_CASE(IndexedSurfaceMaterial1DTests) {
 
 BOOST_AUTO_TEST_CASE(IndexedSurfaceMaterial2DTests) {
   std::vector<Acts::MaterialSlab> material;
-  material.emplace_back(Acts::Material(), 1.0);  // vacuum
+  material.emplace_back(Acts::Material::Vacuum(), 1.0);  // vacuum
   material.emplace_back(
       Acts::Material::fromMolarDensity(1.0, 2.0, 3.0, 4.0, 5.0), 1.0);
   material.emplace_back(
@@ -107,18 +106,20 @@ BOOST_AUTO_TEST_CASE(IndexedSurfaceMaterial2DTests) {
   using EqEqGrid = EqBoundEqClosed::grid_type<std::size_t>;
   using Point = EqEqGrid::point_t;
 
-  EqBoundEqClosed eqeqBound{{-1., 1.}, 2, {-M_PI, M_PI}, 4};
+  EqBoundEqClosed eqeqBound{
+      {-1., 1.}, 2, {-std::numbers::pi, std::numbers::pi}, 4};
   EqEqGrid eqeqGrid{eqeqBound()};
 
-  eqeqGrid.atPosition(Point{-0.5, -M_PI * 0.75}) = 1u;  // material 1
-  eqeqGrid.atPosition(Point{-0.5, -M_PI * 0.25}) = 1u;  // material 1
-  eqeqGrid.atPosition(Point{-0.5, M_PI * 0.25}) = 0u;   // vacuum
-  eqeqGrid.atPosition(Point{-0.5, M_PI * 0.75}) = 2u;   // material 2
+  eqeqGrid.atPosition(Point{-0.5, -std::numbers::pi * 0.75}) =
+      1u;                                                          // material 1
+  eqeqGrid.atPosition(Point{-0.5, -std::numbers::pi / 4.}) = 1u;   // material 1
+  eqeqGrid.atPosition(Point{-0.5, std::numbers::pi / 4.}) = 0u;    // vacuum
+  eqeqGrid.atPosition(Point{-0.5, std::numbers::pi * 0.75}) = 2u;  // material 2
 
-  eqeqGrid.atPosition(Point{0.5, -M_PI * 0.75}) = 0u;  // vacuum
-  eqeqGrid.atPosition(Point{0.5, -M_PI * 0.25}) = 3u;  // material 3
-  eqeqGrid.atPosition(Point{0.5, M_PI * 0.25}) = 3u;   // material 3
-  eqeqGrid.atPosition(Point{0.5, M_PI * 0.75}) = 0u;   // vacuum
+  eqeqGrid.atPosition(Point{0.5, -std::numbers::pi * 0.75}) = 0u;  // vacuum
+  eqeqGrid.atPosition(Point{0.5, -std::numbers::pi / 4.}) = 3u;    // material 3
+  eqeqGrid.atPosition(Point{0.5, std::numbers::pi / 4.}) = 3u;     // material 3
+  eqeqGrid.atPosition(Point{0.5, std::numbers::pi * 0.75}) = 0u;   // vacuum
 
   auto boundToGrid =
       std::make_unique<const Acts::GridAccess::LocalSubspace<0u, 1u>>();
@@ -127,11 +128,11 @@ BOOST_AUTO_TEST_CASE(IndexedSurfaceMaterial2DTests) {
       std::move(boundToGrid));
 
   // With z shift 10
-  auto globalToGrid = std::make_unique<
-      const Acts::GridAccess::GlobalSubspace<Acts::binZ, Acts::binPhi>>();
+  auto globalToGrid = std::make_unique<const Acts::GridAccess::GlobalSubspace<
+      Acts::AxisDirection::AxisZ, Acts::AxisDirection::AxisPhi>>();
   Acts::IndexedSurfaceMaterial<EqEqGrid>::GlobalToGridLocalDelegate gToZphi;
-  gToZphi.connect<
-      &Acts::GridAccess::GlobalSubspace<Acts::binZ, Acts::binPhi>::toGridLocal>(
+  gToZphi.connect<&Acts::GridAccess::GlobalSubspace<
+      Acts::AxisDirection::AxisZ, Acts::AxisDirection::AxisPhi>::toGridLocal>(
       std::move(globalToGrid));
 
   // Create the indexed material grid

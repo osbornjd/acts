@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/TrackFinding/MuonHoughSeeder.hpp"
 
@@ -88,10 +88,9 @@ ActsExamples::ProcessCode ActsExamples::MuonHoughSeeder::execute(
 
   // create the function parametrising the drift radius uncertainty
   auto houghWidth_fromDC = [](double, const DriftCircle& DC) {
-    return std::min(DC.rDriftError() * 3.,
-                    1.0);  // scale reported errors up to at least 1mm or 3
-                           // times the reported error as drift circle calib not
-                           // fully reliable at this stage
+    // scale reported errors up to at least 1mm or 3 times the reported error as
+    // drift circle calib not fully reliable at this stage
+    return std::min(DC.rDriftError() * 3., 1.0);
   };
 
   // store the true parameters
@@ -100,20 +99,23 @@ ActsExamples::ProcessCode ActsExamples::MuonHoughSeeder::execute(
   // instantiate the hough plane
   Acts::HoughTransformUtils::HoughPlane<Acts::GeometryIdentifier::Value>
       houghPlane(planeCfg);
-  // also insantiate the peak finder
+  // also instantiate the peak finder
   Acts::HoughTransformUtils::PeakFinders::IslandsAroundMax<
       Acts::GeometryIdentifier::Value>
       peakFinder(peakFinderCfg);
 
-  // loop pver true hirs
+  // loop over true hits
   for (auto& SH : gotSH) {
     // read the identifier
-    muonMdtIdentifierFields detailedInfo =
+    MuonMdtIdentifierFields detailedInfo =
         ActsExamples::splitId(SH.geometryId().value());
-
     // store the true parameters
     truePatterns.emplace_back(SH.direction().y() / SH.direction().z(),
                               SH.fourPosition().y());
+    // ACTS_VERBOSE("station name=" << static_cast<int>(SH.stationName));
+    ACTS_VERBOSE("direction = " << SH.direction().y());
+    ACTS_VERBOSE("fourposition y = " << SH.fourPosition().y());
+    std::cin.ignore();
     // reset the hough plane
     houghPlane.reset();
     int foundDC = 0;
@@ -123,7 +125,7 @@ ActsExamples::ProcessCode ActsExamples::MuonHoughSeeder::execute(
           DC.stationPhi() == detailedInfo.stationPhi &&
           DC.stationName() == detailedInfo.stationName) {
         // build a single identifier for the drift circles
-        muonMdtIdentifierFields idf;
+        MuonMdtIdentifierFields idf;
         idf.multilayer = DC.multilayer();
         idf.stationEta = DC.stationEta();
         idf.stationPhi = DC.stationPhi();
@@ -157,15 +159,15 @@ ActsExamples::ProcessCode ActsExamples::MuonHoughSeeder::execute(
                                         houghPlane.nHits(bx, by));
       }
     }
-
     m_outCanvas->SetTitle(Form("Station %s, Eta %i, Phi %i",
                                stationDict.at(detailedInfo.stationName).c_str(),
-                               (int)detailedInfo.stationEta,
-                               (int)detailedInfo.stationPhi));
+                               static_cast<int>(detailedInfo.stationEta),
+                               static_cast<int>(detailedInfo.stationPhi)));
     houghHistoForPlot.SetTitle(
         Form("Station %s, Eta %i, Phi %i",
              stationDict.at(detailedInfo.stationName).c_str(),
-             (int)detailedInfo.stationEta, (int)detailedInfo.stationPhi));
+             static_cast<int>(detailedInfo.stationEta),
+             static_cast<int>(detailedInfo.stationPhi)));
     m_outCanvas->cd();
     int maxHitsAsInt = static_cast<int>(houghPlane.maxHits());
     houghHistoForPlot.SetContour(maxHitsAsInt + 1);

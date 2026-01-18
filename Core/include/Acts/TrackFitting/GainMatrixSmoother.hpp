@@ -1,17 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/EventData/MultiTrajectory.hpp"
-#include "Acts/EventData/detail/covariance_helper.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/TrackFitting/KalmanFitterError.hpp"
 #include "Acts/Utilities/Delegate.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
@@ -29,15 +27,22 @@ namespace Acts {
 /// linearization.
 class GainMatrixSmoother {
  public:
+  /// Whether to check the covariance matrices if they are semi-positive and if
+  /// not attempt to correct them.
+  bool doCovCheckAndAttemptFix = false;
+
   /// Run the Kalman smoothing for one trajectory.
   ///
+  /// @param[in] gctx The geometry context to be used
   /// @param[in,out] trajectory The trajectory to be smoothed
   /// @param[in] entryIndex The index of state to start the smoothing
   /// @param[in] logger Where to write logging information to
   template <typename traj_t>
-  Result<void> operator()(const GeometryContext& /*gctx*/, traj_t& trajectory,
+  Result<void> operator()(const GeometryContext& gctx, traj_t& trajectory,
                           std::size_t entryIndex,
                           const Logger& logger = getDummyLogger()) const {
+    (void)gctx;
+
     using TrackStateProxy = typename traj_t::TrackStateProxy;
 
     GetParameters filtered;

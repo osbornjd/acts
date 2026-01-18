@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -194,7 +194,7 @@ template <typename Callable>
 struct CallableHook : public Acts::GeometryIdentifierHook {
   Callable callable;
 
-  CallableHook(const Callable& c) : callable(c) {}
+  explicit CallableHook(const Callable& c) : callable(c) {}
 
   Acts::GeometryIdentifier decorateIdentifier(
       Acts::GeometryIdentifier identifier,
@@ -209,8 +209,7 @@ BOOST_AUTO_TEST_CASE(GeometryIdentifier_closeGeometry_test_extra) {
   auto hookImpl = [&](GeometryIdentifier orig, const Surface& srf) {
     ++extra;
     extraMap[&srf] = extra;
-    orig.setExtra(extra);
-    return orig;
+    return orig.withExtra(extra);
   };
   CallableHook<decltype(hookImpl)> hook{hookImpl};
 
@@ -320,4 +319,4 @@ BOOST_AUTO_TEST_CASE(TrackingGeometry_testVisitSurfaces) {
   BOOST_CHECK_EQUAL(nVolumes, 5u);
 }
 
-}  //  namespace Acts::Test
+}  // namespace Acts::Test

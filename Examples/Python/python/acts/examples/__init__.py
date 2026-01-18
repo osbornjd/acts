@@ -7,15 +7,21 @@ import re
 from acts.ActsPythonBindings._examples import *
 from acts import ActsPythonBindings
 import acts
-from acts._adapter import _patch_config, _patch_detectors, _patchKwargsConstructor
+from acts._adapter import _patch_config, _patchKwargsConstructor
 
 _propagators = []
 _concrete_propagators = []
-for prefix in ("Eigen", "Atlas", "StraightLine"):
-    _propagators.append(getattr(ActsPythonBindings._propagator, f"{prefix}Propagator"))
-    _concrete_propagators.append(
-        getattr(ActsPythonBindings._propagator, f"{prefix}ConcretePropagator")
-    )
+for stepper in ("Eigen", "Atlas", "StraightLine"):
+    for navigator in ("", "Detector"):
+        _propagators.append(
+            getattr(ActsPythonBindings._propagator, f"{stepper}{navigator}Propagator")
+        )
+        _concrete_propagators.append(
+            getattr(
+                ActsPythonBindings._propagator,
+                f"{stepper}{navigator}ConcretePropagator",
+            )
+        )
 
 
 def ConcretePropagator(propagator):
@@ -27,8 +33,6 @@ def ConcretePropagator(propagator):
 
 
 _patch_config(ActsPythonBindings._examples)
-
-_patch_detectors(ActsPythonBindings._examples)
 
 # Manually patch ExaTrkX constructors
 # Need to do it this way, since they are not always present
@@ -288,11 +292,11 @@ def dump_args_calls(myLocal=None, mods=None, quiet=False):
         found.add(mod)
         for name, obj in sorted(
             vars(mod).items(),
-            key=lambda m: (2, m[0])
-            if m[0] == "ActsPythonBindings"
-            else (1, m[0])
-            if m[0].startswith("_")
-            else (0, m[0]),
+            key=lambda m: (
+                (2, m[0])
+                if m[0] == "ActsPythonBindings"
+                else (1, m[0]) if m[0].startswith("_") else (0, m[0])
+            ),
         ):
             if (
                 not name.startswith("__")
@@ -345,8 +349,7 @@ class CustomLogLevel(Protocol):
         self,
         minLevel: acts.logging.Level = acts.logging.VERBOSE,
         maxLevel: acts.logging.Level = acts.logging.FATAL,
-    ) -> acts.logging.Level:
-        ...
+    ) -> acts.logging.Level: ...
 
 
 def defaultLogging(

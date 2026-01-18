@@ -20,6 +20,13 @@ def getOpenDataDetector(
     odd_dir: Optional[Path] = None,
     logLevel=acts.logging.INFO,
 ):
+    """This function sets up the open data detector. Requires DD4hep.
+    Parameters
+    ----------
+    mdecorator: Material Decorator, take RootMaterialDecorator if non is given
+    odd_dir: if not given, try to get via ODD_PATH environment variable
+    logLevel: logging level
+    """
     import acts.examples.dd4hep
 
     customLogLevel = acts.examples.defaultLogging(logLevel=logLevel)
@@ -68,32 +75,30 @@ def getOpenDataDetector(
     }
 
     def geoid_hook(geoid, surface):
-        if geoid.volume() in volumeRadiusCutsMap:
-            r = math.sqrt(surface.center()[0] ** 2 + surface.center()[1] ** 2)
+        gctx = acts.GeometryContext()
+        if geoid.volume in volumeRadiusCutsMap:
+            r = math.sqrt(surface.center(gctx)[0] ** 2 + surface.center(gctx)[1] ** 2)
 
-            geoid.setExtra(1)
-            for cut in volumeRadiusCutsMap[geoid.volume()]:
+            geoid.extra = 1
+            for cut in volumeRadiusCutsMap[geoid.volume]:
                 if r > cut:
-                    geoid.setExtra(geoid.extra() + 1)
+                    geoid.extra += 1
 
         return geoid
 
-    dd4hepConfig = acts.examples.dd4hep.DD4hepGeometryService.Config(
-        xmlFileNames=[str(odd_xml)],
-        logLevel=customLogLevel(),
-        dd4hepLogLevel=customLogLevel(),
-        geometryIdentifierHook=acts.GeometryIdentifierHook(geoid_hook),
-    )
-    detector = acts.examples.dd4hep.DD4hepDetector()
-
-    config = acts.MaterialMapJsonConverter.Config()
     if mdecorator is None:
-        mdecorator = acts.JsonMaterialDecorator(
-            rConfig=config,
-            jFileName=str(odd_dir / "config/odd-material-mapping-config.json"),
+        mdecorator = acts.examples.RootMaterialDecorator(
+            fileName=str(odd_dir / "data/odd-material-maps.root"),
             level=customLogLevel(minLevel=acts.logging.WARNING),
         )
 
-    trackingGeometry, deco = detector.finalize(dd4hepConfig, mdecorator)
-
-    return detector, trackingGeometry, deco
+    dd4hepConfig = acts.examples.dd4hep.DD4hepDetector.Config(
+        xmlFileNames=[str(odd_xml)],
+        name="OpenDataDetector",
+        logLevel=customLogLevel(),
+        dd4hepLogLevel=customLogLevel(minLevel=acts.logging.WARNING),
+        geometryIdentifierHook=acts.GeometryIdentifierHook(geoid_hook),
+        materialDecorator=mdecorator,
+    )
+    detector = acts.examples.dd4hep.DD4hepDetector(dd4hepConfig)
+    return detector

@@ -97,16 +97,17 @@ position $l$ and the momentum vector $\vec p$ are shown.
 
 Aside from the nominal quantities captured in $\vec x$, the related
 uncertainties and correlations need to be taken into account as well. They
-can be expressed as a $5\times 5$ covariance matrix like
+can be expressed as a $6\times 6$ covariance matrix like
 
 \begin{equation*}
   C =
   \begin{bmatrix}
-   \sigma^2(l_0)& \text{cov}(l_0,l_1) & \text{cov}(l_0, \phi) & \text{cov}(l_0, \theta) & \text{cov}(l_0, q/p) \\
-   . & \sigma^2(l_1) & \text{cov}(l_1, \phi) & \text{cov}(l_1, \theta) & \text{cov}(l_1, q/p) \\
-   . & . &  \sigma^2(\phi) & \text{cov}(\phi,\theta) & \text{cov}(\phi, q/p) \\
-   . & . & . & \sigma^2(\theta) & \text{cov}(\theta, q/p) \\
-   . & . & . & . & \sigma^2(q/p)
+   \sigma^2(l_0)& \text{cov}(l_0,l_1) & \text{cov}(l_0, \phi) & \text{cov}(l_0, \theta) & \text{cov}(l_0, q/p) & \text{cov}(l_0, t) \\
+   . & \sigma^2(l_1) & \text{cov}(l_1, \phi) & \text{cov}(l_1, \theta) & \text{cov}(l_1, q/p) & \text{cov}(l_1, t) \\
+   . & . &  \sigma^2(\phi) & \text{cov}(\phi,\theta) & \text{cov}(\phi, q/p) & \text{cov}(\phi, t) \\
+   . & . & . & \sigma^2(\theta) & \text{cov}(\theta, q/p) & \text{cov}(\theta, t) \\
+   . & . & . & . & \sigma^2(q/p) & \text{cov}(q/p, t) \\
+   . & . & . & . & . & \sigma^2(t)
   \end{bmatrix}
 \end{equation*}
 
@@ -953,74 +954,74 @@ See [](vertexing_core) for a dedicated description of the vertexing as
 implemented in ACTS.
 :::
 
-A vertex is a point within the detector, where an interaction or a 
-decay occurred. We distinguish between primary vertices (from 
-collisions/interactions) and secondary vertices (from subsequent particle 
-decays), see {numref}`vertexing_illust`. Primary vertices are further divided 
-into hard-scatter and pile-up vertices. While primary vertices are located in 
+A vertex is a point within the detector, where an interaction or a
+decay occurred. We distinguish between primary vertices (from
+collisions/interactions) and secondary vertices (from subsequent particle
+decays), see {numref}`vertexing_illust`. Primary vertices are further divided
+into hard-scatter and pile-up vertices. While primary vertices are located in
 the luminous region, secondary vertices are slightly displaced due to the finite
- life time of the decaying particle. 
+ life time of the decaying particle.
 
 (vertexing_illust)=
 :::{figure} /figures/tracking/vertexing.svg
 :width: 400px
 :align: center
 Illustration of a set of three vertices in a proton-proton
-collision. We distinguish between primary hard-scatter, primary pile-up, and 
+collision. We distinguish between primary hard-scatter, primary pile-up, and
 secondary vertices.
 :::
 
-Vertices play an important role in higher-level reconstruction algorithms. For 
-example, secondary vertices can help with the identification of particles: 
-During *$b$-tagging*, a displaced vertex located inside a jet is a sign for the 
+Vertices play an important role in higher-level reconstruction algorithms. For
+example, secondary vertices can help with the identification of particles:
+During *$b$-tagging*, a displaced vertex located inside a jet is a sign for the
 decay of a $b$-hadron.
 
-In analogy to track reconstruction, vertex reconstruction can be divided into 
-two stages: vertex finding and vertex fitting. As a first step of vertex 
-finding, we compute a rough estimate of the vertex position from a set of 
+In analogy to track reconstruction, vertex reconstruction can be divided into
+two stages: vertex finding and vertex fitting. As a first step of vertex
+finding, we compute a rough estimate of the vertex position from a set of
 tracks. This first estimate can be calculated in many different ways, and is
-referred to as "vertex seed". Seeding algorithms differ for primary and 
-secondary vertexing. For primary vertex seeding, one option is to use a 
-histogram approach to cluster tracks on the $z$-axis[^phd:piacquadio:2010]. 
-This is based on the assumption that primary vertices will be close to the 
-beamline. Other approaches model tracks as multivariate Gaussian distributions 
-and identify regions of high track density as vertex seeds[^phd:schlag:2022]. 
-For secondary vertexing, seeds are formed from pairs of reconstructed tracks as 
+referred to as "vertex seed". Seeding algorithms differ for primary and
+secondary vertexing. For primary vertex seeding, one option is to use a
+histogram approach to cluster tracks on the $z$-axis[^phd:piacquadio:2010].
+This is based on the assumption that primary vertices will be close to the
+beamline. Other approaches model tracks as multivariate Gaussian distributions
+and identify regions of high track density as vertex seeds[^phd:schlag:2022].
+For secondary vertexing, seeds are formed from pairs of reconstructed tracks as
 the constraint to the beamline does not apply.
 
-Once a vertex seed is determined, tracks that are compatible with it are 
+Once a vertex seed is determined, tracks that are compatible with it are
 selected as part of the vertex finding.
 
 Before the vertex fit, we linearize tracks in the vicinity of the vertex seed
 under assuming that they follow a helical (for constant magnetic field) or
-straight (for no magnetic field) trajectory[^phd:piacquadio:2010]. The vertex 
-fitter then uses this linearization to improve the position of the vertex seed. 
-Furthermore, the track momenta are refitted under the assumption that the tracks 
-originate at the vertex[^Fruhwirth:1987fm] [^billoirfitting:1992] . 
+straight (for no magnetic field) trajectory[^phd:piacquadio:2010]. The vertex
+fitter then uses this linearization to improve the position of the vertex seed.
+Furthermore, the track momenta are refitted under the assumption that the tracks
+originate at the vertex[^Fruhwirth:1987fm] [^billoirfitting:1992] .
 
-One issue with an approach like this is that the assignment of tracks to 
+One issue with an approach like this is that the assignment of tracks to
 vertices is ambiguous. As an improvement, one can perform a multi-vertex fit,
-where vertices compete for tracks. This means that one track can be assigned to 
+where vertices compete for tracks. This means that one track can be assigned to
 several vertices. Their contribution to each vertex fit is determined by a
 weight factor, which, in turn, depends on the tracks' compatibility with respect
 to all vertices[^fruwirth:amvfitting:2004].
 
-A flowchart of a multi-vertex reconstruction chain is shown in 
+A flowchart of a multi-vertex reconstruction chain is shown in
 {numref}`vertexing_flowchart`.
 
 (vertexing_flowchart)=
 :::{figure} /figures/tracking/vertexing_flowchart.svg
 :width: 600px
 :align: center
-Simplified flowchart of multi-vertex reconstruction. From a set of seed tracks, 
-we first compute a rough estimate of the vertex position, i.e., the vertex seed. 
-Then, we evaluate the compatibility of all tracks with the the latter. If a 
-track is deemed compatible, it is assigned a weight and attached to the vertex 
-seed. Next, the vertex seed and all previously found vertices that share tracks 
+Simplified flowchart of multi-vertex reconstruction. From a set of seed tracks,
+we first compute a rough estimate of the vertex position, i.e., the vertex seed.
+Then, we evaluate the compatibility of all tracks with the the latter. If a
+track is deemed compatible, it is assigned a weight and attached to the vertex
+seed. Next, the vertex seed and all previously found vertices that share tracks
 with it are (re-)fitted. Finally, after convergence of the fit, we check whether
-the vertex candidate is merged with other vertices and discard it if that is the 
-case. For the next iteration, all tracks that were assigned to the vertex seed 
-and that have a weight above a certain threshold are removed from the seed 
+the vertex candidate is merged with other vertices and discard it if that is the
+case. For the next iteration, all tracks that were assigned to the vertex seed
+and that have a weight above a certain threshold are removed from the seed
 tracks.
 :::
 
@@ -1028,5 +1029,5 @@ tracks.
 [^Fruhwirth:1987fm]: R. Frühwirth, 1987, Application of Kalman filtering to track and vertex fitting, , [11.1016/0168-9002(87)90887-4](https://doi.org/10.1016/0168-9002(87)90887-4)
 [^phd:piacquadio:2010]: G. Piacquadio, 2010, Identification of b-jets and investigation of the discovery potential of a Higgs boson in the $W H \rightarrow l \nu \bar{b} b$ channel with the ATLAS experiment.
 [^phd:schlag:2022]: B. Schlag, 2022, Advanced Algorithms and Software for Primary Vertex Reconstruction and Search for Flavor-Violating Supersymmetry with the ATLAS Experiment.
-[^billoirfitting:1992]: P. Billoir et al., 2022, Fast vertex fitting with a local parametrization of tracks.
+[^billoirfitting:1992]: P. Billoir et al., 1992, Fast vertex fitting with a local parametrization of tracks.
 [^fruwirth:amvfitting:2004]: R. Frühwirth et al., 2004, Adaptive Multi-Vertex fitting.

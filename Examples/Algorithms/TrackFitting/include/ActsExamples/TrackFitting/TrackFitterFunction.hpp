@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -40,6 +40,7 @@ class TrackFitterFunction {
     std::reference_wrapper<const Acts::CalibrationContext> calibrationContext;
     const Acts::Surface* referenceSurface = nullptr;
     Acts::PropagatorPlainOptions propOptions;
+    bool doRefit = false;
   };
 
   virtual ~TrackFitterFunction() = default;
@@ -67,6 +68,7 @@ std::shared_ptr<TrackFitterFunction> makeKalmanFitterFunction(
     double reverseFilteringMomThreshold = 0.0,
     Acts::FreeToBoundCorrection freeToBoundCorrection =
         Acts::FreeToBoundCorrection(),
+    double chi2Cut = std::numeric_limits<double>::infinity(),
     const Acts::Logger& logger = *Acts::getDefaultLogger("Kalman",
                                                          Acts::Logging::INFO));
 
@@ -105,7 +107,6 @@ std::shared_ptr<TrackFitterFunction> makeGsfFitterFunction(
 /// @param energyLoss bool
 /// @param freeToBoundCorrection bool
 /// @param nUpdateMax max number of iterations during the fit
-/// @param zerofield Disables the QoP fit in case of missing B-field.
 /// @param relChi2changeCutOff Check for convergence (abort condition). Set to 0 to skip.
 /// @param logger a logger instance
 std::shared_ptr<TrackFitterFunction> makeGlobalChiSquareFitterFunction(
@@ -114,8 +115,7 @@ std::shared_ptr<TrackFitterFunction> makeGlobalChiSquareFitterFunction(
     bool multipleScattering = true, bool energyLoss = true,
     Acts::FreeToBoundCorrection freeToBoundCorrection =
         Acts::FreeToBoundCorrection(),
-    std::size_t nUpdateMax = 5, bool zeroField = false,
-    double relChi2changeCutOff = 1e-7,
+    std::size_t nUpdateMax = 5, double relChi2changeCutOff = 1e-7,
     const Acts::Logger& logger = *Acts::getDefaultLogger("Gx2f",
                                                          Acts::Logging::INFO));
 

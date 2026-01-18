@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
@@ -30,6 +30,7 @@
 
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <random>
 #include <tuple>
@@ -97,7 +98,8 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
 
   // Repeat transport to surface
   FreeToBoundCorrection freeToBoundCorrection(false);
-  auto surface = Surface::makeShared<PlaneSurface>(position, direction);
+  std::shared_ptr<PlaneSurface> surface =
+      CurvilinearSurface(position, direction).planeSurface();
   detail::transportCovarianceToBound(
       tgContext, *surface, covariance, jacobian, transportJacobian, derivatives,
       boundToFreeJacobian, parameters, freeToBoundCorrection);
@@ -198,8 +200,9 @@ using propagator_t = Propagator<EigenStepper<>, VoidNavigator>;
 
 BoundVector localToLocal(const propagator_t& prop, const BoundVector& local,
                          const Surface& src, const Surface& dst) {
-  PropagatorOptions<> options{gctx, mctx};
-  options.stepTolerance = 1e-10;
+  using PropagatorOptions = typename propagator_t::template Options<>;
+  PropagatorOptions options{gctx, mctx};
+  options.stepping.stepTolerance = 1e-10;
   options.surfaceTolerance = 1e-10;
 
   BoundTrackParameters start{src.getSharedPtr(), local, std::nullopt,
@@ -254,7 +257,7 @@ auto makeDist(double a, double b) {
 
 const auto locDist = makeDist(-5_mm, 5_mm);
 const auto bFieldDist = makeDist(0, 3_T);
-const auto angleDist = makeDist(-2 * M_PI, 2 * M_PI);
+const auto angleDist = makeDist(-2 * std::numbers::pi, 2 * std::numbers::pi);
 const auto posDist = makeDist(-50_mm, 50_mm);
 
 #define MAKE_SURFACE()                                    \
@@ -285,7 +288,8 @@ BOOST_DATA_TEST_CASE(CovarianceConversionSamePlane,
   covA.diagonal() << 1, 2, 3, 4, 5, 6;
 
   BoundVector parA;
-  parA << l0, l1, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << l0, l1, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9,
+      -1 / 1_GeV, 5_ns;
 
   // identical surface, this should work
   auto [parB, covB] =
@@ -335,7 +339,8 @@ BOOST_DATA_TEST_CASE(CovarianceConversionRotatedPlane,
   covA.diagonal() << 1, 2, 3, 4, 5, 6;
 
   BoundVector parA;
-  parA << l0, l1, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << l0, l1, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9,
+      -1 / 1_GeV, 5_ns;
 
   auto [parB, covB] =
       boundToBound(parA, covA, *planeSurfaceA, *planeSurfaceB, bField);
@@ -383,7 +388,8 @@ BOOST_DATA_TEST_CASE(CovarianceConversionL0TiltedPlane,
 
   BoundVector parA;
   // loc 0 must be zero so we're on the intersection of both surfaces.
-  parA << 0, l1, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << 0, l1, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9, -1 / 1_GeV,
+      5_ns;
 
   BoundMatrix covA;
   covA.setZero();
@@ -431,7 +437,8 @@ BOOST_DATA_TEST_CASE(CovarianceConversionL1TiltedPlane,
 
   BoundVector parA;
   // loc 1 must be zero so we're on the intersection of both surfaces.
-  parA << l0, 0, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << l0, 0, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9, -1 / 1_GeV,
+      5_ns;
 
   BoundMatrix covA;
   covA.setZero();
@@ -469,7 +476,8 @@ BOOST_DATA_TEST_CASE(CovarianceConversionPerigee,
   auto planeSurfaceA = MAKE_SURFACE();
 
   BoundVector parA;
-  parA << l0, l1, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << l0, l1, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9,
+      -1 / 1_GeV, 5_ns;
 
   BoundMatrix covA;
   covA.setZero();

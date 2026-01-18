@@ -1,13 +1,15 @@
-add_library(
-  ActsExamplesDetectorsCommon
-  INTERFACE)
+
+add_library(ActsExamplesDetectorsCommon SHARED src/Detector.cpp)
 target_include_directories(
-  ActsExamplesDetectorsCommon
-  INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    ActsExamplesDetectorsCommon
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 target_link_libraries(
-  ActsExamplesDetectorsCommon
-  INTERFACE Boost::program_options)
+    ActsExamplesDetectorsCommon
+    PUBLIC ActsCore ActsExamplesFramework
+)
 
-# interface libraries do not exist in the filesystem; no installation needed
-
-install(DIRECTORY include/ActsExamples DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(
+    TARGETS ActsExamplesDetectorsCommon
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)

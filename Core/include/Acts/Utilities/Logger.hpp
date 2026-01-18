@@ -1,17 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
+
 // STL include(s)
-#include <cassert>
 #include <ctime>
-#include <exception>
-#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -51,7 +49,7 @@
 #define ACTS_LOCAL_LOGGER(log_object)                                          \
   struct __local_acts_logger                                                   \
   {                                                                            \
-    __local_acts_logger(std::unique_ptr<const ::Acts::Logger> logger):         \
+    explicit __local_acts_logger(std::unique_ptr<const ::Acts::Logger> logger):         \
       m_logger(std::move(logger))                                              \
     {}                                                                         \
                                                                                \
@@ -66,11 +64,14 @@
 
 // Debug level agnostic implementation of the ACTS_XYZ logging macros
 #define ACTS_LOG(level, x)                                                     \
-  if (logger().doPrint(level)) {                                               \
-    std::ostringstream os;                                                     \
-    os << x;                                                                   \
-    logger().log(level, os.str());                                             \
-  }
+  do {                                                                         \
+    if (logger().doPrint(level)) {                                             \
+      std::ostringstream os;                                                   \
+      os << x;                                                                 \
+      logger().log(level, os.str());                                           \
+    }                                                                          \
+  }                                                                            \
+  while(0)
 
 /// @brief macro for verbose debug output
 /// @ingroup Logging
@@ -233,6 +234,22 @@ void setFailureThreshold(Level level);
 /// Custom exception class so threshold failures can be caught
 class ThresholdFailure : public std::runtime_error {
   using std::runtime_error::runtime_error;
+};
+
+/// Helper class that changes the failure threshold for the duration of its
+/// lifetime.
+class ScopedFailureThreshold {
+ public:
+  explicit ScopedFailureThreshold(Level level) { setFailureThreshold(level); }
+  ScopedFailureThreshold(const ScopedFailureThreshold&) = delete;
+  ScopedFailureThreshold& operator=(const ScopedFailureThreshold&) = delete;
+  ScopedFailureThreshold(ScopedFailureThreshold&&) = delete;
+  ScopedFailureThreshold& operator=(ScopedFailureThreshold&&) = delete;
+
+  ~ScopedFailureThreshold() noexcept;
+
+ private:
+  Level m_previousLevel{getFailureThreshold()};
 };
 
 /// @brief abstract base class for printing debug output
@@ -429,8 +446,8 @@ class TimedOutputDecorator final : public OutputDecorator {
   ///
   /// @param [in] wrappee output print policy object to be wrapped
   /// @param [in] format  format of time stamp (see std::strftime)
-  TimedOutputDecorator(std::unique_ptr<OutputPrintPolicy> wrappee,
-                       const std::string& format = "%X")
+  explicit TimedOutputDecorator(std::unique_ptr<OutputPrintPolicy> wrappee,
+                                const std::string& format = "%X")
       : OutputDecorator(std::move(wrappee)), m_format(format) {}
 
   /// @brief flush the debug message to the destination stream
@@ -463,7 +480,9 @@ class TimedOutputDecorator final : public OutputDecorator {
     char buffer[20];
     time_t t{};
     std::time(&t);
-    std::strftime(buffer, sizeof(buffer), m_format.c_str(), localtime(&t));
+    struct tm tbuf {};
+    std::strftime(buffer, sizeof(buffer), m_format.c_str(),
+                  localtime_r(&t, &tbuf));
     return buffer;
   }
 

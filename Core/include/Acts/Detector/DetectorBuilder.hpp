@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -15,7 +15,11 @@
 #include <memory>
 #include <string>
 
-namespace Acts::Experimental {
+namespace Acts {
+
+class IMaterialDecorator;
+
+namespace Experimental {
 
 class IGeometryIdGenerator;
 
@@ -36,6 +40,8 @@ class DetectorBuilder final : public IDetectorBuilder {
     std::shared_ptr<const IDetectorComponentBuilder> builder = nullptr;
     /// A geometry id generator
     std::shared_ptr<const IGeometryIdGenerator> geoIdGenerator = nullptr;
+    /// A material decorator
+    std::shared_ptr<const IMaterialDecorator> materialDecorator = nullptr;
     /// Auxiliary information
     std::string auxiliary = "";
   };
@@ -44,9 +50,10 @@ class DetectorBuilder final : public IDetectorBuilder {
   ///
   /// @param cfg is the configuration struct
   /// @param mlogger logging instance for screen output
-  DetectorBuilder(const Config& cfg,
-                  std::unique_ptr<const Logger> mlogger =
-                      getDefaultLogger("DetectorBuilder", Logging::INFO));
+  explicit DetectorBuilder(const Config& cfg,
+                           std::unique_ptr<const Logger> mlogger =
+                               getDefaultLogger("DetectorBuilder",
+                                                Logging::INFO));
 
   /// Final implementation of a volume builder that is purely defined
   /// by an internal and external structure builder
@@ -68,4 +75,5 @@ class DetectorBuilder final : public IDetectorBuilder {
   std::unique_ptr<const Logger> m_logger;
 };
 
-}  // namespace Acts::Experimental
+}  // namespace Experimental
+}  // namespace Acts

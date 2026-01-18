@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -13,20 +13,20 @@
 #include "Acts/Detector/DetectorComponents.hpp"
 #include "Acts/Detector/DetectorVolume.hpp"
 #include "Acts/Detector/PortalGenerators.hpp"
-#include "Acts/Detector/ProtoBinning.hpp"
 #include "Acts/Detector/interface/IDetectorComponentBuilder.hpp"
 #include "Acts/Detector/interface/IGeometryIdGenerator.hpp"
 #include "Acts/Geometry/CuboidVolumeBounds.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Navigation/DetectorVolumeFinders.hpp"
-#include "Acts/Navigation/SurfaceCandidatesUpdaters.hpp"
+#include "Acts/Navigation/InternalNavigation.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Enumerate.hpp"
 #include "Acts/Utilities/Logger.hpp"
+#include "Acts/Utilities/ProtoAxis.hpp"
 
 #include <array>
 #include <memory>
@@ -102,8 +102,7 @@ class VolumeGeoIdGenerator : public IGeometryIdGenerator {
                         DetectorVolume& dVolume) const final {
     auto& ccache = std::any_cast<Cache&>(cache);
     ccache.volumeCount += 1;
-    Acts::GeometryIdentifier geoID;
-    geoID.setVolume(ccache.volumeCount);
+    auto geoID = Acts::GeometryIdentifier().withVolume(ccache.volumeCount);
     dVolume.assignGeometryId(geoID);
   }
 
@@ -125,14 +124,15 @@ BOOST_AUTO_TEST_CASE(CuboidalContainerBuilder_Misconfiguration) {
                     std::invalid_argument);
   // misconfiguration - 1D binning not in x, y, z
   misCfg.builders = {nullptr};
-  misCfg.binning = Acts::binR;
+  misCfg.binning = Acts::AxisDirection::AxisR;
   BOOST_CHECK_THROW(auto b = CuboidalContainerBuilder(misCfg),
                     std::invalid_argument);
 }
 
 BOOST_AUTO_TEST_CASE(CuboidalContainerBuildingXYZVolumes) {
-  std::array<Acts::BinningValue, 3> binningValues = {Acts::binX, Acts::binY,
-                                                     Acts::binZ};
+  std::array<Acts::AxisDirection, 3> binningValues = {
+      Acts::AxisDirection::AxisX, Acts::AxisDirection::AxisY,
+      Acts::AxisDirection::AxisZ};
   for (auto bVal : binningValues) {
     // A perfect box shape
     auto box = Acts::CuboidVolumeBounds(10, 10, 10);
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(CuboidalContainerBuildingXYZVolumes) {
     auto transformB = Acts::Transform3::Identity();
 
     Acts::Vector3 translation = Acts::Vector3::Zero();
-    translation[bVal] = 20;
+    translation[toUnderlying(bVal)] = 20;
     transformB.pretranslate(translation);
 
     auto builderA = std::make_shared<CuboidalVolumeBuilder>(
@@ -167,10 +167,14 @@ BOOST_AUTO_TEST_CASE(CuboidalContainerBuildingXYZVolumes) {
     BOOST_CHECK_EQUAL(roots.volumes.size(), 2u);
     BOOST_CHECK_EQUAL(roots.volumes.at(0)->geometryId().volume(), 1u);
     BOOST_CHECK_EQUAL(roots.volumes.at(1)->geometryId().volume(), 2u);
-    BOOST_CHECK_EQUAL(
-        roots.volumes.at(0)->transform(tContext).translation()[bVal], 0);
-    BOOST_CHECK_EQUAL(
-        roots.volumes.at(1)->transform(tContext).translation()[bVal], 20);
+    BOOST_CHECK_EQUAL(roots.volumes.at(0)
+                          ->transform(tContext)
+                          .translation()[toUnderlying(bVal)],
+                      0);
+    BOOST_CHECK_EQUAL(roots.volumes.at(1)
+                          ->transform(tContext)
+                          .translation()[toUnderlying(bVal)],
+                      20);
 
     for (auto& portal : portals) {
       if (portal.second->attachedDetectorVolumes().at(0).empty()) {

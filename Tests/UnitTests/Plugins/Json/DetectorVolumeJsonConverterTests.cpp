@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -18,7 +18,7 @@
 #include "Acts/Geometry/CylinderVolumeBounds.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Navigation/DetectorVolumeFinders.hpp"
-#include "Acts/Navigation/SurfaceCandidatesUpdaters.hpp"
+#include "Acts/Navigation/InternalNavigation.hpp"
 #include "Acts/Plugins/Json/DetectorVolumeJsonConverter.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
@@ -27,6 +27,7 @@
 
 #include <fstream>
 #include <memory>
+#include <numbers>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -89,21 +90,6 @@ BOOST_AUTO_TEST_CASE(SingleEmptyVolume) {
       volumeIn->transform(tContext).isApprox(volume->transform(tContext)));
   BOOST_CHECK_EQUAL(volumeIn->surfaces().size(), volume->surfaces().size());
   BOOST_CHECK_EQUAL(volumeIn->volumes().size(), volume->volumes().size());
-
-  // Detray format test - manipulate for detray
-  Acts::DetectorVolumeJsonConverter::Options detrayOptions;
-  detrayOptions.transformOptions.writeIdentity = true;
-  detrayOptions.transformOptions.transpose = true;
-  detrayOptions.surfaceOptions.transformOptions =
-      detrayOptions.transformOptions;
-  detrayOptions.portalOptions.surfaceOptions = detrayOptions.surfaceOptions;
-
-  auto jVolumeDetray = Acts::DetectorVolumeJsonConverter::toJsonDetray(
-      tContext, *volume, {volume.get()}, detrayOptions);
-
-  out.open("single-empty-volume-detray.json");
-  out << jVolumeDetray.dump(4);
-  out.close();
 }
 
 BOOST_AUTO_TEST_CASE(SingleSurfaceVolume) {
@@ -162,9 +148,11 @@ BOOST_AUTO_TEST_CASE(EndcapVolumeWithSurfaces) {
   Acts::Experimental::LayerStructureBuilder::Config lsConfig;
   lsConfig.auxiliary = "*** Endcap with 22 surfaces ***";
   lsConfig.surfacesProvider = endcapSurfaces;
-  lsConfig.binnings = {Acts::Experimental::ProtoBinning(
-      Acts::binPhi, Acts::detail::AxisBoundaryType::Closed, -M_PI, M_PI, 22u,
-      1u)};
+  lsConfig.binnings = {
+      {Acts::ProtoAxis(Acts::AxisDirection::AxisPhi,
+                       Acts::AxisBoundaryType::Closed, -std::numbers::pi,
+                       std::numbers::pi, 22u),
+       1u}};
 
   auto layerBuilder =
       std::make_shared<Acts::Experimental::LayerStructureBuilder>(
@@ -172,9 +160,10 @@ BOOST_AUTO_TEST_CASE(EndcapVolumeWithSurfaces) {
                                            Acts::Logging::VERBOSE));
 
   Acts::Experimental::VolumeStructureBuilder::Config shapeConfig;
-  shapeConfig.boundValues = {10, 100, 10., M_PI, 0.};
-  shapeConfig.transform = Acts::Transform3(Acts::Transform3::Identity())
-                              .pretranslate(Acts::Vector3(0., 0., -800.));
+  shapeConfig.boundValues = {10, 100, 10., std::numbers::pi, 0.};
+  shapeConfig.transform =
+      Acts::Transform3{Acts::Transform3::Identity()}.pretranslate(
+          Acts::Vector3(0., 0., -800.));
   shapeConfig.boundsType = Acts::VolumeBounds::BoundsType::eCylinder;
 
   auto shapeBuilder =
@@ -240,12 +229,14 @@ BOOST_AUTO_TEST_CASE(BarrelVolumeWithSurfaces) {
   Acts::Experimental::LayerStructureBuilder::Config lsConfig;
   lsConfig.auxiliary = "*** Barrel with 448 surfaces ***";
   lsConfig.surfacesProvider = barrelSurfaces;
-  lsConfig.binnings = {Acts::Experimental::ProtoBinning{
-                           Acts::binZ, Acts::detail::AxisBoundaryType::Bound,
-                           -480., 480., 14u, 1u},
-                       Acts::Experimental::ProtoBinning(
-                           Acts::binPhi, Acts::detail::AxisBoundaryType::Closed,
-                           -M_PI, M_PI, 32u, 1u)};
+  lsConfig.binnings = {
+      {Acts::ProtoAxis(Acts::AxisDirection::AxisZ,
+                       Acts::AxisBoundaryType::Bound, -480., 480., 14u),
+       1u},
+      {Acts::ProtoAxis(Acts::AxisDirection::AxisPhi,
+                       Acts::AxisBoundaryType::Closed, -std::numbers::pi,
+                       std::numbers::pi, 32u),
+       1u}};
 
   auto barrelBuilder =
       std::make_shared<Acts::Experimental::LayerStructureBuilder>(
@@ -253,7 +244,7 @@ BOOST_AUTO_TEST_CASE(BarrelVolumeWithSurfaces) {
                                            Acts::Logging::VERBOSE));
 
   Acts::Experimental::VolumeStructureBuilder::Config shapeConfig;
-  shapeConfig.boundValues = {60., 80., 800., M_PI, 0.};
+  shapeConfig.boundValues = {60., 80., 800., std::numbers::pi, 0.};
   shapeConfig.boundsType = Acts::VolumeBounds::BoundsType::eCylinder;
 
   auto shapeBuilder =

@@ -1,16 +1,17 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
+#include "Acts/Surfaces/CurvilinearSurface.hpp"
 #include "Acts/TrackFitting/GsfMixtureReduction.hpp"
 #include "Acts/TrackFitting/detail/SymmetricKlDistanceMatrix.hpp"
 
@@ -102,11 +103,11 @@ BOOST_AUTO_TEST_CASE(test_distance_matrix_recompute_distance) {
 
 BOOST_AUTO_TEST_CASE(test_mixture_reduction) {
   auto meanAndSumOfWeights = [](const auto &cmps) {
-    const auto mean = std::accumulate(
-        cmps.begin(), cmps.end(), Acts::BoundVector::Zero().eval(),
-        [](auto sum, const auto &cmp) -> Acts::BoundVector {
-          return sum + cmp.weight * cmp.boundPars;
-        });
+    const auto mean =
+        std::accumulate(cmps.begin(), cmps.end(), BoundVector::Zero().eval(),
+                        [](auto sum, const auto &cmp) -> BoundVector {
+                          return sum + cmp.weight * cmp.boundPars;
+                        });
 
     const double sumOfWeights = std::accumulate(
         cmps.begin(), cmps.end(), 0.0,
@@ -116,8 +117,8 @@ BOOST_AUTO_TEST_CASE(test_mixture_reduction) {
   };
 
   // Assume that the components are on a generic plane surface
-  auto surface = Acts::Surface::makeShared<PlaneSurface>(Vector3{0, 0, 0},
-                                                         Vector3{1, 0, 0});
+  std::shared_ptr<PlaneSurface> surface =
+      CurvilinearSurface(Vector3{0, 0, 0}, Vector3{1, 0, 0}).planeSurface();
   const std::size_t NComps = 4;
   std::vector<GsfComponent> cmps;
 
@@ -141,13 +142,12 @@ BOOST_AUTO_TEST_CASE(test_mixture_reduction) {
   BOOST_CHECK_CLOSE(sumOfWeights0, 1.0, 1.e-8);
 
   // Reduce by factor of 2 and check if weights and QoP are correct
-  Acts::reduceMixtureWithKLDistance(cmps, 2, *surface);
+  reduceMixtureWithKLDistance(cmps, 2, *surface);
 
   BOOST_CHECK_EQUAL(cmps.size(), 2);
 
-  std::sort(cmps.begin(), cmps.end(), [](const auto &a, const auto &b) {
-    return a.boundPars[eBoundQOverP] < b.boundPars[eBoundQOverP];
-  });
+  std::ranges::sort(cmps, {},
+                    [](const auto &c) { return c.boundPars[eBoundQOverP]; });
   BOOST_CHECK_CLOSE(cmps[0].boundPars[eBoundQOverP], 1.0_GeV, 1.e-8);
   BOOST_CHECK_CLOSE(cmps[1].boundPars[eBoundQOverP], 4.0_GeV, 1.e-8);
 
@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE(test_mixture_reduction) {
   BOOST_CHECK_CLOSE(sumOfWeights1, 1.0, 1.e-8);
 
   // Reduce by factor of 2 and check if weights and QoP are correct
-  Acts::reduceMixtureWithKLDistance(cmps, 1, *surface);
+  reduceMixtureWithKLDistance(cmps, 1, *surface);
 
   BOOST_CHECK_EQUAL(cmps.size(), 1);
   BOOST_CHECK_CLOSE(cmps[0].boundPars[eBoundQOverP], 2.5_GeV, 1.e-8);
@@ -165,8 +165,8 @@ BOOST_AUTO_TEST_CASE(test_mixture_reduction) {
 }
 
 BOOST_AUTO_TEST_CASE(test_weight_cut_reduction) {
-  auto dummy = Acts::Surface::makeShared<PlaneSurface>(Vector3{0, 0, 0},
-                                                       Vector3{1, 0, 0});
+  std::shared_ptr<PlaneSurface> dummy =
+      CurvilinearSurface(Vector3{0, 0, 0}, Vector3{1, 0, 0}).planeSurface();
   std::vector<GsfComponent> cmps;
 
   // weights do not need to be normalized for this test
@@ -178,11 +178,10 @@ BOOST_AUTO_TEST_CASE(test_weight_cut_reduction) {
     cmps.push_back(a);
   }
 
-  Acts::reduceMixtureLargestWeights(cmps, 2, *dummy);
+  reduceMixtureLargestWeights(cmps, 2, *dummy);
 
   BOOST_CHECK_EQUAL(cmps.size(), 2);
-  std::sort(cmps.begin(), cmps.end(),
-            [](const auto &a, const auto &b) { return a.weight < b.weight; });
+  std::ranges::sort(cmps, {}, [](const auto &c) { return c.weight; });
 
   BOOST_CHECK_EQUAL(cmps[0].weight, 3.0);
   BOOST_CHECK_EQUAL(cmps[1].weight, 4.0);

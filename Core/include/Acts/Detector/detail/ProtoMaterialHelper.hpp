@@ -1,24 +1,21 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Geometry/GeometryContext.hpp"
+#include "Acts/Utilities/ProtoAxis.hpp"
 
 namespace Acts {
 
 class Surface;
 
-namespace Experimental {
-
-struct BinningDescription;
-
-namespace detail::ProtoMaterialHelper {
+namespace Experimental::detail::ProtoMaterialHelper {
 
 /// @brief Method that attaches proto material to a surface given
 /// a proto binning description
@@ -29,10 +26,9 @@ namespace detail::ProtoMaterialHelper {
 ///
 /// @return an (eventual) updated binning description for structured
 ///         screen logging output
-BinningDescription attachProtoMaterial(const GeometryContext& gctx,
-                                       Surface& surface,
-                                       const BinningDescription& bDescription);
+std::vector<ProtoAxis> attachProtoMaterial(
+    const GeometryContext& gctx, Surface& surface,
+    const std::vector<ProtoAxis>& bDescription);
 
-}  // namespace detail::ProtoMaterialHelper
-}  // namespace Experimental
+}  // namespace Experimental::detail::ProtoMaterialHelper
 }  // namespace Acts

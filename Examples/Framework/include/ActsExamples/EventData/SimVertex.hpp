@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -21,8 +21,9 @@ class SimVertexBarcode {
   using Value = SimBarcode::Value;
 
   constexpr SimVertexBarcode() = default;
-  constexpr SimVertexBarcode(Value encoded) : m_id(SimBarcode(encoded)) {}
-  constexpr SimVertexBarcode(SimBarcode vertexId)
+  explicit constexpr SimVertexBarcode(Value encoded)
+      : m_id(SimBarcode(encoded)) {}
+  explicit constexpr SimVertexBarcode(SimBarcode vertexId)
       : m_id(vertexId.setParticle(0).setSubParticle(0)) {
     if (vertexId != vertexId.vertexId()) {
       throw std::invalid_argument("SimVertexBarcode: invalid vertexId");
@@ -58,32 +59,28 @@ class SimVertexBarcode {
  private:
   /// The vertex ID
   /// Note that only primary, secondary and generation should be set
-  SimBarcode m_id = 0;
+  SimBarcode m_id;
 
   friend constexpr bool operator<(SimVertexBarcode lhs, SimVertexBarcode rhs) {
     return lhs.m_id < rhs.m_id;
   }
+
   friend constexpr bool operator==(SimVertexBarcode lhs, SimVertexBarcode rhs) {
     return lhs.m_id == rhs.m_id;
   }
-  friend constexpr bool operator!=(SimVertexBarcode lhs, SimVertexBarcode rhs) {
-    return lhs.m_id != rhs.m_id;
-  }
+
   friend inline std::ostream& operator<<(std::ostream& os,
                                          SimVertexBarcode idx) {
     return os << idx.m_id;
   }
 };
 
-/// A simultated vertex e.g. from a physics process.
+/// A simulated vertex e.g. from a physics process.
 struct SimVertex {
-  using Scalar = Acts::ActsScalar;
-  using Vector4 = Acts::ActsVector<4>;
-
   /// The vertex ID
   SimVertexBarcode id;
   /// The vertex four-position
-  Vector4 position4 = Vector4::Zero();
+  Acts::Vector4 position4 = Acts::Vector4::Zero();
   /// The vertex process type
   ActsFatras::ProcessType process = ActsFatras::ProcessType::eUndefined;
   /// The incoming particles into the vertex
@@ -99,7 +96,7 @@ struct SimVertex {
   /// Associated particles are left empty by default and must be filled by the
   /// user after construction.
   SimVertex(
-      SimVertexBarcode id_, const Vector4& position4_,
+      SimVertexBarcode id_, const Acts::Vector4& position4_,
       ActsFatras::ProcessType process_ = ActsFatras::ProcessType::eUndefined)
       : id(id_), position4(position4_), process(process_) {}
   // explicitly default rule-of-five.
@@ -113,7 +110,7 @@ struct SimVertex {
   /// The vertex three-position.
   auto position() const { return position4.head<3>(); }
   /// The vertex time.
-  Scalar time() const { return position4[3]; }
+  double time() const { return position4[3]; }
 };
 
 namespace detail {

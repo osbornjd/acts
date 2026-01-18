@@ -1,16 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/Io/Root/RootMaterialTrackWriter.hpp"
 
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
-#include "Acts/Geometry/Volume.hpp"
 #include "Acts/Material/Material.hpp"
 #include "Acts/Material/MaterialInteraction.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
@@ -20,13 +19,12 @@
 #include "Acts/Surfaces/SurfaceBounds.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 #include "Acts/Utilities/Logger.hpp"
+#include "Acts/Utilities/VectorHelpers.hpp"
 #include "ActsExamples/Framework/AlgorithmContext.hpp"
 
-#include <algorithm>
 #include <cstddef>
 #include <ios>
 #include <stdexcept>
-#include <type_traits>
 
 #include <TFile.h>
 #include <TTree.h>
@@ -76,6 +74,7 @@ RootMaterialTrackWriter::RootMaterialTrackWriter(
   m_outputTree->Branch("mat_x", &m_step_x);
   m_outputTree->Branch("mat_y", &m_step_y);
   m_outputTree->Branch("mat_z", &m_step_z);
+  m_outputTree->Branch("mat_r", &m_step_r);
   m_outputTree->Branch("mat_dx", &m_step_dx);
   m_outputTree->Branch("mat_dy", &m_step_dy);
   m_outputTree->Branch("mat_dz", &m_step_dz);
@@ -100,6 +99,8 @@ RootMaterialTrackWriter::RootMaterialTrackWriter(
     m_outputTree->Branch("sur_x", &m_sur_x);
     m_outputTree->Branch("sur_y", &m_sur_y);
     m_outputTree->Branch("sur_z", &m_sur_z);
+    m_outputTree->Branch("sur_r", &m_sur_r);
+    m_outputTree->Branch("sur_distance", &m_sur_distance);
     m_outputTree->Branch("sur_pathCorrection", &m_sur_pathCorrection);
     m_outputTree->Branch("sur_range_min", &m_sur_range_min);
     m_outputTree->Branch("sur_range_max", &m_sur_range_max);
@@ -143,6 +144,7 @@ ProcessCode RootMaterialTrackWriter::writeT(
     m_step_x.clear();
     m_step_y.clear();
     m_step_z.clear();
+    m_step_r.clear();
     m_step_ex.clear();
     m_step_ey.clear();
     m_step_ez.clear();
@@ -161,6 +163,8 @@ ProcessCode RootMaterialTrackWriter::writeT(
     m_sur_x.clear();
     m_sur_y.clear();
     m_sur_z.clear();
+    m_sur_r.clear();
+    m_sur_distance.clear();
     m_sur_pathCorrection.clear();
     m_sur_range_min.clear();
     m_sur_range_max.clear();
@@ -210,6 +214,7 @@ ProcessCode RootMaterialTrackWriter::writeT(
     m_step_x.reserve(mints);
     m_step_y.reserve(mints);
     m_step_z.reserve(mints);
+    m_step_r.reserve(mints);
     m_step_ex.reserve(mints);
     m_step_ey.reserve(mints);
     m_step_ez.reserve(mints);
@@ -228,6 +233,8 @@ ProcessCode RootMaterialTrackWriter::writeT(
     m_sur_x.reserve(mints);
     m_sur_y.reserve(mints);
     m_sur_z.reserve(mints);
+    m_sur_r.reserve(mints);
+    m_sur_distance.reserve(mints);
     m_sur_pathCorrection.reserve(mints);
     m_sur_range_min.reserve(mints);
     m_sur_range_max.reserve(mints);
@@ -261,6 +268,7 @@ ProcessCode RootMaterialTrackWriter::writeT(
       m_step_x.push_back(mint.position.x());
       m_step_y.push_back(mint.position.y());
       m_step_z.push_back(mint.position.z());
+      m_step_r.push_back(perp(mint.position));
       m_step_dx.push_back(direction.x());
       m_step_dy.push_back(direction.y());
       m_step_dz.push_back(direction.z());
@@ -288,11 +296,13 @@ ProcessCode RootMaterialTrackWriter::writeT(
           m_sur_x.push_back(mint.intersection.x());
           m_sur_y.push_back(mint.intersection.y());
           m_sur_z.push_back(mint.intersection.z());
+          m_sur_r.push_back(perp(mint.intersection));
+          m_sur_distance.push_back((mint.position - mint.intersection).norm());
         } else if (surface != nullptr) {
           auto sfIntersection =
               surface
                   ->intersect(ctx.geoContext, mint.position, mint.direction,
-                              Acts::BoundaryCheck(true))
+                              Acts::BoundaryTolerance::None())
                   .closest();
           m_sur_id.push_back(surface->geometryId().value());
           m_sur_pathCorrection.push_back(1.0);
@@ -339,11 +349,11 @@ ProcessCode RootMaterialTrackWriter::writeT(
           vlayerID = mint.volume.geometryId();
           m_vol_id.push_back(vlayerID.value());
         } else {
-          vlayerID.setVolume(0);
-          vlayerID.setBoundary(0);
-          vlayerID.setLayer(0);
-          vlayerID.setApproach(0);
-          vlayerID.setSensitive(0);
+          vlayerID = vlayerID.withVolume(0)
+                         .withBoundary(0)
+                         .withLayer(0)
+                         .withApproach(0)
+                         .withSensitive(0);
           m_vol_id.push_back(vlayerID.value());
         }
       }

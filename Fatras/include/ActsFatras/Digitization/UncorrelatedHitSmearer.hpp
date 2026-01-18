@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -41,7 +41,6 @@ using SingleParameterSmearFunction =
 /// vector and associated covariance matrix.
 template <typename generator_t, std::size_t kSize>
 struct BoundParametersSmearer {
-  using Scalar = Acts::ActsScalar;
   using ParametersVector = Acts::ActsVector<kSize>;
   using CovarianceMatrix = Acts::ActsSquareMatrix<kSize>;
   using Result = Acts::Result<std::pair<ParametersVector, CovarianceMatrix>>;
@@ -49,6 +48,7 @@ struct BoundParametersSmearer {
   /// Parameter indices that will be used to create the smeared measurements.
   std::array<Acts::BoundIndices, kSize> indices{};
   std::array<SingleParameterSmearFunction<generator_t>, kSize> smearFunctions{};
+  std::array<bool, kSize> forcePositive = {};
 
   static constexpr std::size_t size() { return kSize; }
 
@@ -86,13 +86,16 @@ struct BoundParametersSmearer {
 
     ParametersVector par = ParametersVector::Zero();
     CovarianceMatrix cov = CovarianceMatrix::Zero();
-    for (int i = 0; i < static_cast<int>(kSize); ++i) {
+    for (std::size_t i = 0; i < kSize; ++i) {
       auto res = smearFunctions[i](boundParams[indices[i]], rng);
       if (!res.ok()) {
         return Result::failure(res.error());
       }
       auto [value, stddev] = res.value();
       par[i] = value;
+      if (forcePositive[i]) {
+        par[i] = std::abs(value);
+      }
       cov(i, i) = stddev * stddev;
     }
 
@@ -112,7 +115,6 @@ struct BoundParametersSmearer {
 ///   individually is not recommended
 template <typename generator_t, std::size_t kSize>
 struct FreeParametersSmearer {
-  using Scalar = Acts::ActsScalar;
   using ParametersVector = Acts::ActsVector<kSize>;
   using CovarianceMatrix = Acts::ActsSquareMatrix<kSize>;
   using Result = Acts::Result<std::pair<ParametersVector, CovarianceMatrix>>;

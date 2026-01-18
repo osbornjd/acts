@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -18,14 +18,12 @@
 #include "ActsExamples/Framework/RandomNumbers.hpp"
 
 #include <cstddef>
-#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// Event generator based on separate particles and vertex generators.
 ///
@@ -93,8 +91,9 @@ class EventGenerator final : public ActsExamples::IReader {
   struct Config {
     /// Name of the output particles collection.
     std::string outputParticles;
-    /// Name of the vertex collection.
+    /// Name of the output vertex collection.
     std::string outputVertices;
+
     /// List of generators that should be used to generate the event.
     std::vector<Generator> generators;
     /// The random number service.
@@ -105,7 +104,8 @@ class EventGenerator final : public ActsExamples::IReader {
 
   /// Name of the reader.
   std::string name() const final;
-  /// Available events range. Always return [0,SIZE_MAX) since we generate them.
+  /// Available events range. Always return
+  /// [0,std::numeric_limits<std::size_t>::max()) since we generate them.
   std::pair<std::size_t, std::size_t> availableEvents() const final;
   /// Generate an event.
   ProcessCode read(const AlgorithmContext& ctx) final;

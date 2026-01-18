@@ -1,19 +1,18 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/Generators/Pythia8ProcessGenerator.hpp"
 
+#include "Acts/Utilities/MathHelpers.hpp"
 #include "ActsExamples/EventData/SimVertex.hpp"
 #include "ActsFatras/EventData/Barcode.hpp"
-#include "ActsFatras/EventData/Particle.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <iterator>
 #include <ostream>
 #include <random>
@@ -23,16 +22,35 @@
 
 namespace ActsExamples {
 
-namespace {
-struct FrameworkRndmEngine : public Pythia8::RndmEngine {
-  RandomEngine& rng;
+struct Pythia8RandomEngineWrapper : public Pythia8::RndmEngine {
+  RandomEngine* rng{nullptr};
 
-  FrameworkRndmEngine(RandomEngine& rng_) : rng(rng_) {}
+  struct {
+    std::size_t numUniformRandomNumbers = 0;
+    double first = std::numeric_limits<double>::quiet_NaN();
+    double last = std::numeric_limits<double>::quiet_NaN();
+  } statistics;
+
+  Pythia8RandomEngineWrapper() = default;
+
   double flat() override {
-    return std::uniform_real_distribution<double>(0.0, 1.0)(rng);
+    if (rng == nullptr) {
+      throw std::runtime_error(
+          "Pythia8RandomEngineWrapper: no random engine set");
+    }
+
+    double value = std::uniform_real_distribution<double>(0.0, 1.0)(*rng);
+    if (statistics.numUniformRandomNumbers == 0) {
+      statistics.first = value;
+    }
+    statistics.last = value;
+    statistics.numUniformRandomNumbers++;
+    return value;
   }
+
+  void setRandomEngine(RandomEngine& rng_) { rng = &rng_; }
+  void clearRandomEngine() { rng = nullptr; }
 };
-}  // namespace
 
 Pythia8Generator::Pythia8Generator(const Config& cfg, Acts::Logging::Level lvl)
     : m_cfg(cfg),
@@ -49,11 +67,31 @@ Pythia8Generator::Pythia8Generator(const Config& cfg, Acts::Logging::Level lvl)
   m_pythia8->settings.mode("Beams:frameType", 1);
   m_pythia8->settings.parm("Beams:eCM",
                            m_cfg.cmsEnergy / Acts::UnitConstants::GeV);
+
+  m_pythia8RndmEngine = std::make_shared<Pythia8RandomEngineWrapper>();
+
+#if PYTHIA_VERSION_INTEGER >= 8310
+  m_pythia8->setRndmEnginePtr(m_pythia8RndmEngine);
+#else
+  m_pythia8->setRndmEnginePtr(m_pythia8RndmEngine.get());
+#endif
+
+  RandomEngine rng{m_cfg.initializationSeed};
+  m_pythia8RndmEngine->setRandomEngine(rng);
   m_pythia8->init();
+  m_pythia8RndmEngine->clearRandomEngine();
 }
 
 // needed to allow unique_ptr of forward-declared Pythia class
-Pythia8Generator::~Pythia8Generator() = default;
+Pythia8Generator::~Pythia8Generator() {
+  ACTS_INFO("Pythia8Generator produced "
+            << m_pythia8RndmEngine->statistics.numUniformRandomNumbers
+            << " uniform random numbers");
+  ACTS_INFO(
+      "                 first = " << m_pythia8RndmEngine->statistics.first);
+  ACTS_INFO(
+      "                  last = " << m_pythia8RndmEngine->statistics.last);
+}
 
 std::pair<SimVertexContainer, SimParticleContainer>
 Pythia8Generator::operator()(RandomEngine& rng) {
@@ -64,13 +102,10 @@ Pythia8Generator::operator()(RandomEngine& rng) {
 
   // pythia8 is not thread safe and generation needs to be protected
   std::lock_guard<std::mutex> lock(m_pythia8Mutex);
-// use per-thread random engine also in pythia
-#if PYTHIA_VERSION_INTEGER >= 8310
-  m_pythia8->rndm.rndmEnginePtr(std::make_shared<FrameworkRndmEngine>(rng));
-#else
-  FrameworkRndmEngine rndmEngine(rng);
-  m_pythia8->rndm.rndmEnginePtr(&rndmEngine);
-#endif
+  // use per-thread random engine also in pythia
+
+  m_pythia8RndmEngine->setRandomEngine(rng);
+
   {
     Acts::FpeMonitor mon{0};  // disable all FPEs while we're in Pythia8
     m_pythia8->next();
@@ -84,7 +119,7 @@ Pythia8Generator::operator()(RandomEngine& rng) {
   }
 
   // create the primary vertex
-  vertices.emplace_back(0, SimVertex::Vector4(0., 0., 0., 0.));
+  vertices.emplace_back(SimVertexBarcode{0}, Acts::Vector4(0., 0., 0., 0.));
 
   // convert generated final state particles into internal format
   for (int ip = 0; ip < m_pythia8->event.size(); ++ip) {
@@ -103,9 +138,8 @@ Pythia8Generator::operator()(RandomEngine& rng) {
     }
 
     // production vertex. Pythia8 time uses units mm/c, and we use c=1
-    SimParticle::Vector4 pos4(
-        genParticle.xProd() * 1_mm, genParticle.yProd() * 1_mm,
-        genParticle.zProd() * 1_mm, genParticle.tProd() * 1_mm);
+    Acts::Vector4 pos4(genParticle.xProd() * 1_mm, genParticle.yProd() * 1_mm,
+                       genParticle.zProd() * 1_mm, genParticle.tProd() * 1_mm);
 
     // define the particle identifier including possible secondary vertices
 
@@ -118,11 +152,10 @@ Pythia8Generator::operator()(RandomEngine& rng) {
 
       // check if an existing vertex is close enough
       auto it =
-          std::find_if(vertices.begin(), vertices.end(),
-                       [&pos4, this](const SimVertex& other) {
-                         return (pos4.head<3>() - other.position()).norm() <
-                                m_cfg.spatialVertexThreshold;
-                       });
+          std::ranges::find_if(vertices, [&pos4, this](const SimVertex& v) {
+            return (pos4.head<3>() - v.position()).norm() <
+                   m_cfg.spatialVertexThreshold;
+          });
 
       if (it != vertices.end()) {
         particleId.setVertexSecondary(std::distance(vertices.begin(), it));
@@ -130,7 +163,8 @@ Pythia8Generator::operator()(RandomEngine& rng) {
       } else {
         // no matching secondary vertex exists -> create new one
         particleId.setVertexSecondary(vertices.size());
-        auto& vertex = vertices.emplace_back(particleId.vertexId(), pos4);
+        auto& vertex = vertices.emplace_back(
+            static_cast<SimVertexBarcode>(particleId.vertexId()), pos4);
         vertex.outgoing.insert(particleId);
         ACTS_VERBOSE("created new secondary vertex " << pos4.transpose());
       }
@@ -143,20 +177,23 @@ Pythia8Generator::operator()(RandomEngine& rng) {
     const auto pdg = static_cast<Acts::PdgParticle>(genParticle.id());
     const auto charge = genParticle.charge() * 1_e;
     const auto mass = genParticle.m0() * 1_GeV;
-    ActsFatras::Particle particle(particleId, pdg, charge, mass);
+    SimParticleState particle(particleId, pdg, charge, mass);
     particle.setPosition4(pos4);
     // normalization/ units are not import for the direction
     particle.setDirection(genParticle.px(), genParticle.py(), genParticle.pz());
     particle.setAbsoluteMomentum(
-        std::hypot(genParticle.px(), genParticle.py(), genParticle.pz()) *
+        Acts::fastHypot(genParticle.px(), genParticle.py(), genParticle.pz()) *
         1_GeV);
 
-    particles.push_back(std::move(particle));
+    particles.push_back(SimParticle(particle, particle));
   }
 
   std::pair<SimVertexContainer, SimParticleContainer> out;
   out.first.insert(vertices.begin(), vertices.end());
   out.second.insert(particles.begin(), particles.end());
+
+  m_pythia8RndmEngine->clearRandomEngine();
+
   return out;
 }
 

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -15,16 +15,10 @@
 #include "Acts/Geometry/ILayerBuilder.hpp"
 #include "Acts/Geometry/Layer.hpp"
 #include "Acts/Geometry/LayerCreator.hpp"
-#include "Acts/Geometry/ProtoLayer.hpp"
-#include "Acts/Material/HomogeneousSurfaceMaterial.hpp"
-#include "Acts/Material/Material.hpp"
-#include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "ActsExamples/GenericDetector/GenericDetectorElement.hpp"
 #include "ActsExamples/GenericDetector/ProtoLayerCreatorT.hpp"
-
-#include <iostream>
 
 namespace ActsExamples::Generic {
 
@@ -82,10 +76,10 @@ class LayerBuilderT : public Acts::ILayerBuilder {
 
   /// Constructor
   /// @param glbConfig is the configuration class
-  LayerBuilderT(const Config& cfg,
-                std::unique_ptr<const Acts::Logger> logger =
-                    Acts::getDefaultLogger("LayerBuilderT",
-                                           Acts::Logging::INFO));
+  explicit LayerBuilderT(const Config& cfg,
+                         std::unique_ptr<const Acts::Logger> logger =
+                             Acts::getDefaultLogger("LayerBuilderT",
+                                                    Acts::Logging::INFO));
 
   /// LayerBuilder interface method - returning the layers at negative side
   const Acts::LayerVector negativeLayers(

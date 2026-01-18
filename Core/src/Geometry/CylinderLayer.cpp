@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Geometry/CylinderLayer.hpp"
 
@@ -37,7 +37,7 @@ Acts::CylinderLayer::CylinderLayer(
   auto cVolumeBounds = std::make_shared<CylinderVolumeBounds>(
       *CylinderSurface::m_bounds, thickness);
   // @todo rotate around x for the avePhi if you have a sector
-  m_representingVolume = std::make_unique<Volume>(m_transform, cVolumeBounds);
+  m_representingVolume = std::make_unique<Volume>(*m_transform, cVolumeBounds);
 
   // associate the layer to the surface
   CylinderSurface::associateLayer(*this);
@@ -73,7 +73,7 @@ void Acts::CylinderLayer::buildApproachDescriptor() {
 
     // fill in the surfaces into the vector
     std::vector<std::shared_ptr<const Surface>> aSurfaces;
-    if (bSurfaces.size() > std::size_t(tubeInnerCover)) {
+    if (bSurfaces.size() > static_cast<std::size_t>(tubeInnerCover)) {
       aSurfaces.push_back(bSurfaces.at(tubeInnerCover).surface);
     }
     aSurfaces.push_back(bSurfaces.at(tubeOuterCover).surface);

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -26,7 +26,6 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -99,12 +98,8 @@ class MaterialMapping : public IAlgorithm {
   ///
   /// @param cfg The configuration struct carrying the used tools
   /// @param level The output logging level
-  MaterialMapping(const Config& cfg,
-                  Acts::Logging::Level level = Acts::Logging::INFO);
-
-  /// Destructor
-  /// - it also writes out the file
-  ~MaterialMapping() override;
+  explicit MaterialMapping(const Config& cfg,
+                           Acts::Logging::Level level = Acts::Logging::INFO);
 
   /// Framework execute method
   ///
@@ -112,11 +107,15 @@ class MaterialMapping : public IAlgorithm {
   ActsExamples::ProcessCode execute(
       const AlgorithmContext& context) const override;
 
+  // Write out the file
+  ProcessCode finalize() override;
+
   /// Return the parameters to optimised the material map for a given surface
   /// Those parameters are the variance and the number of track for each bin
   ///
   /// @param surfaceID the ID of the surface of interest
-  std::vector<std::pair<double, int>> scoringParameters(uint64_t surfaceID);
+  std::vector<std::pair<double, int>> scoringParameters(
+      std::uint64_t surfaceID);
 
   /// Readonly access to the config
   const Config& config() const { return m_cfg; }

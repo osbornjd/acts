@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -13,6 +13,7 @@
 #include "Acts/EventData/SourceLink.hpp"
 #include "ActsExamples/EventData/Index.hpp"
 #include "ActsExamples/EventData/IndexSourceLink.hpp"
+#include "ActsExamples/EventData/SimHit.hpp"
 
 #include <cmath>
 #include <vector>
@@ -33,18 +34,17 @@ enum class MuonIdentifierFieldMaps {
   tubeLayer = 8,
   tube = 0,
 };
-struct muonMdtIdentifierFields {
-  int8_t stationName = 0;
-  int8_t stationEta = 0;
-  int8_t stationPhi = 0;
-  int8_t multilayer = 0;
-  int8_t tubeLayer = 0;
-  int8_t tube = 0;
+struct MuonMdtIdentifierFields {
+  std::int8_t stationName = 0;
+  std::int8_t stationEta = 0;
+  std::int8_t stationPhi = 0;
+  std::int8_t multilayer = 0;
+  std::int8_t tubeLayer = 0;
+  std::int8_t tube = 0;
 };
-muonMdtIdentifierFields splitId(Acts::GeometryIdentifier::Value theID) {
-  using longIdType = Acts::GeometryIdentifier::Value;
-  muonMdtIdentifierFields f;
-  f.tube = (theID)&0xFF;
+MuonMdtIdentifierFields splitId(Acts::GeometryIdentifier::Value theID) {
+  MuonMdtIdentifierFields f;
+  f.tube = theID & 0xFF;
   theID = theID >> g_fieldShift;
   f.tubeLayer = theID & 0xFF;
   theID = theID >> g_fieldShift;
@@ -52,17 +52,16 @@ muonMdtIdentifierFields splitId(Acts::GeometryIdentifier::Value theID) {
   theID = theID >> g_fieldShift;
   f.stationPhi = theID & 0xFF;
   theID = theID >> g_fieldShift;
-  f.stationEta = (int)(theID & 0xFF);
+  f.stationEta = theID & 0xFF;
   theID = theID >> g_fieldShift;
   f.stationName = theID & 0xFF;
   return f;
 }
-Acts::GeometryIdentifier::Value compressId(muonMdtIdentifierFields f) {
-  using longIdType = Acts::GeometryIdentifier::Value;
-  longIdType out{0};
+Acts::GeometryIdentifier::Value compressId(MuonMdtIdentifierFields f) {
+  Acts::GeometryIdentifier::Value out{0};
   out = out << g_fieldShift | f.stationName;
-  out = out << g_fieldShift | (u_int8_t)f.stationEta;
-  out = out << g_fieldShift | f.stationPhi;
+  out = out << g_fieldShift | static_cast<std::uint8_t>(f.stationEta);
+  out = out << g_fieldShift | static_cast<std::uint8_t>(f.stationPhi);
   out = out << g_fieldShift | f.multilayer;
   out = out << g_fieldShift | f.tubeLayer;
   out = out << g_fieldShift | f.tube;

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -200,7 +200,7 @@ inline static std::vector<std::string> testPlyString(const std::string& tString,
         boost::split(lineSplit, line, boost::is_any_of(" "));
         if (elements[cElement].properties == -1) {
           int nprops = std::stoi(lineSplit[0]);
-          if (nprops != (int(lineSplit.size()) - 1)) {
+          if (nprops != (static_cast<int>(lineSplit.size()) - 1)) {
             errorStrings.push_back(w + line + std::string(" ] List expected ") +
                                    std::to_string(nprops) +
                                    std::string(" properties, while found ") +
@@ -208,7 +208,7 @@ inline static std::vector<std::string> testPlyString(const std::string& tString,
                                    std::string("."));
           }
         } else if (lineSplit.size() !=
-                   std::size_t(elements[cElement].properties)) {
+                   static_cast<std::size_t>(elements[cElement].properties)) {
           errorStrings.push_back(
               w + line + std::string(" ] Element expected ") +
               std::to_string(elements[cElement].properties) +
