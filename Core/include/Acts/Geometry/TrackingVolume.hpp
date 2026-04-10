@@ -176,12 +176,14 @@ class TrackingVolume : public Volume {
       }
       visitor(&surface);
     };
-
+    auto allsurface = [&visitor](const Surface& surface) {
+      visitor(&surface);
+    };
     if (restrictToSensitives) {
       apply(sensitive);
     } else {
       apply(overloaded{
-          sensitive,
+          allsurface,
           [&visitor](const Portal& portal) { visitor(&portal.surface()); },
           [&visitor](const BoundarySurface& bs) {
             visitor(&bs.surfaceRepresentation());
