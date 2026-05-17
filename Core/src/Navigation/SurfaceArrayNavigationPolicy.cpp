@@ -35,7 +35,7 @@ SurfaceArrayNavigationPolicy::SurfaceArrayNavigationPolicy(
   std::vector<std::shared_ptr<const Surface>> surfaces;
   surfaces.reserve(volume.surfaces().size());
   for (const auto& surface : volume.surfaces()) {
-    if (surface.associatedDetectorElement() == nullptr) {
+    if (!surface.isSensitive()) {
       continue;
     }
     surfaces.push_back(surface.getSharedPtr());
@@ -70,13 +70,10 @@ SurfaceArrayNavigationPolicy::SurfaceArrayNavigationPolicy(
 }
 
 void SurfaceArrayNavigationPolicy::initializeCandidates(
+    [[maybe_unused]] const GeometryContext& gctx,
     const NavigationArguments& args, AppendOnlyNavigationStream& stream,
     const Logger& logger) const {
   ACTS_VERBOSE("SrfArrNavPol (volume=" << m_volume.volumeName() << ")");
-
-  if (!args.wantsSurfaces) {
-    return;
-  }
 
   ACTS_VERBOSE("Querying sensitive surfaces at " << args.position.transpose());
   const std::vector<const Surface*>& sensitiveSurfaces =

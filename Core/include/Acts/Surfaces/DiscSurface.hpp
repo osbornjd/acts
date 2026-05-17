@@ -27,7 +27,6 @@
 
 namespace Acts {
 
-class DetectorElementBase;
 class DiscBounds;
 class SurfaceBounds;
 
@@ -86,12 +85,17 @@ class DiscSurface : public RegularSurface {
   explicit DiscSurface(const Transform3& transform,
                        std::shared_ptr<const DiscBounds> dbounds = nullptr);
 
-  /// Constructor from DetectorElementBase : Element proxy
+  /// Constructor from SurfacePlacementBase : Element proxy
   ///
   /// @param dbounds The disc bounds describing the surface coverage
-  /// @param detelement The detector element represented by this surface
+  /// @param placement Reference to the surface placement
+  /// @note The Surface does not take any ownership over the
+  ///       `SurfacePlacementBase` it is expected that the user
+  ///        ensures the life-time of the `SurfacePlacementBase`
+  ///        and that the `Surface` is actually owned by
+  ///        the `SurfacePlacementBase` instance
   explicit DiscSurface(std::shared_ptr<const DiscBounds> dbounds,
-                       const DetectorElementBase& detelement);
+                       const SurfacePlacementBase& placement);
 
   /// Copy Constructor
   ///
@@ -166,6 +170,11 @@ class DiscSurface : public RegularSurface {
   /// This method returns the bounds by reference
   /// @return Reference to the surface bounds
   const SurfaceBounds& bounds() const final;
+  /// This method returns the shared_ptr to the DiscBounds
+  const std::shared_ptr<const DiscBounds>& boundsPtr() const;
+  /// Overwrite the existing surface bounds with new ones
+  /// @param newBounds: Pointer to the new bounds
+  void assignSurfaceBounds(std::shared_ptr<const DiscBounds> newBounds);
 
   /// Local to global transformation
   /// For planar surfaces the momentum direction is ignored in the local to

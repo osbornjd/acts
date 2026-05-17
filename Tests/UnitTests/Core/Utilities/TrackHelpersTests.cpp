@@ -10,13 +10,13 @@
 
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/EventData/TrackContainer.hpp"
-#include "Acts/EventData/TrackStateType.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
 #include "Acts/EventData/VectorTrackContainer.hpp"
 #include "Acts/Utilities/TrackHelpers.hpp"
 #include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 using namespace Acts;
+using enum TrackStateFlag;
 
 namespace ActsTests {
 
@@ -29,7 +29,7 @@ auto createTestTrack(TrackContainer& tc, const FlagsPerState& flagsPerState) {
   for (const auto& flags : flagsPerState) {
     auto ts = t.appendTrackState();
     for (auto f : flags) {
-      ts.typeFlags().set(f);
+      ts.typeFlags().setUnchecked(f);
     }
   }
 
@@ -70,14 +70,14 @@ BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 BOOST_AUTO_TEST_CASE(CalculateQuantities) {
   TrackContainer tc{VectorTrackContainer{}, VectorMultiTrajectory{}};
   auto t = createTestTrack(tc, std::vector<std::vector<TrackStateFlag>>{
-                                   {MeasurementFlag},
-                                   {OutlierFlag},
-                                   {MeasurementFlag, SharedHitFlag},
-                                   {HoleFlag},
-                                   {OutlierFlag},
-                                   {HoleFlag},
-                                   {MeasurementFlag, SharedHitFlag},
-                                   {OutlierFlag},
+                                   {HasMeasurement},
+                                   {HasMeasurement, IsOutlier},
+                                   {HasMeasurement, IsSharedHit},
+                                   {IsHole},
+                                   {HasMeasurement, IsOutlier},
+                                   {IsHole},
+                                   {HasMeasurement, IsSharedHit},
+                                   {HasMeasurement, IsOutlier},
                                });
 
   calculateTrackQuantities(t);
@@ -92,15 +92,15 @@ BOOST_AUTO_TEST_CASE(TrimTrack) {
   TrackContainer tc{VectorTrackContainer{}, VectorMultiTrajectory{}};
   auto t = createTestTrack(tc, std::vector<std::vector<TrackStateFlag>>{
                                    {},
-                                   {HoleFlag},
-                                   {MeasurementFlag},
-                                   {OutlierFlag},
-                                   {MeasurementFlag, SharedHitFlag},
-                                   {HoleFlag},
-                                   {OutlierFlag},
-                                   {HoleFlag},
-                                   {MeasurementFlag},
-                                   {OutlierFlag},
+                                   {IsHole},
+                                   {HasMeasurement},
+                                   {HasMeasurement, IsOutlier},
+                                   {HasMeasurement, IsSharedHit},
+                                   {IsHole},
+                                   {HasMeasurement, IsOutlier},
+                                   {IsHole},
+                                   {HasMeasurement},
+                                   {HasMeasurement, IsOutlier},
                                    {},
                                });
 
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE(CalculateFilteredChi2) {
   auto ts = createTestTrackState(tc);
 
   // reference found by running the code
-  BOOST_CHECK_CLOSE(calculateFilteredChi2(ts), 1. / 3., 1e-6);
+  BOOST_CHECK_CLOSE(calculateFilteredChi2(ts), 1., 1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(CalculateSmoothedChi2) {
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE(CalculateSmoothedChi2) {
   auto ts = createTestTrackState(tc);
 
   // reference found by running the code
-  BOOST_CHECK_CLOSE(calculateSmoothedChi2(ts), 1. / 55., 1e-6);
+  BOOST_CHECK_CLOSE(calculateSmoothedChi2(ts), 1. / 45., 1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(CalculateUnbiasedParametersCovariance) {

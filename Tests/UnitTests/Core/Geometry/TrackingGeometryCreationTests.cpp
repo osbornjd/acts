@@ -9,15 +9,19 @@
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Geometry/GeometryContext.hpp"
+#include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "Acts/Surfaces/Surface.hpp"
 #include "ActsTests/CommonHelpers/CubicTrackingGeometry.hpp"
 #include "ActsTests/CommonHelpers/CylindricalTrackingGeometry.hpp"
+
+#include <optional>
 
 using namespace Acts;
 
 namespace ActsTests {
 
 // Create a test context
-GeometryContext tgContext = GeometryContext();
+GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
 BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
@@ -36,6 +40,35 @@ BOOST_AUTO_TEST_CASE(CubicTrackingGeometryTest) {
   BOOST_CHECK_NE(tGeometry, nullptr);
   BOOST_CHECK(tGeometry->geometryVersion() ==
               TrackingGeometry::GeometryVersion::Gen1);
+}
+
+BOOST_AUTO_TEST_CASE(SurfaceLookupTracksNonSensitiveSurfaces) {
+  CubicTrackingGeometry builder(tgContext);
+  auto geometry = builder();
+  BOOST_REQUIRE_NE(geometry, nullptr);
+
+  std::optional<GeometryIdentifier> nonSensitiveSurfaceId;
+  geometry->visitSurfaces(
+      [&](const Surface* surface) {
+        if (surface == nullptr) {
+          return;
+        }
+        auto geoId = surface->geometryId();
+        if (geoId == GeometryIdentifier{}) {
+          return;
+        }
+        if (geoId.sensitive() == 0u) {
+          nonSensitiveSurfaceId = geoId;
+        }
+      },
+      false);
+
+  BOOST_REQUIRE(nonSensitiveSurfaceId.has_value());
+
+  BOOST_CHECK_MESSAGE(
+      geometry->findSurface(*nonSensitiveSurfaceId) != nullptr,
+      "TrackingGeometry::findSurface should return the surface with ID "
+          << *nonSensitiveSurfaceId << " even when it is not sensitive");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

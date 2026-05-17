@@ -35,10 +35,10 @@ class DuplicationPlotTool {
   /// @brief The nested configuration struct
   struct Config {
     std::map<std::string, PlotHelpers::Binning> varBinning = {
-        {"Eta", PlotHelpers::Binning("#eta", 40, -4, 4)},
-        {"Phi", PlotHelpers::Binning("#phi", 100, -3.15, 3.15)},
-        {"Pt", PlotHelpers::Binning("pT [GeV/c]", 40, 0, 100)},
-        {"Num", PlotHelpers::Binning("N", 30, -0.5, 29.5)}};
+        {"Eta", PlotHelpers::Binning::Uniform("#eta", 40, -4, 4)},
+        {"Phi", PlotHelpers::Binning::Uniform("#phi", 100, -3.15, 3.15)},
+        {"Pt", PlotHelpers::Binning::Uniform("pT [GeV/c]", 40, 0, 100)},
+        {"Num", PlotHelpers::Binning::Uniform("N", 30, -0.5, 29.5)}};
   };
 
   /// @brief Nested Cache struct
@@ -80,9 +80,9 @@ class DuplicationPlotTool {
   ///
   /// @param cache cache object for duplication plots
   /// @param truthParticle the truth Particle
-  /// @param nDuplicatedTracks the number of duplicated tracks
+  /// @param nMatchedTracks the number of matched tracks
   void fill(Cache& cache, const SimParticleState& truthParticle,
-            std::size_t nDuplicatedTracks) const;
+            std::size_t nMatchedTracks) const;
 
   /// @brief write the duplication plots to file
   ///
