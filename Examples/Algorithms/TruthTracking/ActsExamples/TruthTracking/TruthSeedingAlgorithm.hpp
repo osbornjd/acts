@@ -1,14 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Units.hpp"
+#include "Acts/EventData/ParticleHypothesis.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "ActsExamples/EventData/ProtoTrack.hpp"
 #include "ActsExamples/EventData/SimHit.hpp"
@@ -23,16 +24,7 @@
 #include <string>
 #include <vector>
 
-namespace ActsFatras {
-class Barcode;
-}  // namespace ActsFatras
-
-namespace Acts {
-class TrackingGeometry;
-}
-
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// Construct track seeds from particles.
 class TruthSeedingAlgorithm final : public IAlgorithm {
@@ -40,8 +32,13 @@ class TruthSeedingAlgorithm final : public IAlgorithm {
   struct Config {
     /// The input truth particles that should be used for truth seeding.
     std::string inputParticles;
-    /// The input hit-particles map collection.
-    std::string inputMeasurementParticlesMap;
+    /// The input particle-measurements map collection.
+    std::string inputParticleMeasurementsMap;
+    /// The input sim hits collection that is used to order space points in the
+    /// seeds.
+    std::string inputSimHits;
+    /// The input measurement-sim hits map collection.
+    std::string inputMeasurementSimHitsMap;
     /// Input space point collections.
     ///
     /// We allow multiple space point collections to allow different parts of
@@ -51,14 +48,24 @@ class TruthSeedingAlgorithm final : public IAlgorithm {
     std::vector<std::string> inputSpacePoints;
     /// Output successfully seeded truth particles.
     std::string outputParticles;
-    /// Output seed collection.
-    std::string outputSeeds;
     /// Output proto track collection.
     std::string outputProtoTracks;
+    /// Output seed collection.
+    std::string outputSeeds;
+    /// Optional. Output particle hypotheses collection.
+    std::string outputParticleHypotheses;
+
+    /// Optional particle hypothesis override.
+    std::optional<Acts::ParticleHypothesis> particleHypothesis = std::nullopt;
+
     /// Minimum deltaR between space points in a seed
-    float deltaRMin = 1. * Acts::UnitConstants::mm;
+    float deltaRMin = 10 * Acts::UnitConstants::mm;
     /// Maximum deltaR between space points in a seed
-    float deltaRMax = 100. * Acts::UnitConstants::mm;
+    float deltaRMax = 200 * Acts::UnitConstants::mm;
+    /// Minimum absDeltaZMin between space points in a seed
+    float absDeltaZMin = 0 * Acts::UnitConstants::mm;
+    /// Maximum absDeltaZMax between space points in a seed
+    float absDeltaZMax = 500 * Acts::UnitConstants::mm;
   };
 
   /// Construct the truth seeding algorithm.
@@ -80,8 +87,11 @@ class TruthSeedingAlgorithm final : public IAlgorithm {
   Config m_cfg;
 
   ReadDataHandle<SimParticleContainer> m_inputParticles{this, "InputParticles"};
-  ReadDataHandle<HitParticlesMap> m_inputMeasurementParticlesMap{
-      this, "InputMeasurementParticlesMaps"};
+  ReadDataHandle<InverseMultimap<SimBarcode>> m_inputParticleMeasurementsMap{
+      this, "InputParticleMeasurementsMap"};
+  ReadDataHandle<SimHitContainer> m_inputSimHits{this, "InputHits"};
+  ReadDataHandle<InverseMultimap<Index>> m_inputMeasurementSimHitsMap{
+      this, "MeasurementSimHitsMap"};
   std::vector<std::unique_ptr<ReadDataHandle<SimSpacePointContainer>>>
       m_inputSpacePoints{};
 
@@ -90,6 +100,8 @@ class TruthSeedingAlgorithm final : public IAlgorithm {
   WriteDataHandle<ProtoTrackContainer> m_outputProtoTracks{this,
                                                            "OutputProtoTracks"};
   WriteDataHandle<SimSeedContainer> m_outputSeeds{this, "OutputSeeds"};
+  WriteDataHandle<std::vector<Acts::ParticleHypothesis>>
+      m_outputParticleHypotheses{this, "OutputParticleHypotheses"};
 };
 
 }  // namespace ActsExamples

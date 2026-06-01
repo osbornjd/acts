@@ -6,29 +6,31 @@ from acts.examples.simulation import (
     EtaConfig,
     ParticleConfig,
     addPythia8,
-    addFatras,
     ParticleSelectorConfig,
+    addGenParticleSelection,
+    addFatras,
     addDigitization,
+    addDigiParticleSelection,
 )
 from acts.examples.reconstruction import (
     addSeeding,
     SeedingAlgorithm,
-    TruthSeedRanges,
     addCKFTracks,
     TrackSelectorConfig,
 )
 
-ttbar_pu200 = False
+ttbar_pu200 = True
 u = acts.UnitConstants
 geo_dir = pathlib.Path("acts-itk")
 outputDir = pathlib.Path.cwd() / "itk_output"
 # acts.examples.dump_args_calls(locals())  # show acts.examples python binding calls
 
-detector, trackingGeometry, decorators = acts.examples.itk.buildITkGeometry(geo_dir)
-field = acts.examples.MagneticFieldMapXyz(str(geo_dir / "bfield/ATLAS-BField-xyz.root"))
+detector = acts.examples.itk.buildITkGeometry(geo_dir)
+trackingGeometry = detector.trackingGeometry()
+field = acts.root.MagneticFieldMapXyz(str(geo_dir / "bfield/ATLAS-BField-xyz.root"))
 rnd = acts.examples.RandomNumbers(seed=42)
 
-s = acts.examples.Sequencer(events=100, numThreads=1, outputDir=str(outputDir))
+s = acts.examples.Sequencer(events=2, numThreads=2, outputDir=str(outputDir))
 
 if not ttbar_pu200:
     addParticleGun(
@@ -51,20 +53,21 @@ else:
         outputDirRoot=outputDir,
     )
 
+    addGenParticleSelection(
+        s,
+        ParticleSelectorConfig(
+            rho=(0.0 * u.mm, 28.0 * u.mm),
+            absZ=(0.0 * u.mm, 1.0 * u.m),
+            eta=(-4.0, 4.0),
+            pt=(150 * u.MeV, None),
+        ),
+    )
+
 addFatras(
     s,
     trackingGeometry,
     field,
     rnd=rnd,
-    preSelectParticles=ParticleSelectorConfig(
-        rho=(0.0 * u.mm, 28.0 * u.mm),
-        absZ=(0.0 * u.mm, 1.0 * u.m),
-        eta=(-4.0, 4.0),
-        pt=(150 * u.MeV, None),
-        removeNeutral=True,
-    )
-    if ttbar_pu200
-    else ParticleSelectorConfig(),
     outputDirRoot=outputDir,
 )
 
@@ -78,20 +81,28 @@ addDigitization(
     rnd=rnd,
 )
 
+addDigiParticleSelection(
+    s,
+    ParticleSelectorConfig(
+        pt=(1.0 * u.GeV, None),
+        eta=(-4.0, 4.0),
+        measurements=(9, None),
+        removeNeutral=True,
+    ),
+)
+
 addSeeding(
     s,
     trackingGeometry,
     field,
-    TruthSeedRanges(pt=(1.0 * u.GeV, None), eta=(-4.0, 4.0), nHits=(9, None))
-    if ttbar_pu200
-    else TruthSeedRanges(),
     seedingAlgorithm=SeedingAlgorithm.Gbts,
     *acts.examples.itk.itkSeedingAlgConfig(
         acts.examples.itk.InputSpacePointsType.PixelSpacePoints
     ),
     geoSelectionConfigFile=geo_dir / "itk-hgtd/geoSelection-ITk.json",
-    layerMappingConfigFile=geo_dir / "itk-hgtd/ACTS_FTF_mapinput.csv",
-    connector_inputConfigFile=geo_dir / "itk-hgtd/binTables_ITK_RUN4.txt",
+    layerMappingConfigFile=geo_dir / "itk-hgtd/GbtsMapping.csv",
+    connectorInputConfigFile=geo_dir / "itk-hgtd/GbtsBinTable.txt",
+    lutInputConfigFile=geo_dir / "itk-hgtd/gbts_ml_pixel_barrel_loose.lut",
     outputDirRoot=outputDir,
 )
 

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Mat_map_detector_plot.C"
 
@@ -22,7 +22,7 @@ void plot_ratio(std::vector<TH2F*> Map_prop, std::vector<TH2F*> Map_geant, std::
   Proj_eta_prop->Divide(Unit_Map_prop->ProjectionX());
   TH1D *Proj_eta_geant = (TH1D*) Map_geant[0]->ProjectionX()->Clone();
   Proj_eta_geant->Divide(Unit_Map_geant->ProjectionX());
-    
+
   TH1D *Proj_phi_prop = (TH1D*) Map_prop[0]->ProjectionY()->Clone();
   Proj_phi_prop->Divide(Unit_Map_prop->ProjectionY());
   TH1D *Proj_phi_geant = (TH1D*) Map_geant[0]->ProjectionY()->Clone();
@@ -77,16 +77,16 @@ void plot_ratio(std::vector<TH2F*> Map_prop, std::vector<TH2F*> Map_geant, std::
   delete vol;
   delete Unit_Map_prop;
   delete Unit_Map_geant;
-} 
+}
 
 
 /// Plot the material ratio between the geantino scan and the map validation for each detector.
-/// detectors : list of the ID of the volume constitutive of the detector/sub-detector
+/// detectors : list of the ID of the volume constitutive of the Geometry/sub-detector
 /// nbprocess : number of parameter to be processed
 /// name : name of the output directory.
-/// name_prop : name of the output directory for the map valdation.
+/// name_prop : name of the output directory for the map validation.
 /// name_geant : name of the output directory for the geantino scan.
-/// The map valdation and geantino scan plots are only saved if name_prop and name_geant are defined.
+/// The map validation and geantino scan plots are only saved if name_prop and name_geant are defined.
 
 void Mat_map_detector_plot_ratio(std::string input_file_prop = "", std::string input_file_geant = "", std::vector<int> detectors = vector<int>(), int nbprocess = -1, std::string name = "", std::string name_prop = "", std::string name_geant = ""){
 

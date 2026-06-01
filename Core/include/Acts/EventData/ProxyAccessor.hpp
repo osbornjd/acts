@@ -1,22 +1,19 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/EventData/TrackProxy.hpp"
 #include "Acts/EventData/TrackStateProxy.hpp"
-#include "Acts/Utilities/Concepts.hpp"
 #include "Acts/Utilities/HashedString.hpp"
 
 #include <type_traits>
 
-#if defined(__cpp_concepts)
-#include <concepts>
 namespace Acts::detail {
 
 template <typename T>
@@ -25,7 +22,7 @@ concept MutableProxyType = requires(T t, HashedString key) {
 
   {
     t.template component<int>(key)
-    } -> std::same_as<std::conditional_t<T::ReadOnly, const int&, int&>>;
+  } -> std::same_as<std::conditional_t<T::ReadOnly, const int&, int&>>;
 };
 
 template <typename T>
@@ -35,34 +32,23 @@ concept ConstProxyType = requires(T t, HashedString key) {
 };
 
 template <typename T>
-concept ProxyType = (MutableProxyType<T> || ConstProxyType<T>)&&requires {
-  typename T::ConstProxyType;
+concept ProxyType = (MutableProxyType<T> || ConstProxyType<T>) &&
+                    requires(T t, HashedString key) {
+                      typename T::ConstProxyType;
 
-  requires ConstProxyType<typename T::ConstProxyType>;
-};
+                      requires ConstProxyType<typename T::ConstProxyType>;
+
+                      { t.hasColumn(key) } -> std::same_as<bool>;
+                    };
+
+template <typename T>
+concept TrackProxyLike =
+    ProxyType<T> &&
+    std::is_same_v<typename T::ConstProxyType, typename T::ConstProxyType>;
 
 }  // namespace Acts::detail
-#endif
 
 namespace Acts {
-
-namespace detail {
-template <typename... Args>
-struct associatedConstProxy;
-
-template <typename trajectory_t, std::size_t M, bool read_only>
-struct associatedConstProxy<TrackStateProxy<trajectory_t, M, read_only>> {
-  using type = TrackStateProxy<trajectory_t, M, true>;
-};
-
-template <typename track_container_t, typename trajectory_t,
-          template <typename> class holder_t, bool read_only>
-struct associatedConstProxy<
-    TrackProxy<track_container_t, trajectory_t, holder_t, read_only>> {
-  using type = TrackProxy<track_container_t, trajectory_t, holder_t, true>;
-};
-
-}  // namespace detail
 
 /// Utility class that eases accessing dynamic columns in track and track state
 /// containers
@@ -70,23 +56,26 @@ struct associatedConstProxy<
 /// @tparam ReadOnly true if this is a const accessor
 template <typename T, bool ReadOnly>
 struct ProxyAccessorBase {
+  /// Hashed string key for data access
   HashedString key;
 
   /// Create the accessor from an already-hashed string key
   /// @param _key the key
-  constexpr ProxyAccessorBase(HashedString _key) : key{_key} {}
+  explicit constexpr ProxyAccessorBase(HashedString _key) : key{_key} {}
 
   /// Create the accessor from a string key
   /// @param _key the key
-  ProxyAccessorBase(const std::string& _key) : key{hashString(_key)} {}
+  explicit constexpr ProxyAccessorBase(const std::string& _key)
+      : key{hashStringDynamic(_key)} {}
 
   /// Access the stored key on the proxy given as an argument. Mutable version
   /// @tparam proxy_t the type of the proxy
   /// @param proxy the proxy object to access
   /// @return mutable reference to the column behind the key
-  template <ACTS_CONCEPT(detail::MutableProxyType) proxy_t, bool RO = ReadOnly,
-            typename = std::enable_if_t<!RO>>
-  T& operator()(proxy_t proxy) const {
+  template <detail::MutableProxyType proxy_t>
+  T& operator()(proxy_t proxy) const
+    requires(!ReadOnly)
+  {
     static_assert(!proxy_t::ReadOnly,
                   "Cannot get mutable ref for const track proxy");
     return proxy.template component<T>(key);
@@ -96,9 +85,10 @@ struct ProxyAccessorBase {
   /// @tparam proxy_t the type of the track proxy
   /// @param proxy the proxy to access
   /// @return const reference to the column behind the key
-  template <ACTS_CONCEPT(detail::ProxyType) proxy_t, bool RO = ReadOnly,
-            typename = std::enable_if_t<RO>>
-  const T& operator()(proxy_t proxy) const {
+  template <detail::ProxyType proxy_t>
+  const T& operator()(proxy_t proxy) const
+    requires(ReadOnly)
+  {
     if constexpr (proxy_t::ReadOnly) {
       return proxy.template component<T>(key);
 
@@ -108,10 +98,25 @@ struct ProxyAccessorBase {
       return cproxy.template component<T>(key);
     }
   }
+
+  /// Check if the stored key exists on the proxy given as an argument
+  /// @tparam proxy_t the type of the proxy
+  /// @param proxy the proxy object to check
+  /// @return true if the column exists, false otherwise
+  template <detail::ProxyType proxy_t>
+  bool hasColumn(proxy_t proxy) const {
+    return proxy.hasColumn(key);
+  }
 };
 
+/// @brief Type alias for a mutable proxy accessor
+/// @details Provides mutable access to track state components through a proxy pattern
+/// @tparam T The type of the component being accessed
 template <typename T>
 using ProxyAccessor = ProxyAccessorBase<T, false>;
+
+/// @brief Type alias for a const proxy accessor
+/// @details Provides read-only access to proxy data with const-qualified member functions
 template <typename T>
 using ConstProxyAccessor = ProxyAccessorBase<T, true>;
 }  // namespace Acts

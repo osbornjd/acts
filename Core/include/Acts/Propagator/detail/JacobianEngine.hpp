@@ -1,15 +1,12 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
-
-// Workaround for building on clang+libstdc++
-#include "Acts/Utilities/detail/ReferenceWrapperAnyCompat.hpp"
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
@@ -62,6 +59,7 @@ void boundToBoundTransportJacobian(const GeometryContext& geoContext,
                                    const FreeVector& freeParameters,
                                    const BoundToFreeMatrix& boundToFreeJacobian,
                                    const FreeMatrix& freeTransportJacobian,
+                                   FreeToBoundMatrix& freeToBoundJacobian,
                                    const FreeVector& freeToPathDerivatives,
                                    BoundMatrix& fullTransportJacobian);
 
@@ -113,6 +111,7 @@ BoundMatrix boundToBoundTransportJacobian(
 void boundToCurvilinearTransportJacobian(
     const Vector3& direction, const BoundToFreeMatrix& boundToFreeJacobian,
     const FreeMatrix& freeTransportJacobian,
+    FreeToBoundMatrix& freeToBoundJacobian,
     const FreeVector& freeToPathDerivatives,
     BoundMatrix& fullTransportJacobian);
 

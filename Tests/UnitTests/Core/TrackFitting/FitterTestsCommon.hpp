@@ -1,17 +1,17 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/ProxyAccessor.hpp"
 #include "Acts/EventData/SourceLink.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
@@ -21,18 +21,23 @@
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Propagator/Navigator.hpp"
+#include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/StraightLineStepper.hpp"
-#include "Acts/Tests/CommonHelpers/CubicTrackingGeometry.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Tests/CommonHelpers/MeasurementsCreator.hpp"
+#include "Acts/Surfaces/CurvilinearSurface.hpp"
 #include "Acts/TrackFitting/detail/KalmanGlobalCovariance.hpp"
 #include "Acts/Utilities/CalibrationContext.hpp"
 #include "Acts/Utilities/Logger.hpp"
+#include "ActsTests/CommonHelpers/CubicTrackingGeometry.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
+#include "ActsTests/CommonHelpers/MeasurementsCreator.hpp"
 
 #include <iterator>
 
 using namespace Acts::UnitLiterals;
-using namespace Acts::Test;
+
+constexpr auto kInvalid = Acts::kTrackIndexInvalid;
+
+namespace ActsTests {
 
 /// Find outliers using plain distance for testing purposes.
 ///
@@ -55,9 +60,13 @@ struct TestOutlierFinder {
     if (!state.hasCalibrated() || !state.hasPredicted()) {
       return false;
     }
-    auto residuals = (state.effectiveCalibrated() -
-                      state.effectiveProjector() * state.predicted())
-                         .eval();
+    auto subspaceHelper = state.projectorSubspaceHelper();
+    auto projector =
+        subspaceHelper.fullProjector()
+            .topLeftCorner(state.calibratedSize(), Acts::eBoundSize)
+            .eval();
+    auto residuals =
+        (state.effectiveCalibrated() - projector * state.predicted()).eval();
     auto distance = residuals.norm();
     return (distanceMax <= distance);
   }
@@ -76,7 +85,7 @@ struct TestReverseFilteringLogic {
   template <typename traj_t>
   bool operator()(typename traj_t::ConstTrackStateProxy state) const {
     // can't determine an outlier w/o a measurement or predicted parameters
-    auto momentum = fabs(1 / state.filtered()[Acts::eBoundQOverP]);
+    auto momentum = std::abs(1 / state.filtered()[Acts::eBoundQOverP]);
     std::cout << "momentum : " << momentum << std::endl;
     return (momentum <= momentumMax);
   }
@@ -89,7 +98,7 @@ auto makeStraightPropagator(std::shared_ptr<const Acts::TrackingGeometry> geo) {
   cfg.resolveMaterial = true;
   cfg.resolveSensitive = true;
   Acts::Navigator navigator(
-      cfg, Acts::getDefaultLogger("Navigator", Acts::Logging::VERBOSE));
+      cfg, Acts::getDefaultLogger("Navigator", Acts::Logging::INFO));
   Acts::StraightLineStepper stepper;
   return Acts::Propagator<Acts::StraightLineStepper, Acts::Navigator>(
       stepper, std::move(navigator));
@@ -104,7 +113,7 @@ auto makeConstantFieldPropagator(
   cfg.resolveMaterial = true;
   cfg.resolveSensitive = true;
   Acts::Navigator navigator(
-      cfg, Acts::getDefaultLogger("Navigator", Acts::Logging::VERBOSE));
+      cfg, Acts::getDefaultLogger("Navigator", Acts::Logging::INFO));
   auto field =
       std::make_shared<Acts::ConstantBField>(Acts::Vector3(0.0, 0.0, bz));
   stepper_t stepper(std::move(field));
@@ -118,7 +127,8 @@ struct FitterTester {
   using Rng = std::default_random_engine;
 
   // Context objects
-  Acts::GeometryContext geoCtx;
+  Acts::GeometryContext geoCtx =
+      Acts::GeometryContext::dangerouslyDefaultConstruct();
   Acts::MagneticFieldContext magCtx;
   Acts::CalibrationContext calCtx;
 
@@ -137,11 +147,11 @@ struct FitterTester {
   MeasurementResolution resStrip0 = {MeasurementType::eLoc0, {100_um}};
   MeasurementResolution resStrip1 = {MeasurementType::eLoc1, {150_um}};
   MeasurementResolutionMap resolutions = {
-      {Acts::GeometryIdentifier().setVolume(2), resPixel},
-      {Acts::GeometryIdentifier().setVolume(3).setLayer(2), resStrip0},
-      {Acts::GeometryIdentifier().setVolume(3).setLayer(4), resStrip1},
-      {Acts::GeometryIdentifier().setVolume(3).setLayer(6), resStrip0},
-      {Acts::GeometryIdentifier().setVolume(3).setLayer(8), resStrip1},
+      {Acts::GeometryIdentifier().withVolume(2), resPixel},
+      {Acts::GeometryIdentifier().withVolume(3).withLayer(2), resStrip0},
+      {Acts::GeometryIdentifier().withVolume(3).withLayer(4), resStrip1},
+      {Acts::GeometryIdentifier().withVolume(3).withLayer(6), resStrip0},
+      {Acts::GeometryIdentifier().withVolume(3).withLayer(8), resStrip1},
   };
 
   // simulation propagator
@@ -196,7 +206,7 @@ struct FitterTester {
       BOOST_REQUIRE(res.ok());
 
       const auto track = res.value();
-      BOOST_CHECK_NE(track.tipIndex(), Acts::MultiTrajectoryTraits::kInvalid);
+      BOOST_CHECK_NE(track.tipIndex(), kInvalid);
       BOOST_CHECK(!track.hasReferenceSurface());
       BOOST_CHECK_EQUAL(track.nMeasurements(), sourceLinks.size());
       BOOST_CHECK_EQUAL(track.nHoles(), 0u);
@@ -210,7 +220,7 @@ struct FitterTester {
 
     if (doDiag) {
       doTest(true);
-    }               // with reversed & smoothed columns
+    }  // with reversed & smoothed columns
     doTest(false);  // without the extra columns
   }
 
@@ -230,7 +240,7 @@ struct FitterTester {
     // backward filtering requires a reference surface
     options.referenceSurface = &start.referenceSurface();
     // this is the default option. set anyway for consistency
-    options.propagatorPlainOptions.direction = Acts::Direction::Forward;
+    options.propagatorPlainOptions.direction = Acts::Direction::Forward();
 
     Acts::TrackContainer tracks{Acts::VectorTrackContainer{},
                                 Acts::VectorMultiTrajectory{}};
@@ -242,7 +252,7 @@ struct FitterTester {
     BOOST_REQUIRE(res.ok());
 
     const auto& track = res.value();
-    BOOST_CHECK_NE(track.tipIndex(), Acts::MultiTrajectoryTraits::kInvalid);
+    BOOST_CHECK_NE(track.tipIndex(), kInvalid);
     BOOST_CHECK(track.hasReferenceSurface());
     BOOST_CHECK_EQUAL(track.nMeasurements(), sourceLinks.size());
     BOOST_CHECK_EQUAL(track.nHoles(), 0u);
@@ -284,12 +294,13 @@ struct FitterTester {
     // create a track near the tracker exit for outward->inward filtering
     Acts::Vector4 posOuter = start.fourPosition(geoCtx);
     posOuter[Acts::ePos0] = 3_m;
-    Acts::CurvilinearTrackParameters startOuter(
-        posOuter, start.direction(), start.qOverP(), start.covariance(),
-        Acts::ParticleHypothesis::pion());
+    Acts::BoundTrackParameters startOuter =
+        Acts::BoundTrackParameters::createCurvilinear(
+            posOuter, start.direction(), start.qOverP(), start.covariance(),
+            Acts::ParticleHypothesis::pion());
 
     options.referenceSurface = &startOuter.referenceSurface();
-    options.propagatorPlainOptions.direction = Acts::Direction::Backward;
+    options.propagatorPlainOptions.direction = Acts::Direction::Backward();
 
     Acts::TrackContainer tracks{Acts::VectorTrackContainer{},
                                 Acts::VectorMultiTrajectory{}};
@@ -301,7 +312,7 @@ struct FitterTester {
     BOOST_CHECK(res.ok());
 
     const auto& track = res.value();
-    BOOST_CHECK_NE(track.tipIndex(), Acts::MultiTrajectoryTraits::kInvalid);
+    BOOST_CHECK_NE(track.tipIndex(), kInvalid);
     BOOST_CHECK(track.hasReferenceSurface());
     BOOST_CHECK_EQUAL(track.nMeasurements(), sourceLinks.size());
     BOOST_CHECK_EQUAL(track.nHoles(), 0u);
@@ -339,8 +350,8 @@ struct FitterTester {
     // create a boundless target surface near the tracker exit
     Acts::Vector3 center(3._m, 0., 0.);
     Acts::Vector3 normal(1., 0., 0.);
-    auto targetSurface =
-        Acts::Surface::makeShared<Acts::PlaneSurface>(center, normal);
+    std::shared_ptr<Acts::PlaneSurface> targetSurface =
+        Acts::CurvilinearSurface(center, normal).planeSurface();
 
     options.referenceSurface = targetSurface.get();
 
@@ -354,7 +365,7 @@ struct FitterTester {
     BOOST_REQUIRE(res.ok());
 
     const auto& track = res.value();
-    BOOST_CHECK_NE(track.tipIndex(), Acts::MultiTrajectoryTraits::kInvalid);
+    BOOST_CHECK_NE(track.tipIndex(), kInvalid);
     BOOST_CHECK(track.hasReferenceSurface());
     BOOST_CHECK_EQUAL(track.nMeasurements(), sourceLinks.size());
     BOOST_CHECK_EQUAL(track.nHoles(), 0u);
@@ -399,7 +410,7 @@ struct FitterTester {
       BOOST_REQUIRE(res.ok());
 
       const auto& track = res.value();
-      BOOST_CHECK_NE(track.tipIndex(), Acts::MultiTrajectoryTraits::kInvalid);
+      BOOST_CHECK_NE(track.tipIndex(), kInvalid);
       BOOST_CHECK_EQUAL(track.nMeasurements(), sourceLinks.size());
       BOOST_REQUIRE(track.hasReferenceSurface());
       parameters = track.parameters();
@@ -420,7 +431,7 @@ struct FitterTester {
       BOOST_REQUIRE(res.ok());
 
       const auto& track = res.value();
-      BOOST_CHECK_NE(track.tipIndex(), Acts::MultiTrajectoryTraits::kInvalid);
+      BOOST_CHECK_NE(track.tipIndex(), kInvalid);
       BOOST_REQUIRE(track.hasReferenceSurface());
       // check consistency w/ un-shuffled measurements
       CHECK_CLOSE_ABS(track.parameters(), parameters, 1e-5);
@@ -466,7 +477,7 @@ struct FitterTester {
       BOOST_REQUIRE(res.ok());
 
       const auto& track = res.value();
-      BOOST_CHECK_NE(track.tipIndex(), Acts::MultiTrajectoryTraits::kInvalid);
+      BOOST_CHECK_NE(track.tipIndex(), kInvalid);
       BOOST_REQUIRE(!track.hasReferenceSurface());
       BOOST_CHECK_EQUAL(track.nMeasurements(), withHole.size());
       // check the output status flags
@@ -514,11 +525,11 @@ struct FitterTester {
       BOOST_REQUIRE(res.ok());
 
       const auto& track = res.value();
-      BOOST_CHECK_NE(track.tipIndex(), Acts::MultiTrajectoryTraits::kInvalid);
+      BOOST_CHECK_NE(track.tipIndex(), kInvalid);
       // count the number of outliers
       std::size_t nOutliers = 0;
       for (const auto state : track.trackStatesReversed()) {
-        nOutliers += state.typeFlags().test(Acts::TrackStateFlag::OutlierFlag);
+        nOutliers += state.typeFlags().isOutlier();
       }
       BOOST_CHECK_EQUAL(nOutliers, 1u);
       BOOST_REQUIRE(!track.hasReferenceSurface());
@@ -560,8 +571,8 @@ struct FitterTester {
     // create a boundless target surface near the tracker entry
     Acts::Vector3 center(-3._m, 0., 0.);
     Acts::Vector3 normal(1., 0., 0.);
-    auto targetSurface =
-        Acts::Surface::makeShared<Acts::PlaneSurface>(center, normal);
+    std::shared_ptr<Acts::PlaneSurface> targetSurface =
+        Acts::CurvilinearSurface(center, normal).planeSurface();
 
     options.referenceSurface = targetSurface.get();
 
@@ -612,3 +623,5 @@ struct FitterTester {
                       Acts::eBoundSize * (nMeasurements - 1));
   }
 };
+
+}  // namespace ActsTests

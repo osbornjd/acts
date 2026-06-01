@@ -1,17 +1,17 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 
 #include <array>
 #include <ostream>
 
-std::ostream& Acts::operator<<(std::ostream& os, Acts::GeometryIdentifier id) {
+std::ostream& Acts::operator<<(std::ostream& os, GeometryIdentifier id) {
   // zero represents an invalid/undefined identifier
   if (id.value() == 0u) {
     return (os << "undefined");
@@ -38,8 +38,11 @@ std::ostream& Acts::operator<<(std::ostream& os, Acts::GeometryIdentifier id) {
   return os;
 }
 
-Acts::GeometryIdentifier Acts::GeometryIdentifierHook::decorateIdentifier(
-    Acts::GeometryIdentifier identifier,
-    const Acts::Surface& /*surface*/) const {
+namespace Acts {
+
+GeometryIdentifier GeometryIdentifierHook::decorateIdentifier(
+    GeometryIdentifier identifier, const Surface& /*surface*/) const {
   return identifier;
 }
+
+}  // namespace Acts

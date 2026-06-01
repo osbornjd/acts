@@ -1,21 +1,21 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Geometry/TrackingGeometry.hpp"
-#include "Acts/Plugins/ActSVG/EventDataSvgConverter.hpp"
-#include "Acts/Plugins/ActSVG/SvgUtils.hpp"
 #include "Acts/Utilities/StringHelpers.hpp"
 #include "ActsExamples/EventData/GeometryContainers.hpp"
 #include "ActsExamples/Framework/WriterT.hpp"
 #include "ActsExamples/Io/Svg/SvgTrackingGeometryWriter.hpp"
 #include "ActsExamples/Utilities/Paths.hpp"
+#include "ActsPlugins/ActSVG/EventDataSvgConverter.hpp"
+#include "ActsPlugins/ActSVG/SvgUtils.hpp"
 
 #include <fstream>
 #include <mutex>
@@ -82,30 +82,32 @@ class SvgPointWriter final : public WriterT<GeometryIdMultiset<T>> {
     std::string outputDir;                   ///< where to place output files
     std::size_t outputPrecision = 6;         ///< floating point precision
 
-    Acts::ActsScalar spSize = 10.;  //!< size of the space point to be drawn
-    Acts::Svg::Style spStyle =
+    double spSize = 10.;  //!< size of the space point to be drawn
+    ActsPlugins::Svg::Style spStyle =
         s_pointStyle;  //!< The style of the space point to be drawn
 
     std::string infoBoxTitle = "";  //!< If an info box title is set, draw it
-    Acts::Svg::Style infoBoxStyle = s_infoStyle;  // The style of the info box
+    ActsPlugins::Svg::Style infoTitleStyle = s_infoStyle;
+    ActsPlugins::Svg::Style infoBoxStyle =
+        s_infoStyle;  // The style of the info box
 
     bool projectionXY = true;  ///< xy projection
-    std::array<Acts::ActsScalar, 2> zRangeXY = {
-        std::numeric_limits<Acts::ActsScalar>::lowest(),
-        std::numeric_limits<Acts::ActsScalar>::max()};  ///< View range in z of
-                                                        ///< the XY view
-    bool projectionZR = true;                           ///< zr projection
+    std::array<double, 2> zRangeXY = {
+        std::numeric_limits<double>::lowest(),
+        std::numeric_limits<double>::max()};  ///< View range in z of
+                                              ///< the XY view
+    bool projectionZR = true;                 ///< zr projection
 
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry =
         nullptr;  ///< The tracking geometry, a set pointer will cause the
                   ///< geometry to be drawn
 
-    Acts::Svg::TrackingGeometryConverter::Options trackingGeometryOptions =
-        s_backgroundTrackingGeometryOptions;
+    ActsPlugins::Svg::TrackingGeometryConverter::Options
+        trackingGeometryOptions = s_backgroundTrackingGeometryOptions;
   };
 
-  SvgPointWriter(const Config& cfg,
-                 Acts::Logging::Level level = Acts::Logging::INFO);
+  explicit SvgPointWriter(const Config& cfg,
+                          Acts::Logging::Level level = Acts::Logging::INFO);
 
  protected:
   ActsExamples::ProcessCode writeT(
@@ -149,10 +151,11 @@ ActsExamples::ProcessCode ActsExamples::SvgPointWriter<T, Acc>::writeT(
   std::string pathZR =
       perEventFilepath(m_cfg.outputDir, "pointsZR.svg", context.eventNumber);
 
-  Acts::Svg::TrackingGeometryProjections::Options tgpOptions;
+  ActsPlugins::Svg::TrackingGeometryProjections::Options tgpOptions;
   tgpOptions.trackingGeometryOptions = m_cfg.trackingGeometryOptions;
-  auto [xyView, zrView] = Acts::Svg::TrackingGeometryProjections::convert(
-      context.geoContext, *m_cfg.trackingGeometry, tgpOptions);
+  auto [xyView, zrView] =
+      ActsPlugins::Svg::TrackingGeometryProjections::convert(
+          context.geoContext, *m_cfg.trackingGeometry, tgpOptions);
 
   // Fill the space points
   unsigned int id = 0;
@@ -162,30 +165,31 @@ ActsExamples::ProcessCode ActsExamples::SvgPointWriter<T, Acc>::writeT(
     // Draw the xy view
     if (m_cfg.projectionXY && point3D.z() >= m_cfg.zRangeXY[0] &&
         point3D.z() <= m_cfg.zRangeXY[1]) {
-      auto p = Acts::Svg::EventDataConverter::pointXY(point3D, m_cfg.spSize,
-                                                      m_cfg.spStyle, id);
+      auto p = ActsPlugins::Svg::EventDataConverter::pointXY(
+          point3D, m_cfg.spSize, m_cfg.spStyle, id);
       xyView.add_object(p);
       // Draw a connected text box
       if (!m_cfg.infoBoxTitle.empty()) {
-        auto xyIbox = Acts::Svg::infoBox(
+        auto xyIbox = ActsPlugins::Svg::infoBox(
             static_cast<actsvg::scalar>(point3D.x() + 10.),
             static_cast<actsvg::scalar>(point3D.y() - 10.), m_cfg.infoBoxTitle,
-            {"Position: " + Acts::toString(point3D)}, m_cfg.infoBoxStyle, p);
+            m_cfg.infoTitleStyle, {"Position: " + Acts::toString(point3D)},
+            m_cfg.infoBoxStyle, p);
         xyView.add_object(xyIbox);
       }
     }
     // Draw the zy view
     if (m_cfg.projectionZR) {
-      auto p = Acts::Svg::EventDataConverter::pointZR(point3D, m_cfg.spSize,
-                                                      m_cfg.spStyle, id);
+      auto p = ActsPlugins::Svg::EventDataConverter::pointZR(
+          point3D, m_cfg.spSize, m_cfg.spStyle, id);
 
       zrView.add_object(p);
     }
     ++id;
   }
 
-  Acts::Svg::toFile({xyView}, pathXY);
-  Acts::Svg::toFile({zrView}, pathZR);
+  ActsPlugins::Svg::toFile({xyView}, pathXY);
+  ActsPlugins::Svg::toFile({zrView}, pathZR);
 
   return ProcessCode::SUCCESS;
 }

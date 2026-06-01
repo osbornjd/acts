@@ -1,44 +1,41 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/EventData/GenericCurvilinearTrackParameters.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Propagator/AtlasStepper.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
+#include "Acts/Surfaces/CurvilinearSurface.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/StrawSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <type_traits>
 #include <utility>
 
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 
-namespace Acts::Test {
+namespace ActsTests {
 
 using BFieldType = ConstantBField;
 using EigenStepperType = EigenStepper<>;
@@ -46,7 +43,7 @@ using AtlasStepperType = AtlasStepper;
 using Covariance = BoundSquareMatrix;
 
 // Create a test context
-GeometryContext tgContext = GeometryContext();
+GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 MagneticFieldContext mfContext = MagneticFieldContext();
 
 static auto bField = std::make_shared<BFieldType>(Vector3{0, 0, 1_T});
@@ -136,11 +133,15 @@ template <typename Parameters>
 void testJacobianToGlobal(const Parameters& pars) {
   // Jacobian creation for Propagator/Steppers
   // a) ATLAS stepper
-  AtlasStepperType::State astepState(tgContext, bField->makeCache(mfContext),
-                                     pars);
+  AtlasStepperType astep(bField);
+  AtlasStepperType::State astepState =
+      astep.makeState(AtlasStepperType::Options(tgContext, mfContext));
+  astep.initialize(astepState, pars);
   // b) Eigen stepper
-  EigenStepperType::State estepState(tgContext, bField->makeCache(mfContext),
-                                     pars);
+  EigenStepperType estep(bField);
+  EigenStepperType::State estepState =
+      estep.makeState(EigenStepperType::Options(tgContext, mfContext));
+  estep.initialize(estepState, pars);
 
   // create the matrices
   auto asMatrix = convertToMatrix(astepState.pVector);
@@ -149,15 +150,17 @@ void testJacobianToGlobal(const Parameters& pars) {
   CHECK_CLOSE_OR_SMALL(asMatrix, estepState.jacToGlobal, 1e-6, 1e-9);
 }
 
+BOOST_AUTO_TEST_SUITE(PropagatorSuite)
+
 /// This tests the jacobian of local curvilinear -> global
 BOOST_AUTO_TEST_CASE(JacobianCurvilinearToGlobalTest) {
   // Create curvilinear parameters
   Covariance cov;
   cov << 10_mm, 0, 0, 0, 0, 0, 0, 10_mm, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,
       0, 0.1, 0, 0, 0, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0, 0, 0;
-  CurvilinearTrackParameters curvilinear(Vector4(341., 412., 93., 0.),
-                                         Vector3(1.2, 8.3, 0.45), 1 / 10.0, cov,
-                                         ParticleHypothesis::pion());
+  BoundTrackParameters curvilinear = BoundTrackParameters::createCurvilinear(
+      Vector4(341., 412., 93., 0.), Vector3(1.2, 8.3, 0.45), 1 / 10.0, cov,
+      ParticleHypothesis::pion());
 
   // run the test
   testJacobianToGlobal(curvilinear);
@@ -211,7 +214,8 @@ BOOST_AUTO_TEST_CASE(JacobianPlaneToGlobalTest) {
   Vector3 sNormal = Vector3(1.2, -0.3, 0.05).normalized();
 
   // Create a surface & parameters with covariance on the surface
-  auto pSurface = Surface::makeShared<PlaneSurface>(sPosition, sNormal);
+  std::shared_ptr<PlaneSurface> pSurface =
+      CurvilinearSurface(sPosition, sNormal).planeSurface();
 
   Covariance cov;
   cov << 10_mm, 0, 0, 0, 0, 0, 0, 10_mm, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,
@@ -265,4 +269,6 @@ BOOST_AUTO_TEST_CASE(JacobianStrawToGlobalTest) {
   testJacobianToGlobal(atStraw);
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

@@ -1,14 +1,14 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
-#include "Acts/Plugins/FpeMonitoring/FpeMonitor.hpp"
+#include "ActsPlugins/FpeMonitoring/FpeMonitor.hpp"
 
 #include <cmath>
 #include <optional>
@@ -18,34 +18,36 @@ namespace {
 __attribute__((noinline)) void divbyzero() {
   volatile float j = 0.0;
   volatile float r = 123 / j;
-  (void)r;
+  static_cast<void>(r);
 }
 
 __attribute__((noinline)) void overflow() {
   std::cout << "PRE OVERFLOW" << std::endl;
   volatile float j = std::numeric_limits<float>::max();
   volatile float r = j * j;
-  (void)r;
+  static_cast<void>(r);
   std::cout << "POST OVERFLOW" << std::endl;
 }
 
 __attribute__((noinline)) void invalid() {
   volatile float j = -1;
   volatile float r = std::sqrt(j);
-  (void)r;
+  static_cast<void>(r);
 }
 
 __attribute__((noinline)) void invalid2() {
   volatile float k = 0;
   volatile float p = k / 0.0;
-  (void)p;
+  static_cast<void>(p);
 }
 
 }  // namespace
 
-namespace Acts::Test {
+using namespace ActsPlugins;
 
-BOOST_AUTO_TEST_SUITE(FpeMonitorTest)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(FpeMonitoringSuite)
 
 BOOST_AUTO_TEST_CASE(Invalid) {
   FpeMonitor mon;
@@ -253,4 +255,4 @@ BOOST_AUTO_TEST_CASE(ScopedSuppression) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -12,12 +12,11 @@
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
 
-#include <cstddef>
 #include <iosfwd>
 
 namespace Acts {
 
-/// @class HomogeneousSurfaceMaterial
+/// @ingroup material
 ///
 /// It extends the ISurfaceMaterial virtual base class to describe
 /// a simple homogeneous material on a surface
@@ -31,8 +30,9 @@ class HomogeneousSurfaceMaterial : public ISurfaceMaterial {
   /// @param full are the full material properties
   /// @param splitFactor is the split for pre/post update
   /// @param mappingType is the type of surface mapping associated to the surface
-  HomogeneousSurfaceMaterial(const MaterialSlab& full, double splitFactor = 1.,
-                             MappingType mappingType = MappingType::Default);
+  explicit HomogeneousSurfaceMaterial(
+      const MaterialSlab& full, double splitFactor = 1.,
+      MappingType mappingType = MappingType::Default);
 
   /// Copy Constructor
   ///
@@ -50,25 +50,23 @@ class HomogeneousSurfaceMaterial : public ISurfaceMaterial {
   /// Assignment operator
   ///
   /// @param hsm is the source material
+  /// @return Reference to this material after assignment
   HomogeneousSurfaceMaterial& operator=(const HomogeneousSurfaceMaterial& hsm) =
       default;
 
   /// Assignment Move operator
   ///
   /// @param hsm is the source material
+  /// @return Reference to this material after move assignment
   HomogeneousSurfaceMaterial& operator=(HomogeneousSurfaceMaterial&& hsm) =
       default;
 
   /// Scale operator
   /// - it is effectively a thickness scaling
   ///
-  /// @param scale is the scale factor
-  HomogeneousSurfaceMaterial& operator*=(double scale) final;
-
-  /// Equality operator
-  ///
-  /// @param hsm is the source material
-  bool operator==(const HomogeneousSurfaceMaterial& hsm) const;
+  /// @param factor is the scale factor
+  /// @return Reference to this scaled material
+  HomogeneousSurfaceMaterial& scale(double factor) final;
 
   /// @copydoc ISurfaceMaterial::materialSlab(const Vector2&) const
   ///
@@ -78,37 +76,42 @@ class HomogeneousSurfaceMaterial : public ISurfaceMaterial {
   /// @copydoc ISurfaceMaterial::materialSlab(const Vector3&) const
   ///
   /// @note the input parameter is ignored
-  const MaterialSlab& materialSlab(const Vector3& gp) const final;
+  const MaterialSlab& materialSlab(const Vector3& gp = Vector3{0., 0.,
+                                                               0.}) const final;
 
-  /// The inherited methods - for MaterialSlab access
+  // Inherit additional materialSlab overloads from base class
   using ISurfaceMaterial::materialSlab;
 
   /// The inherited methods - for scale access
+  ///
+  /// @param pDir Direction through the surface
+  /// @param mode Material update directive
+  /// @return The scaling factor for the material
   using ISurfaceMaterial::factor;
 
   /// Output Method for std::ostream
   ///
   /// @param sl The outoput stream
+  /// @return Reference to the output stream for chaining
   std::ostream& toStream(std::ostream& sl) const final;
 
  private:
   /// The five different MaterialSlab
-  MaterialSlab m_fullMaterial = MaterialSlab();
+  MaterialSlab m_fullMaterial = MaterialSlab::Nothing();
+
+  /// @brief Check if two materials are exactly equal.
+  ///
+  /// This is a strict equality check, i.e. the materials must have identical
+  /// properties.
+  ///
+  /// @param lhs is the left hand side material
+  /// @param rhs is the right hand side material
+  ///
+  /// @return true if the materials are equal
+  friend constexpr bool operator==(const HomogeneousSurfaceMaterial& lhs,
+                                   const HomogeneousSurfaceMaterial& rhs) {
+    return lhs.m_fullMaterial == rhs.m_fullMaterial;
+  }
 };
-
-inline const MaterialSlab& HomogeneousSurfaceMaterial::materialSlab(
-    const Vector2& /*lp*/) const {
-  return (m_fullMaterial);
-}
-
-inline const MaterialSlab& HomogeneousSurfaceMaterial::materialSlab(
-    const Vector3& /*gp*/) const {
-  return (m_fullMaterial);
-}
-
-inline bool HomogeneousSurfaceMaterial::operator==(
-    const HomogeneousSurfaceMaterial& hsm) const {
-  return (m_fullMaterial == hsm.m_fullMaterial);
-}
 
 }  // namespace Acts

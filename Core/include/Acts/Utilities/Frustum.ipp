@@ -1,29 +1,35 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+#pragma once
+
+#include "Acts/Utilities/Frustum.hpp"
 
 #include "Acts/Utilities/VectorHelpers.hpp"
 
+#include <numbers>
+
 template <typename value_t, std::size_t DIM, std::size_t SIDES>
-template <std::size_t D, std::enable_if_t<D == 2, int>>
 Acts::Frustum<value_t, DIM, SIDES>::Frustum(const VertexType& origin,
                                             const VertexType& dir,
                                             value_type opening_angle)
+  requires(DIM == 2)
     : m_origin(origin) {
   using rotation_t = Eigen::Rotation2D<value_type>;
 
   static_assert(SIDES == 2, "2D frustum can only have 2 sides");
-  assert(opening_angle < M_PI);
+  assert(opening_angle < std::numbers::pi_v<value_type>);
 
   translation_t translation(origin);
   value_type angle = VectorHelpers::phi(dir);
   Eigen::Rotation2D<value_type> rot(angle);
 
-  value_type normal_angle = 0.5 * M_PI - 0.5 * opening_angle;
+  value_type normal_angle = std::numbers::pi / 2. - opening_angle / 2.;
   VertexType normal1 = rotation_t(normal_angle) * VertexType::UnitX();
   VertexType normal2 = rotation_t(-normal_angle) * VertexType::UnitX();
 
@@ -31,13 +37,13 @@ Acts::Frustum<value_t, DIM, SIDES>::Frustum(const VertexType& origin,
 }
 
 template <typename value_t, std::size_t DIM, std::size_t SIDES>
-template <std::size_t D, std::enable_if_t<D == 3, int>>
 Acts::Frustum<value_t, DIM, SIDES>::Frustum(const VertexType& origin,
                                             const VertexType& dir,
                                             value_type opening_angle)
+  requires(DIM == 3)
     : m_origin(origin) {
   static_assert(SIDES > 2, "3D frustum must have 3 or more sides");
-  assert(opening_angle < M_PI);
+  assert(opening_angle < std::numbers::pi_v<value_type>);
   using angle_axis_t = Eigen::AngleAxis<value_type>;
 
   const VertexType ldir = VertexType::UnitZ();
@@ -48,7 +54,7 @@ Acts::Frustum<value_t, DIM, SIDES>::Frustum(const VertexType& origin,
 
   m_normals[0] = ldir;
 
-  const value_type phi_sep = 2 * M_PI / sides;
+  const value_type phi_sep = 2. * std::numbers::pi_v<value_type> / sides;
   transform_type rot;
   rot = angle_axis_t(phi_sep, ldir);
 
@@ -74,9 +80,10 @@ Acts::Frustum<value_t, DIM, SIDES>::Frustum(const VertexType& origin,
 }
 
 template <typename value_t, std::size_t DIM, std::size_t SIDES>
-template <std::size_t D, std::enable_if_t<D == 3, int>>
 void Acts::Frustum<value_t, DIM, SIDES>::draw(IVisualization3D& helper,
-                                              value_type far_distance) const {
+                                              value_type far_distance) const
+  requires(DIM == 3)
+{
   static_assert(DIM == 3, "Drawing is only supported in 3D");
 
   // Iterate around normals, calculate cross with "far" plane
@@ -107,7 +114,7 @@ void Acts::Frustum<value_t, DIM, SIDES>::draw(IVisualization3D& helper,
     planeFarIXs.at(i - 1) = ixLine;
   }
 
-  std::array<VertexType, SIDES> points;
+  std::array<VertexType, SIDES> points{};
 
   for (std::size_t i = 0; i < std::size(planeFarIXs); i++) {
     std::size_t j = (i + 1) % std::size(planeFarIXs);
@@ -126,12 +133,13 @@ void Acts::Frustum<value_t, DIM, SIDES>::draw(IVisualization3D& helper,
 }
 
 template <typename value_t, std::size_t DIM, std::size_t SIDES>
-template <std::size_t D, std::enable_if_t<D == 2, int>>
 std::ostream& Acts::Frustum<value_t, DIM, SIDES>::svg(std::ostream& os,
                                                       value_type w,
                                                       value_type h,
                                                       value_type far_distance,
-                                                      value_type unit) const {
+                                                      value_type unit) const
+  requires(DIM == 2)
+{
   static_assert(DIM == 2, "SVG is only supported in 2D");
 
   VertexType mid(w / 2., h / 2.);
@@ -194,7 +202,7 @@ std::ostream& Acts::Frustum<value_t, DIM, SIDES>::svg(std::ostream& os,
   const VertexType far_dir = {m_normals[0].y(), -m_normals[0].x()};
   const VertexType far_point = m_normals[0] * far_distance;
 
-  std::array<VertexType, 2> points;
+  std::array<VertexType, 2> points{};
 
   for (std::size_t i = 1; i < n_normals; i++) {
     VertexType plane_dir(m_normals[i].y(), -m_normals[i].x());

@@ -1,17 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/Json/SurfaceJsonConverter.hpp"
+#include "ActsPlugins/Json/SurfaceJsonConverter.hpp"
 
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
-#include "Acts/Plugins/Json/DetrayJsonHelper.hpp"
-#include "Acts/Plugins/Json/MaterialJsonConverter.hpp"
 #include "Acts/Surfaces/AnnulusBounds.hpp"
 #include "Acts/Surfaces/ConeBounds.hpp"
 #include "Acts/Surfaces/ConeSurface.hpp"
@@ -28,8 +26,9 @@
 #include "Acts/Surfaces/StrawSurface.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
 #include "Acts/Surfaces/TrapezoidBounds.hpp"
-
-#include <algorithm>
+#include "Acts/Utilities/ThrowAssert.hpp"
+#include "ActsPlugins/Json/DetrayJsonHelper.hpp"
+#include "ActsPlugins/Json/MaterialJsonConverter.hpp"
 
 void Acts::to_json(nlohmann::json& j,
                    const Acts::SurfaceAndMaterialWithContext& surface) {
@@ -38,20 +37,22 @@ void Acts::to_json(nlohmann::json& j,
 }
 
 void Acts::to_json(nlohmann::json& j, const Acts::Surface& surface) {
-  Acts::GeometryContext gctx;
+  Acts::GeometryContext gctx =
+      Acts::GeometryContext::dangerouslyDefaultConstruct();
   j = SurfaceJsonConverter::toJson(gctx, surface);
 }
 
 void Acts::to_json(nlohmann::json& j,
                    const std::shared_ptr<const Acts::Surface>& surface) {
-  Acts::GeometryContext gctx;
-  j = SurfaceJsonConverter::toJson(gctx, *(surface.get()));
+  Acts::GeometryContext gctx =
+      Acts::GeometryContext::dangerouslyDefaultConstruct();
+  j = SurfaceJsonConverter::toJson(gctx, *surface);
 }
 
 void Acts::toJson(nlohmann::json& j,
                   const std::shared_ptr<const Acts::Surface>& surface,
                   const Acts::GeometryContext& gctx) {
-  j = SurfaceJsonConverter::toJson(gctx, *(surface.get()));
+  j = SurfaceJsonConverter::toJson(gctx, *surface);
 }
 
 std::shared_ptr<Acts::Surface> Acts::SurfaceJsonConverter::fromJson(
@@ -147,7 +148,7 @@ nlohmann::json Acts::SurfaceJsonConverter::toJson(const GeometryContext& gctx,
                                                   const Options& options) {
   nlohmann::json jSurface;
   const auto& sBounds = surface.bounds();
-  const auto sTransform = surface.transform(gctx);
+  const auto sTransform = surface.localToGlobalTransform(gctx);
 
   jSurface["transform"] =
       Transform3JsonConverter::toJson(sTransform, options.transformOptions);
@@ -166,7 +167,7 @@ nlohmann::json Acts::SurfaceJsonConverter::toJsonDetray(
     const Options& options) {
   nlohmann::json jSurface;
   const auto& sBounds = surface.bounds();
-  const auto sTransform = surface.transform(gctx);
+  const auto sTransform = surface.localToGlobalTransform(gctx);
 
   jSurface["transform"] =
       Transform3JsonConverter::toJson(sTransform, options.transformOptions);

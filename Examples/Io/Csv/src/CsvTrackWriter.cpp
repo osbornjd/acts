@@ -1,45 +1,34 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/Io/Csv/CsvTrackWriter.hpp"
 
-#include "Acts/Definitions/Algebra.hpp"
-#include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/ProxyAccessor.hpp"
-#include "Acts/EventData/VectorMultiTrajectory.hpp"
-#include "Acts/Utilities/Helpers.hpp"
-#include "Acts/Utilities/MultiIndex.hpp"
 #include "ActsExamples/EventData/IndexSourceLink.hpp"
 #include "ActsExamples/EventData/Track.hpp"
 #include "ActsExamples/Framework/AlgorithmContext.hpp"
 #include "ActsExamples/Utilities/Paths.hpp"
-#include "ActsExamples/Utilities/Range.hpp"
 #include "ActsExamples/Validation/TrackClassification.hpp"
 
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <map>
-#include <memory>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
 namespace ActsExamples {
-class IndexSourceLink;
-}  // namespace ActsExamples
 
-using namespace ActsExamples;
-
-CsvTrackWriter::CsvTrackWriter(const CsvTrackWriter::Config& config,
-                               Acts::Logging::Level level)
+CsvTrackWriter::CsvTrackWriter(const Config& config, Acts::Logging::Level level)
     : WriterT<ConstTrackContainer>(config.inputTracks, "CsvTrackWriter", level),
       m_cfg(config) {
   if (m_cfg.inputTracks.empty()) {
@@ -61,13 +50,12 @@ ProcessCode CsvTrackWriter::writeT(const AlgorithmContext& context,
 
   const auto& hitParticlesMap = m_inputMeasurementParticlesMap(context);
 
-  std::unordered_map<Acts::MultiTrajectoryTraits::IndexType, TrackInfo> infoMap;
+  std::unordered_map<Acts::TrackIndexType, TrackInfo> infoMap;
 
   // Counter of truth-matched reco tracks
   using RecoTrackInfo = std::pair<TrackInfo, std::size_t>;
   std::map<ActsFatras::Barcode, std::vector<RecoTrackInfo>> matched;
 
-  std::size_t trackId = 0;
   for (const auto& track : tracks) {
     // Reco track selection
     //@TODO: add interface for applying others cuts on reco tracks:
@@ -116,7 +104,7 @@ ProcessCode CsvTrackWriter::writeT(const AlgorithmContext& context,
 
     // track info
     TrackInfo toAdd;
-    toAdd.trackId = trackId;
+    toAdd.trackId = track.index();
     if (tracks.hasColumn(Acts::hashString("trackGroup"))) {
       toAdd.seedID = seedNumber(track);
     } else {
@@ -136,7 +124,7 @@ ProcessCode CsvTrackWriter::writeT(const AlgorithmContext& context,
     toAdd.trackType = "unknown";
 
     for (const auto& state : track.trackStatesReversed()) {
-      if (state.typeFlags().test(Acts::TrackStateFlag::MeasurementFlag)) {
+      if (state.typeFlags().hasMeasurement()) {
         auto sl =
             state.getUncalibratedSourceLink().template get<IndexSourceLink>();
         auto hitIndex = sl.index();
@@ -152,26 +140,18 @@ ProcessCode CsvTrackWriter::writeT(const AlgorithmContext& context,
     }
 
     infoMap[toAdd.trackId] = toAdd;
-
-    trackId++;
   }
 
   // Find duplicates
   std::unordered_set<std::size_t> listGoodTracks;
   for (auto& [particleId, matchedTracks] : matched) {
-    std::sort(matchedTracks.begin(), matchedTracks.end(),
-              [](const RecoTrackInfo& lhs, const RecoTrackInfo& rhs) {
-                // sort by nMajorityHits
-                if (lhs.first.nMajorityHits != rhs.first.nMajorityHits) {
-                  return (lhs.first.nMajorityHits > rhs.first.nMajorityHits);
-                }
-                // sort by nOutliers
-                if (lhs.first.nOutliers != rhs.first.nOutliers) {
-                  return (lhs.first.nOutliers < rhs.first.nOutliers);
-                }
-                // sort by chi2
-                return (lhs.first.chi2Sum < rhs.first.chi2Sum);
-              });
+    std::ranges::sort(matchedTracks, [](const auto& lhs, const auto& rhs) {
+      const auto& t1 = lhs.first;
+      const auto& t2 = rhs.first;
+      // nMajorityHits are sorted descending, others ascending
+      return std::tie(t2.nMajorityHits, t1.nOutliers, t1.chi2Sum) <
+             std::tie(t1.nMajorityHits, t2.nOutliers, t2.chi2Sum);
+    });
 
     listGoodTracks.insert(matchedTracks.front().first.trackId);
   }
@@ -183,14 +163,14 @@ ProcessCode CsvTrackWriter::writeT(const AlgorithmContext& context,
       << "pT,eta,phi,"
       << "truthMatchProbability,"
       << "good/duplicate/fake,"
-      << "Hits_ID";
+      << "Measurements_ID";
 
   mos << '\n';
   mos << std::setprecision(m_cfg.outputPrecision);
 
   // good/duplicate/fake = 0/1/2
   for (auto& [id, trajState] : infoMap) {
-    if (listGoodTracks.find(id) != listGoodTracks.end()) {
+    if (listGoodTracks.contains(id)) {
       trajState.trackType = "good";
     } else if (trajState.trackType != "fake") {
       trajState.trackType = "duplicate";
@@ -227,3 +207,5 @@ ProcessCode CsvTrackWriter::writeT(const AlgorithmContext& context,
 
   return ProcessCode::SUCCESS;
 }
+
+}  // namespace ActsExamples

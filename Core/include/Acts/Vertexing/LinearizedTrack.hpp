@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -63,14 +63,23 @@ struct LinearizedTrack {
         momentumAtPCA(momentum),
         constantTerm(constTerm) {}
 
+  /// Track parameters at the point of closest approach
   BoundVector parametersAtPCA{BoundVector::Zero()};
+  /// Covariance matrix of track parameters at PCA
   BoundSquareMatrix covarianceAtPCA{BoundSquareMatrix::Zero()};
+  /// Weight matrix (inverse covariance) at PCA
   BoundSquareMatrix weightAtPCA{BoundSquareMatrix::Zero()};
+  /// 4D point where track was linearized for vertex fitting
   Vector4 linearizationPoint{Vector4::Zero()};
+  /// Jacobian of track parameters w.r.t. vertex position
   ActsMatrix<eBoundSize, 4> positionJacobian{ActsMatrix<eBoundSize, 4>::Zero()};
+  /// Jacobian of track parameters w.r.t. track momentum
   ActsMatrix<eBoundSize, 3> momentumJacobian{ActsMatrix<eBoundSize, 3>::Zero()};
+  /// 4D position of track at point of closest approach
   Vector4 positionAtPCA{Vector4::Zero()};
+  /// 3D momentum vector at point of closest approach
   Vector3 momentumAtPCA{Vector3::Zero()};
+  /// Constant term in linearized track equation
   BoundVector constantTerm{BoundVector::Zero()};
 };
 

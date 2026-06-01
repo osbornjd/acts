@@ -140,8 +140,9 @@ def dump_geo(filename, plot, output_folder, dump_steering, steering_file):
                 ]
                 index_to_extends_layers_discs[vol - 1].append(extends)
             else:
+                surface_type = entry["value"]["type"]
                 print(
-                    "WARNING: Processing surface with unknown type. Only CylinderSurface and DiscSurface are considered."
+                    f"WARNING: Processing surface with unknown type '{surface_type}'. Only CylinderSurface and DiscSurface are considered."
                 )
 
         if "boundary" in entry:
@@ -175,8 +176,9 @@ def dump_geo(filename, plot, output_folder, dump_steering, steering_file):
                 ]
                 index_to_extends_layers_bounds_discs[vol - 1].append(extends)
             else:
+                surface_type = entry["value"]["type"]
                 print(
-                    "WARNING: Processing surface with unknown type. Only CylinderSurface and DiscSurface are considered."
+                    f"WARNING: Processing surface with unknown type '{surface_type}'. Only CylinderSurface and DiscSurface are considered."
                 )
 
     # Steering the information and collect it into an output file if needed
@@ -302,7 +304,7 @@ def dump_geo(filename, plot, output_folder, dump_steering, steering_file):
         plt.ylabel("R [mm]")
         plt.title("Volumes and Layers (no approach layers)")
         plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-        plt.savefig(output_folder + "/volumes_and_layers.png")
+        plt.savefig(output_folder + "/volumes_and_layers.png", bbox_inches="tight")
 
         # Plot each volume: layers + approach layers
         v_index = 0
@@ -436,10 +438,12 @@ def dump_geo(filename, plot, output_folder, dump_steering, steering_file):
 
 
 def read_and_modify(filename, plot, output_folder, steering_file, output_file):
-    f = open(filename)
-    layers = open(steering_file)
-    data = json.load(f)
-    full_data = json.load(layers)
+    with open(filename) as f:
+        data = json.load(f)
+
+    with open(steering_file) as f:
+        full_data = json.load(f)
+
     layer_data = full_data["SteeringField"]
 
     index_to_names = []
@@ -547,8 +551,9 @@ def read_and_modify(filename, plot, output_folder, steering_file, output_file):
                                 "passiveDiscBinningPhi"
                             ]
                     else:
+                        surface_type = entry["value"]["type"]
                         print(
-                            "WARNING: Processing surface with unknown type. Only CylinderSurface and DiscSurface are considered."
+                            f"WARNING: Processing surface with unknown type '{surface_type}'. Only CylinderSurface and DiscSurface are considered."
                         )
                     if val["bins"] == 0:
                         print(
@@ -623,8 +628,9 @@ def read_and_modify(filename, plot, output_folder, steering_file, output_file):
                     else:
                         material_layer_discs[vol - 1].append(extends)
                 else:
+                    surface_type = entry["value"]["type"]
                     print(
-                        "WARNING: Processing surface with unknown type. Only CylinderSurface and DiscSurface are considered."
+                        f"WARNING: Processing surface with unknown type '{surface_type}'. Only CylinderSurface and DiscSurface are considered."
                     )
 
             if "boundary" in entry:

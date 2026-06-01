@@ -1,14 +1,16 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021-2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
+#include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Material/MaterialInteraction.hpp"
+#include "ActsExamples/EventData/PropagationSummary.hpp"
 #include "ActsExamples/EventData/SimHit.hpp"
 #include "ActsExamples/EventData/SimParticle.hpp"
 #include "ActsExamples/Framework/DataHandle.hpp"
@@ -21,23 +23,30 @@
 #include "G4Types.hh"
 
 namespace ActsExamples {
-
 class WhiteBoard;
+}
+
+namespace ActsExamples::Geant4 {
 
 /// Common event store for all Geant4 related sub algorithms
 struct EventStore {
  public:
+  /// The geometry context carriyng the current alignment
+  Acts::GeometryContext geoContext{
+      Acts::GeometryContext::dangerouslyDefaultConstruct()};
   /// The current event store
   WhiteBoard* store = nullptr;
 
   /// Use a std::set here because it allows for fast insertion and ensures
   /// uniqueness. Thus particle collisions are detected early.
   using ParticleContainer =
-      std::set<ActsFatras::Particle, ActsExamples::detail::CompareParticleId>;
+      std::set<SimParticle, ActsExamples::detail::CompareParticleId>;
 
-  /// Initial and final particle collections
+  /// Initial particle collection
   ParticleContainer particlesInitial;
-  ParticleContainer particlesFinal;
+
+  /// Simulated particle collection
+  ParticleContainer particlesSimulated;
 
   /// The hits in sensitive detectors
   SimHitContainer::sequence_type hits;
@@ -51,6 +60,9 @@ struct EventStore {
 
   /// Tracks recorded in material mapping
   std::unordered_map<std::size_t, Acts::RecordedMaterialTrack> materialTracks;
+
+  /// Stepping records for step plotting
+  std::unordered_map<G4int, PropagationSummary> propagationRecords;
 
   /// Particle hit count (for hit indexing)
   std::unordered_map<SimBarcode, std::size_t> particleHitCount;
@@ -73,8 +85,7 @@ struct EventStore {
   /// This is done using a pseudo-barcode that contains all fields but not the
   /// subparticle counter. This can be used as key in a map to store the
   /// subparticle information
-  using BarcodeWithoutSubparticle = Acts::MultiIndex<uint64_t, 16, 16, 16, 16>;
-  std::unordered_map<BarcodeWithoutSubparticle, std::size_t> subparticleMap;
+  std::unordered_map<SimBarcode, std::size_t> subparticleMap;
 };
 
-}  // namespace ActsExamples
+}  // namespace ActsExamples::Geant4

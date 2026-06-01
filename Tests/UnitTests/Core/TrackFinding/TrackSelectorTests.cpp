@@ -1,67 +1,127 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/TrackContainer.hpp"
+#include "Acts/EventData/TrackProxyConcept.hpp"
 #include "Acts/EventData/TrackStateType.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
 #include "Acts/EventData/VectorTrackContainer.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "Acts/Surfaces/CurvilinearSurface.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/TrackFinding/TrackSelector.hpp"
+#include "Acts/Utilities/AngleHelpers.hpp"
 
 #include <limits>
+#include <numbers>
 
 using namespace Acts;
 namespace bdata = boost::unit_test::data;
 
 struct MockTrack {
-  double m_theta;
-  double m_phi;
-  double m_pt;
-  double m_loc0;
-  double m_loc1;
-  double m_time;
-  std::size_t m_nMeasurements;
-  std::size_t m_nHoles;
-  std::size_t m_nOutliers;
-  std::size_t m_nSharedHits;
-  float m_chi2;
+  static constexpr bool ReadOnly = true;
+  using Container = VectorTrackContainer;
+  using Trajectory = VectorMultiTrajectory;
+  using IndexType = TrackIndexType;
+
+  MockTrack()
+      : m_parameterBuffer(BoundVector::Zero()),
+        m_covarianceBuffer(BoundSquareMatrix::Identity()) {}
+
+  TrackIndexType index() const { return m_index; }
+  TrackIndexType tipIndex() const { return m_tipIndex; }
+  TrackIndexType stemIndex() const { return m_stemIndex; }
 
   bool hasReferenceSurface() const { return true; }
+  const Surface& referenceSurface() const {
+    static const std::shared_ptr<PlaneSurface> srf =
+        CurvilinearSurface(Vector3::Zero(), Vector3::UnitZ()).planeSurface();
+    return *srf;
+  }
+
+  detail_tpc::ConstParametersMap parameters() const {
+    syncParameterBuffer();
+    return detail_tpc::ConstParametersMap(m_parameterBuffer.data());
+  }
+
+  detail_tpc::ConstCovarianceMap covariance() const {
+    return detail_tpc::ConstCovarianceMap(m_covarianceBuffer.data());
+  }
+
+  ParticleHypothesis particleHypothesis() const {
+    return ParticleHypothesis::pion();
+  }
+
   double theta() const { return m_theta; }
   double phi() const { return m_phi; }
+  double qOverP() const { return m_qOverP; }
+  double absoluteMomentum() const { return m_absMomentum; }
   double transverseMomentum() const { return m_pt; }
+  double charge() const { return std::copysign(1.0, m_qOverP); }
   double loc0() const { return m_loc0; }
   double loc1() const { return m_loc1; }
   double time() const { return m_time; }
-  std::size_t nMeasurements() const { return m_nMeasurements; }
-  std::size_t nHoles() const { return m_nHoles; }
-  std::size_t nOutliers() const { return m_nOutliers; }
-  std::size_t nSharedHits() const { return m_nSharedHits; }
+
+  unsigned int nMeasurements() const { return m_nMeasurements; }
+  unsigned int nHoles() const { return m_nHoles; }
+  unsigned int nOutliers() const { return m_nOutliers; }
+  unsigned int nSharedHits() const { return m_nSharedHits; }
   float chi2() const { return m_chi2; }
+  unsigned int nDoF() const { return m_nDoF; }
+
+  unsigned int nTrackStates() const { return 0u; }
 
   // To comply with concept, not actually used
+  bool hasColumn(HashedString /*key*/) const {
+    throw std::runtime_error("Not implemented");
+  }
+
+  template <typename T, HashedString>
+  const T& component() const {
+    throw std::runtime_error("Not implemented");
+  }
+
+  template <typename T>
+  const T& component(HashedString /*key*/) const {
+    throw std::runtime_error("Not implemented");
+  }
+
+  template <typename T, HashedString>
+  T& component()
+    requires(!ReadOnly)
+  {
+    throw std::runtime_error("Not implemented");
+  }
+
+  template <typename T>
+  T& component(HashedString /*key*/)
+    requires(!ReadOnly)
+  {
+    throw std::runtime_error("Not implemented");
+  }
+
  private:
   struct MockTrackState {
     const Surface& referenceSurface() const {
-      static const auto srf =
-          Surface::makeShared<PlaneSurface>(Vector3::Zero(), Vector3::UnitZ());
+      static const std::shared_ptr<PlaneSurface> srf =
+          CurvilinearSurface(Vector3::Zero(), Vector3::UnitZ()).planeSurface();
       return *srf;
     }
 
-    ConstTrackStateType typeFlags() const {
-      static const ConstTrackStateType::raw_type raw{0};
-      return {raw};
+    ConstTrackStateTypeMap typeFlags() const {
+      static const ConstTrackStateTypeMap::raw_type raw{0};
+      return ConstTrackStateTypeMap{raw};
     }
   };
 
@@ -75,13 +135,44 @@ struct MockTrack {
 
  public:
   TrackStateRange trackStatesReversed() const { return {}; }
+
+  void syncParameterBuffer() const {
+    m_parameterBuffer[eBoundLoc0] = m_loc0;
+    m_parameterBuffer[eBoundLoc1] = m_loc1;
+    m_parameterBuffer[eBoundTime] = m_time;
+    m_parameterBuffer[eBoundPhi] = m_phi;
+    m_parameterBuffer[eBoundTheta] = m_theta;
+    m_parameterBuffer[eBoundQOverP] = m_qOverP;
+  }
+
+  TrackIndexType m_index = 0;
+  TrackIndexType m_tipIndex = 0;
+  TrackIndexType m_stemIndex = 0;
+
+  double m_theta = 0.;
+  double m_phi = 0.;
+  double m_pt = 0.;
+  double m_loc0 = 0.;
+  double m_loc1 = 0.;
+  double m_time = 0.;
+  unsigned int m_nMeasurements = 0;
+  unsigned int m_nHoles = 0;
+  unsigned int m_nOutliers = 0;
+  unsigned int m_nSharedHits = 0;
+  float m_chi2 = 0.F;
+  unsigned int m_nDoF = 0;
+  double m_qOverP = 1.;
+  double m_absMomentum = 1.;
+
+  mutable BoundVector m_parameterBuffer;
+  mutable BoundSquareMatrix m_covarianceBuffer;
 };
 
-double thetaFromEta(double eta) {
-  return 2 * std::atan(std::exp(-eta));
-}
+static_assert(TrackProxyConcept<MockTrack>);
 
-BOOST_AUTO_TEST_SUITE(TrackSelectorTests)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(TrackFindingSuite)
 
 std::vector<double> etaValues{-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5,
                               -1.0, -0.5, 0.0,  0.5,  1.0,  1.5,  2.0,  2.5,
@@ -91,7 +182,7 @@ BOOST_DATA_TEST_CASE(TestSingleBinCase, bdata::make(etaValues), eta) {
   TrackSelector::EtaBinnedConfig cfgBase;
 
   MockTrack baseTrack{};
-  baseTrack.m_theta = thetaFromEta(eta);
+  baseTrack.m_theta = AngleHelpers::thetaFromEta(eta);
   baseTrack.m_phi = 0.5;
   baseTrack.m_pt = 0.5;
   baseTrack.m_loc0 = 0.5;
@@ -200,9 +291,9 @@ BOOST_DATA_TEST_CASE(TestSingleBinCase, bdata::make(etaValues), eta) {
     cfg.cutSets.at(0).etaMin = {-1.0};
     TrackSelector selector{cfg};
     MockTrack track = baseTrack;
-    track.m_theta = thetaFromEta(0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(0.5);
     BOOST_CHECK(selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-1.1);
+    track.m_theta = AngleHelpers::thetaFromEta(-1.1);
     BOOST_CHECK(!selector.isValidTrack(track));
   }
 
@@ -212,9 +303,9 @@ BOOST_DATA_TEST_CASE(TestSingleBinCase, bdata::make(etaValues), eta) {
     cfg.cutSets.at(0).etaMax = {1.0};
     TrackSelector selector{cfg};
     MockTrack track = baseTrack;
-    track.m_theta = thetaFromEta(0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(0.5);
     BOOST_CHECK(selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(1.1);
+    track.m_theta = AngleHelpers::thetaFromEta(1.1);
     BOOST_CHECK(!selector.isValidTrack(track));
   }
 
@@ -225,11 +316,11 @@ BOOST_DATA_TEST_CASE(TestSingleBinCase, bdata::make(etaValues), eta) {
     cfg.cutSets.at(0).etaMax = {1.0};
     TrackSelector selector{cfg};
     MockTrack track = baseTrack;
-    track.m_theta = thetaFromEta(0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(0.5);
     BOOST_CHECK(selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-1.1);
+    track.m_theta = AngleHelpers::thetaFromEta(-1.1);
     BOOST_CHECK(!selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(1.1);
+    track.m_theta = AngleHelpers::thetaFromEta(1.1);
     BOOST_CHECK(!selector.isValidTrack(track));
   }
 
@@ -239,14 +330,14 @@ BOOST_DATA_TEST_CASE(TestSingleBinCase, bdata::make(etaValues), eta) {
     cfg.cutSets.at(0).absEtaMin = {0.2};
     TrackSelector selector{cfg};
     MockTrack track = baseTrack;
-    track.m_theta = thetaFromEta(0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(0.5);
     BOOST_CHECK(selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(-0.5);
     BOOST_CHECK(selector.isValidTrack(track));
 
-    track.m_theta = thetaFromEta(0.1);
+    track.m_theta = AngleHelpers::thetaFromEta(0.1);
     BOOST_CHECK(!selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-0.1);
+    track.m_theta = AngleHelpers::thetaFromEta(-0.1);
     BOOST_CHECK(!selector.isValidTrack(track));
   }
 
@@ -256,14 +347,14 @@ BOOST_DATA_TEST_CASE(TestSingleBinCase, bdata::make(etaValues), eta) {
     cfg.cutSets.at(0).absEtaMax = {1.0};
     TrackSelector selector{cfg};
     MockTrack track = baseTrack;
-    track.m_theta = thetaFromEta(0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(0.5);
     BOOST_CHECK(selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(-0.5);
     BOOST_CHECK(selector.isValidTrack(track));
 
-    track.m_theta = thetaFromEta(1.1);
+    track.m_theta = AngleHelpers::thetaFromEta(1.1);
     BOOST_CHECK(!selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-1.1);
+    track.m_theta = AngleHelpers::thetaFromEta(-1.1);
     BOOST_CHECK(!selector.isValidTrack(track));
   }
 
@@ -274,19 +365,19 @@ BOOST_DATA_TEST_CASE(TestSingleBinCase, bdata::make(etaValues), eta) {
     cfg.cutSets.at(0).absEtaMax = {1.0};
     TrackSelector selector{cfg};
     MockTrack track = baseTrack;
-    track.m_theta = thetaFromEta(0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(0.5);
     BOOST_CHECK(selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-0.5);
+    track.m_theta = AngleHelpers::thetaFromEta(-0.5);
     BOOST_CHECK(selector.isValidTrack(track));
 
-    track.m_theta = thetaFromEta(0.1);
+    track.m_theta = AngleHelpers::thetaFromEta(0.1);
     BOOST_CHECK(!selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-0.1);
+    track.m_theta = AngleHelpers::thetaFromEta(-0.1);
     BOOST_CHECK(!selector.isValidTrack(track));
 
-    track.m_theta = thetaFromEta(1.1);
+    track.m_theta = AngleHelpers::thetaFromEta(1.1);
     BOOST_CHECK(!selector.isValidTrack(track));
-    track.m_theta = thetaFromEta(-1.1);
+    track.m_theta = AngleHelpers::thetaFromEta(-1.1);
     BOOST_CHECK(!selector.isValidTrack(track));
   }
 
@@ -367,27 +458,27 @@ BOOST_AUTO_TEST_CASE(TestSingleBinEtaCutByBinEdge) {
   BOOST_TEST_INFO_SCOPE(selector.config());
 
   MockTrack track{};
-  track.m_theta = thetaFromEta(0.0);
+  track.m_theta = AngleHelpers::thetaFromEta(0.0);
   BOOST_CHECK(!selector.isValidTrack(track));
 
-  track.m_theta = thetaFromEta(0.5);
+  track.m_theta = AngleHelpers::thetaFromEta(0.5);
   BOOST_CHECK(!selector.isValidTrack(track));
 
   // cannot easily check on-edge behavior because of floating point arithmetic
   // (it won't be exactly 1.0 in selector)
-  track.m_theta = thetaFromEta(1.01);
+  track.m_theta = AngleHelpers::thetaFromEta(1.01);
   BOOST_CHECK(selector.isValidTrack(track));
 
-  track.m_theta = thetaFromEta(1.5);
+  track.m_theta = AngleHelpers::thetaFromEta(1.5);
   BOOST_CHECK(selector.isValidTrack(track));
 
-  track.m_theta = thetaFromEta(2.0);
+  track.m_theta = AngleHelpers::thetaFromEta(2.0);
   BOOST_CHECK(!selector.isValidTrack(track));
 }
 
 BOOST_AUTO_TEST_CASE(TestMultiBinCuts) {
   MockTrack baseTrack{};
-  baseTrack.m_theta = thetaFromEta(1.0);
+  baseTrack.m_theta = AngleHelpers::thetaFromEta(1.0);
   baseTrack.m_phi = 0.5;
   baseTrack.m_pt = 0.5;
   baseTrack.m_loc0 = 0.5;
@@ -419,7 +510,7 @@ BOOST_AUTO_TEST_CASE(TestMultiBinCuts) {
       {
         // exactly at zero
         MockTrack track = baseTrack;
-        track.m_theta = thetaFromEta(0.0);
+        track.m_theta = AngleHelpers::thetaFromEta(0.0);
 
         BOOST_CHECK(selector.isValidTrack(track));
 
@@ -433,7 +524,7 @@ BOOST_AUTO_TEST_CASE(TestMultiBinCuts) {
       {
         // first bin
         MockTrack track = baseTrack;
-        track.m_theta = thetaFromEta(1.0);
+        track.m_theta = AngleHelpers::thetaFromEta(1.0);
 
         BOOST_CHECK(selector.isValidTrack(track));
 
@@ -447,8 +538,8 @@ BOOST_AUTO_TEST_CASE(TestMultiBinCuts) {
       {
         // first bin edge
         MockTrack track = baseTrack;
-        track.m_theta =
-            thetaFromEta(2.0 - std::numeric_limits<double>::epsilon());
+        track.m_theta = AngleHelpers::thetaFromEta(
+            2.0 - std::numeric_limits<double>::epsilon());
 
         BOOST_CHECK(selector.isValidTrack(track));
 
@@ -462,7 +553,7 @@ BOOST_AUTO_TEST_CASE(TestMultiBinCuts) {
       {
         // second bin lower edge
         MockTrack track = baseTrack;
-        track.m_theta = thetaFromEta(2.0);
+        track.m_theta = AngleHelpers::thetaFromEta(2.0);
 
         BOOST_CHECK(selector.isValidTrack(track));
 
@@ -482,7 +573,7 @@ BOOST_AUTO_TEST_CASE(TestMultiBinCuts) {
       {
         // second bin
         MockTrack track = baseTrack;
-        track.m_theta = thetaFromEta(666.0);
+        track.m_theta = AngleHelpers::thetaFromEta(10.0);
 
         track.*prop = -1.1;
         BOOST_CHECK(selector.isValidTrack(track));
@@ -607,8 +698,8 @@ BOOST_AUTO_TEST_CASE(TestConstructor) {
 
 BOOST_AUTO_TEST_CASE(SubsetHitCountCut) {
   auto makeSurface = [](GeometryIdentifier id) {
-    auto srf =
-        Surface::makeShared<PlaneSurface>(Vector3::Zero(), Vector3::UnitZ());
+    std::shared_ptr<PlaneSurface> srf =
+        CurvilinearSurface(Vector3::Zero(), Vector3::UnitZ()).planeSurface();
 
     srf->assignGeometryId(id);
     return srf;
@@ -618,16 +709,16 @@ BOOST_AUTO_TEST_CASE(SubsetHitCountCut) {
                           TrackStateFlag flag) {
     auto ts = track.appendTrackState();
     ts.setReferenceSurface(surface);
-    ts.typeFlags().set(flag);
+    ts.typeFlags().setUnchecked(flag);
     return ts;
   };
 
   auto addMeasurement = [&](auto& track, const auto& surface) {
-    return addTrackState(track, surface, TrackStateFlag::MeasurementFlag);
+    return addTrackState(track, surface, TrackStateFlag::HasMeasurement);
   };
 
   auto addMaterial = [&](auto& track, const auto& surface) {
-    return addTrackState(track, surface, TrackStateFlag::MaterialFlag);
+    return addTrackState(track, surface, TrackStateFlag::HasMaterial);
   };
 
   TrackContainer tc{VectorTrackContainer{}, VectorMultiTrajectory{}};
@@ -636,33 +727,35 @@ BOOST_AUTO_TEST_CASE(SubsetHitCountCut) {
     auto track = tc.makeTrack();
 
     using namespace Acts::UnitLiterals;
-    track.parameters() << 0, 0, M_PI / 2, M_PI / 2, 1 / 1_GeV, 0;
+    track.parameters() << 0, 0, std::numbers::pi / 2., std::numbers::pi / 2.,
+        1 / 1_GeV, 0;
     auto perigee = Surface::makeShared<PerigeeSurface>(Vector3::Zero());
     track.setReferenceSurface(perigee);
     return track;
   };
 
   auto vol7_lay3_sen2 = makeSurface(
-      GeometryIdentifier{}.setVolume(7).setLayer(3).setSensitive(2));
-  auto vol7_lay4 = makeSurface(GeometryIdentifier{}.setVolume(7).setLayer(4));
+      GeometryIdentifier{}.withVolume(7).withLayer(3).withSensitive(2));
+  auto vol7_lay4 = makeSurface(GeometryIdentifier{}.withVolume(7).withLayer(4));
   auto vol7_lay3_sen8 = makeSurface(
-      GeometryIdentifier{}.setVolume(7).setLayer(3).setSensitive(8));
+      GeometryIdentifier{}.withVolume(7).withLayer(3).withSensitive(8));
   auto vol7_lay5_sen11 = makeSurface(
-      GeometryIdentifier{}.setVolume(7).setLayer(5).setSensitive(11));
+      GeometryIdentifier{}.withVolume(7).withLayer(5).withSensitive(11));
   auto vol7_lay5_sen12 = makeSurface(
-      GeometryIdentifier{}.setVolume(7).setLayer(5).setSensitive(12));
+      GeometryIdentifier{}.withVolume(7).withLayer(5).withSensitive(12));
   auto vol7_lay6_sen3 = makeSurface(
-      GeometryIdentifier{}.setVolume(7).setLayer(6).setSensitive(3));
+      GeometryIdentifier{}.withVolume(7).withLayer(6).withSensitive(3));
 
   auto vol8_lay8_sen1 = makeSurface(
-      GeometryIdentifier{}.setVolume(8).setLayer(8).setSensitive(1));
+      GeometryIdentifier{}.withVolume(8).withLayer(8).withSensitive(1));
   auto vol8_lay8_sen2 = makeSurface(
-      GeometryIdentifier{}.setVolume(8).setLayer(8).setSensitive(2));
+      GeometryIdentifier{}.withVolume(8).withLayer(8).withSensitive(2));
   auto vol8_lay9_sen1 = makeSurface(
-      GeometryIdentifier{}.setVolume(8).setLayer(9).setSensitive(1));
+      GeometryIdentifier{}.withVolume(8).withLayer(9).withSensitive(1));
 
   TrackSelector::Config cfgVol7;
-  cfgVol7.measurementCounter.addCounter({GeometryIdentifier{}.setVolume(7)}, 3);
+  cfgVol7.measurementCounter.addCounter({GeometryIdentifier{}.withVolume(7)},
+                                        3);
   TrackSelector selectorVol7{cfgVol7};
 
   auto trackVol7 = makeTrack();
@@ -682,7 +775,8 @@ BOOST_AUTO_TEST_CASE(SubsetHitCountCut) {
   BOOST_CHECK(selectorVol7.isValidTrack(trackVol7));
 
   TrackSelector::Config cfgVol8;
-  cfgVol8.measurementCounter.addCounter({GeometryIdentifier{}.setVolume(8)}, 2);
+  cfgVol8.measurementCounter.addCounter({GeometryIdentifier{}.withVolume(8)},
+                                        2);
   TrackSelector selectorVol8{cfgVol8};
 
   // Previous trackVol7 has no measurements in volume 8
@@ -700,7 +794,7 @@ BOOST_AUTO_TEST_CASE(SubsetHitCountCut) {
 
   TrackSelector::Config cfgVol7Lay5;
   cfgVol7Lay5.measurementCounter.addCounter(
-      {GeometryIdentifier{}.setVolume(7).setLayer(5)}, 2);
+      {GeometryIdentifier{}.withVolume(7).withLayer(5)}, 2);
   TrackSelector selectorVol7Lay5{cfgVol7Lay5};
 
   // Only one hit on volume 7 layer 5
@@ -711,7 +805,7 @@ BOOST_AUTO_TEST_CASE(SubsetHitCountCut) {
   // Check requirement on volume 7 OR 8
   TrackSelector::Config cfgVol7Or8;
   cfgVol7Or8.measurementCounter.addCounter(
-      {GeometryIdentifier{}.setVolume(7), GeometryIdentifier{}.setVolume(8)},
+      {GeometryIdentifier{}.withVolume(7), GeometryIdentifier{}.withVolume(8)},
       4);
   TrackSelector selectorVol7Or8{cfgVol7Or8};
 
@@ -727,10 +821,10 @@ BOOST_AUTO_TEST_CASE(SubsetHitCountCut) {
   BOOST_CHECK(selectorVol7Or8.isValidTrack(trackVol8));
 
   TrackSelector::Config cfgVol7And8;
-  cfgVol7And8.measurementCounter.addCounter({GeometryIdentifier{}.setVolume(7)},
-                                            4);
-  cfgVol7And8.measurementCounter.addCounter({GeometryIdentifier{}.setVolume(8)},
-                                            2);
+  cfgVol7And8.measurementCounter.addCounter(
+      {GeometryIdentifier{}.withVolume(7)}, 4);
+  cfgVol7And8.measurementCounter.addCounter(
+      {GeometryIdentifier{}.withVolume(8)}, 2);
   TrackSelector selectorVol7And8{cfgVol7And8};
 
   // this track has enough hits in vol 7 but not enough in vol 8
@@ -743,3 +837,5 @@ BOOST_AUTO_TEST_CASE(SubsetHitCountCut) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

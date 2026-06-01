@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/Io/Root/RootTrackSummaryReader.hpp"
 
@@ -31,7 +31,7 @@ RootTrackSummaryReader::RootTrackSummaryReader(
     : IReader(),
       m_logger{Acts::getDefaultLogger(name(), level)},
       m_cfg(config) {
-  m_inputChain = new TChain(m_cfg.treeName.c_str());
+  m_inputChain = std::make_unique<TChain>(m_cfg.treeName.c_str());
 
   if (m_cfg.filePath.empty()) {
     throw std::invalid_argument("Missing input filename");
@@ -42,51 +42,74 @@ RootTrackSummaryReader::RootTrackSummaryReader(
 
   // Set the branches
   m_inputChain->SetBranchAddress("event_nr", &m_eventNr);
-  m_inputChain->SetBranchAddress("multiTraj_nr", &m_multiTrajNr);
-  m_inputChain->SetBranchAddress("subTraj_nr", &m_subTrajNr);
+  m_inputChain->SetBranchAddress("multiTraj_nr", &m_multiTrajNr.get());
+  m_inputChain->SetBranchAddress("subTraj_nr", &m_subTrajNr.get());
 
   // These info is not really stored in the event store, but still read in
-  m_inputChain->SetBranchAddress("nStates", &m_nStates);
-  m_inputChain->SetBranchAddress("nMeasurements", &m_nMeasurements);
-  m_inputChain->SetBranchAddress("nOutliers", &m_nOutliers);
-  m_inputChain->SetBranchAddress("nHoles", &m_nHoles);
-  m_inputChain->SetBranchAddress("chi2Sum", &m_chi2Sum);
-  m_inputChain->SetBranchAddress("NDF", &m_NDF);
-  m_inputChain->SetBranchAddress("measurementChi2", &m_measurementChi2);
-  m_inputChain->SetBranchAddress("outlierChi2", &m_outlierChi2);
-  m_inputChain->SetBranchAddress("measurementVolume", &m_measurementVolume);
-  m_inputChain->SetBranchAddress("measurementLayer", &m_measurementLayer);
-  m_inputChain->SetBranchAddress("outlierVolume", &m_outlierVolume);
-  m_inputChain->SetBranchAddress("outlierLayer", &m_outlierLayer);
+  m_inputChain->SetBranchAddress("nStates", &m_nStates.get());
+  m_inputChain->SetBranchAddress("nMeasurements", &m_nMeasurements.get());
+  m_inputChain->SetBranchAddress("nOutliers", &m_nOutliers.get());
+  m_inputChain->SetBranchAddress("nHoles", &m_nHoles.get());
+  m_inputChain->SetBranchAddress("chi2Sum", &m_chi2Sum.get());
+  m_inputChain->SetBranchAddress("NDF", &m_NDF.get());
+  m_inputChain->SetBranchAddress("measurementChi2", &m_measurementChi2.get());
+  m_inputChain->SetBranchAddress("outlierChi2", &m_outlierChi2.get());
+  m_inputChain->SetBranchAddress("measurementVolume",
+                                 &m_measurementVolume.get());
+  m_inputChain->SetBranchAddress("measurementLayer", &m_measurementLayer.get());
+  m_inputChain->SetBranchAddress("outlierVolume", &m_outlierVolume.get());
+  m_inputChain->SetBranchAddress("outlierLayer", &m_outlierLayer.get());
 
-  m_inputChain->SetBranchAddress("majorityParticleId", &m_majorityParticleId);
-  m_inputChain->SetBranchAddress("nMajorityHits", &m_nMajorityHits);
-  m_inputChain->SetBranchAddress("t_charge", &m_t_charge);
-  m_inputChain->SetBranchAddress("t_time", &m_t_time);
-  m_inputChain->SetBranchAddress("t_vx", &m_t_vx);
-  m_inputChain->SetBranchAddress("t_vy", &m_t_vy);
-  m_inputChain->SetBranchAddress("t_vz", &m_t_vz);
-  m_inputChain->SetBranchAddress("t_px", &m_t_px);
-  m_inputChain->SetBranchAddress("t_py", &m_t_py);
-  m_inputChain->SetBranchAddress("t_pz", &m_t_pz);
-  m_inputChain->SetBranchAddress("t_theta", &m_t_theta);
-  m_inputChain->SetBranchAddress("t_phi", &m_t_phi);
-  m_inputChain->SetBranchAddress("t_eta", &m_t_eta);
-  m_inputChain->SetBranchAddress("t_pT", &m_t_pT);
+  if (m_inputChain->GetBranch("majorityParticleId") != nullptr) {
+    m_hasCombinedMajorityParticleId = true;
+    m_majorityParticleId.allocate();
+    m_inputChain->SetBranchAddress("majorityParticleId",
+                                   &m_majorityParticleId.get());
+  } else {
+    m_hasCombinedMajorityParticleId = false;
+    m_majorityParticleVertexPrimary.allocate();
+    m_majorityParticleVertexSecondary.allocate();
+    m_majorityParticleParticle.allocate();
+    m_majorityParticleGeneration.allocate();
+    m_majorityParticleSubParticle.allocate();
+    m_inputChain->SetBranchAddress("majorityParticleId_vertex_primary",
+                                   &m_majorityParticleVertexPrimary.get());
+    m_inputChain->SetBranchAddress("majorityParticleId_vertex_secondary",
+                                   &m_majorityParticleVertexSecondary.get());
+    m_inputChain->SetBranchAddress("majorityParticleId_particle",
+                                   &m_majorityParticleParticle.get());
+    m_inputChain->SetBranchAddress("majorityParticleId_generation",
+                                   &m_majorityParticleGeneration.get());
+    m_inputChain->SetBranchAddress("majorityParticleId_sub_particle",
+                                   &m_majorityParticleSubParticle.get());
+  }
+  m_inputChain->SetBranchAddress("nMajorityHits", &m_nMajorityHits.get());
+  m_inputChain->SetBranchAddress("t_charge", &m_t_charge.get());
+  m_inputChain->SetBranchAddress("t_time", &m_t_time.get());
+  m_inputChain->SetBranchAddress("t_vx", &m_t_vx.get());
+  m_inputChain->SetBranchAddress("t_vy", &m_t_vy.get());
+  m_inputChain->SetBranchAddress("t_vz", &m_t_vz.get());
+  m_inputChain->SetBranchAddress("t_px", &m_t_px.get());
+  m_inputChain->SetBranchAddress("t_py", &m_t_py.get());
+  m_inputChain->SetBranchAddress("t_pz", &m_t_pz.get());
+  m_inputChain->SetBranchAddress("t_theta", &m_t_theta.get());
+  m_inputChain->SetBranchAddress("t_phi", &m_t_phi.get());
+  m_inputChain->SetBranchAddress("t_eta", &m_t_eta.get());
+  m_inputChain->SetBranchAddress("t_pT", &m_t_pT.get());
 
-  m_inputChain->SetBranchAddress("hasFittedParams", &m_hasFittedParams);
-  m_inputChain->SetBranchAddress("eLOC0_fit", &m_eLOC0_fit);
-  m_inputChain->SetBranchAddress("eLOC1_fit", &m_eLOC1_fit);
-  m_inputChain->SetBranchAddress("ePHI_fit", &m_ePHI_fit);
-  m_inputChain->SetBranchAddress("eTHETA_fit", &m_eTHETA_fit);
-  m_inputChain->SetBranchAddress("eQOP_fit", &m_eQOP_fit);
-  m_inputChain->SetBranchAddress("eT_fit", &m_eT_fit);
-  m_inputChain->SetBranchAddress("err_eLOC0_fit", &m_err_eLOC0_fit);
-  m_inputChain->SetBranchAddress("err_eLOC1_fit", &m_err_eLOC1_fit);
-  m_inputChain->SetBranchAddress("err_ePHI_fit", &m_err_ePHI_fit);
-  m_inputChain->SetBranchAddress("err_eTHETA_fit", &m_err_eTHETA_fit);
-  m_inputChain->SetBranchAddress("err_eQOP_fit", &m_err_eQOP_fit);
-  m_inputChain->SetBranchAddress("err_eT_fit", &m_err_eT_fit);
+  m_inputChain->SetBranchAddress("hasFittedParams", &m_hasFittedParams.get());
+  m_inputChain->SetBranchAddress("eLOC0_fit", &m_eLOC0_fit.get());
+  m_inputChain->SetBranchAddress("eLOC1_fit", &m_eLOC1_fit.get());
+  m_inputChain->SetBranchAddress("ePHI_fit", &m_ePHI_fit.get());
+  m_inputChain->SetBranchAddress("eTHETA_fit", &m_eTHETA_fit.get());
+  m_inputChain->SetBranchAddress("eQOP_fit", &m_eQOP_fit.get());
+  m_inputChain->SetBranchAddress("eT_fit", &m_eT_fit.get());
+  m_inputChain->SetBranchAddress("err_eLOC0_fit", &m_err_eLOC0_fit.get());
+  m_inputChain->SetBranchAddress("err_eLOC1_fit", &m_err_eLOC1_fit.get());
+  m_inputChain->SetBranchAddress("err_ePHI_fit", &m_err_ePHI_fit.get());
+  m_inputChain->SetBranchAddress("err_eTHETA_fit", &m_err_eTHETA_fit.get());
+  m_inputChain->SetBranchAddress("err_eQOP_fit", &m_err_eQOP_fit.get());
+  m_inputChain->SetBranchAddress("err_eT_fit", &m_err_eT_fit.get());
 
   auto path = m_cfg.filePath;
 
@@ -99,6 +122,10 @@ RootTrackSummaryReader::RootTrackSummaryReader(
 
   // Sort the entry numbers of the events
   {
+    // necessary to guarantee that m_inputChain->GetV1() is valid for the
+    // entire range
+    m_inputChain->SetEstimate(m_events + 1);
+
     m_entryNumbers.resize(m_events);
     m_inputChain->Draw("event_nr", "", "goff");
     RootUtility::stableSort(m_inputChain->GetEntries(), m_inputChain->GetV1(),
@@ -109,50 +136,6 @@ RootTrackSummaryReader::RootTrackSummaryReader(
 std::pair<std::size_t, std::size_t> RootTrackSummaryReader::availableEvents()
     const {
   return {0u, m_events};
-}
-
-RootTrackSummaryReader::~RootTrackSummaryReader() {
-  delete m_multiTrajNr;
-  delete m_subTrajNr;
-  delete m_nStates;
-  delete m_nMeasurements;
-  delete m_nOutliers;
-  delete m_nHoles;
-  delete m_chi2Sum;
-  delete m_NDF;
-  delete m_measurementChi2;
-  delete m_outlierChi2;
-  delete m_measurementVolume;
-  delete m_measurementLayer;
-  delete m_outlierVolume;
-  delete m_outlierLayer;
-  delete m_majorityParticleId;
-  delete m_nMajorityHits;
-  delete m_t_charge;
-  delete m_t_time;
-  delete m_t_vx;
-  delete m_t_vy;
-  delete m_t_vz;
-  delete m_t_px;
-  delete m_t_py;
-  delete m_t_pz;
-  delete m_t_theta;
-  delete m_t_phi;
-  delete m_t_pT;
-  delete m_t_eta;
-  delete m_hasFittedParams;
-  delete m_eLOC0_fit;
-  delete m_eLOC1_fit;
-  delete m_ePHI_fit;
-  delete m_eTHETA_fit;
-  delete m_eQOP_fit;
-  delete m_eT_fit;
-  delete m_err_eLOC0_fit;
-  delete m_err_eLOC1_fit;
-  delete m_err_ePHI_fit;
-  delete m_err_eTHETA_fit;
-  delete m_err_eQOP_fit;
-  delete m_err_eT_fit;
 }
 
 ProcessCode RootTrackSummaryReader::read(const AlgorithmContext& context) {
@@ -208,15 +191,46 @@ ProcessCode RootTrackSummaryReader::read(const AlgorithmContext& context) {
 
     unsigned int nTruthParticles = m_t_vx->size();
     for (unsigned int i = 0; i < nTruthParticles; i++) {
-      ActsFatras::Particle truthParticle;
+      SimParticleState truthParticle;
 
       truthParticle.setPosition4((*m_t_vx)[i], (*m_t_vy)[i], (*m_t_vz)[i],
                                  (*m_t_time)[i]);
       truthParticle.setDirection((*m_t_px)[i], (*m_t_py)[i], (*m_t_pz)[i]);
-      truthParticle.setParticleId((*m_majorityParticleId)[i]);
+      auto makeBarcode = [](std::uint32_t vp, std::uint32_t vs,
+                            std::uint32_t particle, std::uint32_t generation,
+                            std::uint32_t subParticle) {
+        SimBarcode barcode = SimBarcode::Invalid();
+        return barcode
+            .withVertexPrimary(static_cast<SimBarcode::PrimaryVertexId>(vp))
+            .withVertexSecondary(static_cast<SimBarcode::SecondaryVertexId>(vs))
+            .withParticle(static_cast<SimBarcode::ParticleId>(particle))
+            .withGeneration(static_cast<SimBarcode::GenerationId>(generation))
+            .withSubParticle(
+                static_cast<SimBarcode::SubParticleId>(subParticle));
+      };
+
+      SimBarcode barcode = SimBarcode::Invalid();
+      if (m_hasCombinedMajorityParticleId && m_majorityParticleId.hasValue()) {
+        const auto& components = (*m_majorityParticleId)[i];
+        auto comp = [&](std::size_t idx) -> std::uint32_t {
+          return (components.size() > idx) ? components[idx] : 0u;
+        };
+        barcode = makeBarcode(comp(0), comp(1), comp(2), comp(3), comp(4));
+      } else {
+        auto safeAt = [](const auto& branch, std::size_t idx) -> std::uint32_t {
+          const auto* vec = branch.get();
+          return (vec != nullptr && vec->size() > idx) ? vec->at(idx) : 0u;
+        };
+        barcode = makeBarcode(safeAt(m_majorityParticleVertexPrimary, i),
+                              safeAt(m_majorityParticleVertexSecondary, i),
+                              safeAt(m_majorityParticleParticle, i),
+                              safeAt(m_majorityParticleGeneration, i),
+                              safeAt(m_majorityParticleSubParticle, i));
+      }
+      truthParticle.setParticleId(barcode);
 
       truthParticleCollection.insert(truthParticleCollection.end(),
-                                     truthParticle);
+                                     SimParticle(truthParticle, truthParticle));
     }
     // Write the collections to the EventStore
     m_outputTrackParameters(context, std::move(trackParameterCollection));

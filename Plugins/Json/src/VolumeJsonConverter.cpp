@@ -1,16 +1,16 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/Json/VolumeJsonConverter.hpp"
+#include "ActsPlugins/Json/VolumeJsonConverter.hpp"
 
 #include "Acts/Geometry/TrackingVolume.hpp"
-#include "Acts/Plugins/Json/GeometryJsonKeys.hpp"
-#include "Acts/Plugins/Json/MaterialJsonConverter.hpp"
+#include "ActsPlugins/Json/GeometryJsonKeys.hpp"
+#include "ActsPlugins/Json/MaterialJsonConverter.hpp"
 
 void Acts::to_json(
     nlohmann::json& j,

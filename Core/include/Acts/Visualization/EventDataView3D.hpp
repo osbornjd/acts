@@ -1,24 +1,19 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
-#include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/Polyhedron.hpp"
-#include "Acts/Surfaces/CylinderBounds.hpp"
-#include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Surfaces/detail/FacesHelper.hpp"
-#include "Acts/Utilities/UnitVectors.hpp"
 #include "Acts/Visualization/GeometryView3D.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
 #include "Acts/Visualization/ViewConfig.hpp"
@@ -26,17 +21,17 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <optional>
+#include <numbers>
 #include <vector>
 
 namespace Acts {
 class IVisualization3D;
 
-static ViewConfig s_viewParameter = ViewConfig({0, 0, 255});
-static ViewConfig s_viewMeasurement = ViewConfig({255, 102, 0});
-static ViewConfig s_viewPredicted = ViewConfig({51, 204, 51});
-static ViewConfig s_viewFiltered = ViewConfig({255, 255, 0});
-static ViewConfig s_viewSmoothed = ViewConfig({0, 102, 255});
+static ViewConfig s_viewParameter = {.color = {0, 0, 255}};
+static ViewConfig s_viewMeasurement = {.color = {255, 102, 0}};
+static ViewConfig s_viewPredicted = {.color = {51, 204, 51}};
+static ViewConfig s_viewFiltered = {.color = {255, 255, 0}};
+static ViewConfig s_viewSmoothed = {.color = {0, 102, 25}};
 
 struct EventDataView3D {
   /// Helper to find the eigen values and corr angle
@@ -54,7 +49,7 @@ struct EventDataView3D {
     // Calculate the eigen values w.r.t reference frame
     double lambda0 = (c00 + c11) / 2. + std::sqrt(cdsq + cosq);
     double lambda1 = (c00 + c11) / 2. - std::sqrt(cdsq + cosq);
-    double theta = atan2(lambda0 - c00, c01);
+    double theta = std::atan2(lambda0 - c00, c01);
 
     return {lambda0, lambda1, theta};
   }
@@ -81,9 +76,9 @@ struct EventDataView3D {
     // Now generate the ellipse points
     std::vector<Vector3> ellipse;
     ellipse.reserve(lseg);
-    double thetaStep = 2 * M_PI / lseg;
+    double thetaStep = 2 * std::numbers::pi / lseg;
     for (std::size_t it = 0; it < lseg; ++it) {
-      double phi = -M_PI + it * thetaStep;
+      double phi = -std::numbers::pi + it * thetaStep;
       double cphi = std::cos(phi);
       double sphi = std::sin(phi);
       double x = lposition.x() + (l1sq * ctheta * cphi - l2sq * stheta * sphi);
@@ -135,7 +130,8 @@ struct EventDataView3D {
   template <typename parameters_t>
   static inline void drawBoundTrackParameters(
       IVisualization3D& helper, const parameters_t& parameters,
-      const GeometryContext& gctx = GeometryContext(),
+      const GeometryContext& gctx =
+          GeometryContext::dangerouslyDefaultConstruct(),
       double momentumScale = 1., double locErrorScale = 1.,
       double angularErrorScale = 1.,
       const ViewConfig& parConfig = s_viewParameter,
@@ -167,10 +163,10 @@ struct EventDataView3D {
 
       // Draw the local covariance
       const auto& covariance = *parameters.covariance();
-      drawCovarianceCartesian(helper, lposition,
-                              covariance.template block<2, 2>(0, 0),
-                              parameters.referenceSurface().transform(gctx),
-                              locErrorScale, covConfig);
+      drawCovarianceCartesian(
+          helper, lposition, covariance.template block<2, 2>(0, 0),
+          parameters.referenceSurface().localToGlobalTransform(gctx),
+          locErrorScale, covConfig);
 
       drawCovarianceAngular(
           helper, position, direction, covariance.template block<2, 2>(2, 2),
@@ -223,7 +219,8 @@ struct EventDataView3D {
   static void drawMultiTrajectory(
       IVisualization3D& helper, const traj_t& multiTraj,
       const std::size_t& entryIndex,
-      const GeometryContext& gctx = GeometryContext(),
+      const GeometryContext& gctx =
+          GeometryContext::dangerouslyDefaultConstruct(),
       double momentumScale = 1., double locErrorScale = 1.,
       double angularErrorScale = 1.,
       const ViewConfig& surfaceConfig = s_viewSensitive,
@@ -239,7 +236,7 @@ struct EventDataView3D {
     // Visit the track states on the trajectory
     multiTraj.visitBackwards(entryIndex, [&](const auto& state) {
       // Only draw the measurement states
-      if (!state.typeFlags().test(Acts::TrackStateFlag::MeasurementFlag)) {
+      if (!state.typeFlags().hasMeasurement()) {
         return true;
       }
 
@@ -264,8 +261,8 @@ struct EventDataView3D {
         const SquareMatrix2 covariance =
             state.template calibratedCovariance<2>();
         drawMeasurement(helper, lposition, covariance,
-                        state.referenceSurface().transform(gctx), locErrorScale,
-                        measurementConfig);
+                        state.referenceSurface().localToGlobalTransform(gctx),
+                        locErrorScale, measurementConfig);
       }
 
       // Last, if necessary and present, draw the track parameters
@@ -277,7 +274,7 @@ struct EventDataView3D {
                                  state.predicted(), state.predictedCovariance(),
                                  particleHypothesis),
             gctx, momentumScale, locErrorScale, angularErrorScale,
-            predictedConfig, predictedConfig, ViewConfig(false));
+            predictedConfig, predictedConfig, {.visible = false});
       }
       // (b) filtered track parameters
       if (filteredConfig.visible && state.hasFiltered()) {
@@ -287,7 +284,7 @@ struct EventDataView3D {
                                  state.filtered(), state.filteredCovariance(),
                                  particleHypothesis),
             gctx, momentumScale, locErrorScale, angularErrorScale,
-            filteredConfig, filteredConfig, ViewConfig(false));
+            filteredConfig, filteredConfig, {.visible = false});
       }
       // (c) smoothed track parameters
       if (smoothedConfig.visible && state.hasSmoothed()) {
@@ -297,7 +294,7 @@ struct EventDataView3D {
                                  state.smoothed(), state.smoothedCovariance(),
                                  particleHypothesis),
             gctx, momentumScale, locErrorScale, angularErrorScale,
-            smoothedConfig, smoothedConfig, ViewConfig(false));
+            smoothedConfig, smoothedConfig, {.visible = false});
       }
       return true;
     });

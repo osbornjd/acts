@@ -1,14 +1,12 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
-
-#include <boost/test/data/test_case.hpp>
 
 #include "Acts/Definitions/PdgParticle.hpp"
 #include "Acts/Definitions/Units.hpp"
@@ -19,7 +17,7 @@ namespace Dataset {
 using namespace Acts::UnitLiterals;
 
 ActsFatras::Particle makeParticle(Acts::PdgParticle pdg, double z, double eta) {
-  const auto id = ActsFatras::Barcode().setVertexPrimary(1).setParticle(1);
+  const auto id = ActsFatras::Barcode().withVertexPrimary(1).withParticle(1);
   return ActsFatras::Particle(id, pdg)
       .setPosition4(0.0, 0.0, z, 0.0)
       .setDirection(1.0 / std::cosh(eta), 0.0, std::tanh(eta))

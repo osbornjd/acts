@@ -1,70 +1,27 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#pragma once
+
+#include "Acts/Clusterization/Clusterization.hpp"
+
+#include <algorithm>
 #include <array>
+#include <ranges>
 #include <vector>
 
-#include <boost/pending/disjoint_sets.hpp>
+namespace Acts::Ccl {
 
-namespace Acts::Ccl::internal {
-
-// Machinery for validating generic Cell/Cluster types at compile-time
-
-template <typename, std::size_t, typename T = void>
-struct cellTypeHasRequiredFunctions : std::false_type {};
-
-template <typename T>
-struct cellTypeHasRequiredFunctions<
-    T, 2,
-    std::void_t<decltype(getCellRow(std::declval<T>())),
-                decltype(getCellColumn(std::declval<T>())),
-                decltype(getCellLabel(std::declval<T&>()))>> : std::true_type {
-};
-
-template <typename T>
-struct cellTypeHasRequiredFunctions<
-    T, 1,
-    std::void_t<decltype(getCellColumn(std::declval<T>())),
-                decltype(getCellLabel(std::declval<T&>()))>> : std::true_type {
-};
-
-template <typename, typename, typename T = void>
-struct clusterTypeHasRequiredFunctions : std::false_type {};
-
-template <typename T, typename U>
-struct clusterTypeHasRequiredFunctions<
-    T, U,
-    std::void_t<decltype(clusterAddCell(std::declval<T>(), std::declval<U>()))>>
-    : std::true_type {};
-
-template <std::size_t GridDim>
-constexpr void staticCheckGridDim() {
-  static_assert(
-      GridDim == 1 || GridDim == 2,
-      "mergeClusters is only defined for grid dimensions of 1 or 2. ");
-}
-
-template <typename T, std::size_t GridDim>
-constexpr void staticCheckCellType() {
-  constexpr bool hasFns = cellTypeHasRequiredFunctions<T, GridDim>();
-  static_assert(hasFns,
-                "Cell type should have the following functions: "
-                "'int getCellRow(const Cell&)', "
-                "'int getCellColumn(const Cell&)', "
-                "'Label& getCellLabel(Cell&)'");
-}
-
-template <typename T, typename U>
-constexpr void staticCheckClusterType() {
-  constexpr bool hasFns = clusterTypeHasRequiredFunctions<T, U>();
-  static_assert(hasFns,
-                "Cluster type should have the following function: "
-                "'void clusterAddCell(Cluster&, const Cell&)'");
+template <typename Cluster>
+void reserve(Cluster& cl, std::size_t n) {
+  if constexpr (Acts::Ccl::CanReserve<Cluster>) {
+    clusterReserve(cl, n);
+  }
 }
 
 template <typename Cell, std::size_t GridDim>
@@ -74,8 +31,20 @@ struct Compare {
 };
 
 // Comparator function object for cells, column-wise ordering
+// Specialization for 1-D grids
+template <Acts::Ccl::HasRetrievableColumnInfo Cell>
+struct Compare<Cell, 1> {
+  bool operator()(const Cell& c0, const Cell& c1) const {
+    int col0 = getCellColumn(c0);
+    int col1 = getCellColumn(c1);
+    return col0 < col1;
+  }
+};
+
 // Specialization for 2-D grid
 template <typename Cell>
+  requires(Acts::Ccl::HasRetrievableColumnInfo<Cell> &&
+           Acts::Ccl::HasRetrievableRowInfo<Cell>)
 struct Compare<Cell, 2> {
   bool operator()(const Cell& c0, const Cell& c1) const {
     int row0 = getCellRow(c0);
@@ -86,57 +55,11 @@ struct Compare<Cell, 2> {
   }
 };
 
-// Specialization for 1-D grids
-template <typename Cell>
-struct Compare<Cell, 1> {
-  bool operator()(const Cell& c0, const Cell& c1) const {
-    int col0 = getCellColumn(c0);
-    int col1 = getCellColumn(c1);
-    return col0 < col1;
-  }
-};
-
-// Simple wrapper around boost::disjoint_sets. In theory, could use
-// boost::vector_property_map and use boost::disjoint_sets without
-// wrapping, but it's way slower
-class DisjointSets {
- public:
-  explicit DisjointSets(std::size_t initial_size = 128)
-      : m_size(initial_size),
-        m_rank(m_size),
-        m_parent(m_size),
-        m_ds(&m_rank[0], &m_parent[0]) {}
-
-  Label makeSet() {
-    // Empirically, m_size = 128 seems to be good default. If we
-    // exceed this, take a performance hit and do the right thing.
-    while (m_globalId >= m_size) {
-      m_size *= 2;
-      m_rank.resize(m_size);
-      m_parent.resize(m_size);
-      m_ds = boost::disjoint_sets<std::size_t*, std::size_t*>(&m_rank[0],
-                                                              &m_parent[0]);
-    }
-    m_ds.make_set(m_globalId);
-    return static_cast<Label>(m_globalId++);
-  }
-
-  void unionSet(std::size_t x, std::size_t y) { m_ds.union_set(x, y); }
-  Label findSet(std::size_t x) { return static_cast<Label>(m_ds.find_set(x)); }
-
- private:
-  std::size_t m_globalId = 1;
-  std::size_t m_size;
-  std::vector<std::size_t> m_rank;
-  std::vector<std::size_t> m_parent;
-  boost::disjoint_sets<std::size_t*, std::size_t*> m_ds;
-};
-
 template <std::size_t BufSize>
 struct ConnectionsBase {
   std::size_t nconn{0};
   std::array<Label, BufSize> buf;
-  ConnectionsBase() { std::fill(buf.begin(), buf.end(), NO_LABEL); }
+  ConnectionsBase() { std::ranges::fill(buf, NO_LABEL); }
 };
 
 template <std::size_t GridDim>
@@ -156,15 +79,19 @@ struct Connections<2> : public ConnectionsBase<4> {
 
 // Cell collection logic
 template <typename Cell, typename Connect, std::size_t GridDim>
-Connections<GridDim> getConnections(typename std::vector<Cell>::iterator it,
-                                    std::vector<Cell>& set, Connect connect) {
+Connections<GridDim> getConnections(std::size_t idx, std::vector<Cell>& cells,
+                                    std::vector<Label>& labels,
+                                    Connect&& connect) {
   Connections<GridDim> seen;
-  typename std::vector<Cell>::iterator it_2{it};
 
-  while (it_2 != set.begin()) {
-    it_2 = std::prev(it_2);
+  for (std::size_t i = 0; i < idx; ++i) {
+    std::size_t idx2 = idx - i - 1;
+    ConnectResult cr = connect(cells[idx], cells[idx2]);
 
-    ConnectResult cr = connect(*it, *it_2);
+    if (cr == ConnectResult::eDuplicate) {
+      throw std::invalid_argument(
+          "Clusterization: input contains duplicate cells");
+    }
     if (cr == ConnectResult::eNoConnStop) {
       break;
     }
@@ -172,80 +99,108 @@ Connections<GridDim> getConnections(typename std::vector<Cell>::iterator it,
       continue;
     }
     if (cr == ConnectResult::eConn) {
-      seen.buf[seen.nconn] = getCellLabel(*it_2);
+      seen.buf[seen.nconn] = labels[idx2];
       seen.nconn += 1;
       if (seen.nconn == seen.buf.size()) {
         break;
       }
     }
   }
+
   return seen;
 }
 
 template <typename CellCollection, typename ClusterCollection>
-ClusterCollection mergeClustersImpl(CellCollection& cells) {
+  requires(Acts::Ccl::CanAcceptCell<typename CellCollection::value_type,
+                                    typename ClusterCollection::value_type>)
+void mergeClusters(Acts::Ccl::ClusteringData& data, const CellCollection& cells,
+                   ClusterCollection& outv) {
   using Cluster = typename ClusterCollection::value_type;
 
-  if (cells.empty()) {
-    return {};
-  }
-
   // Accumulate clusters into the output collection
-  ClusterCollection outv;
-  Cluster cl;
-  int lbl = getCellLabel(cells.front());
-  for (auto& cell : cells) {
-    if (getCellLabel(cell) != lbl) {
-      // New cluster, save previous one
-      outv.push_back(std::move(cl));
-      cl = Cluster();
-      lbl = getCellLabel(cell);
-    }
-    clusterAddCell(cl, cell);
+  std::size_t previousSize = outv.size();
+  outv.resize(previousSize + data.nClusters.size());
+  for (std::size_t i = 0; i < data.nClusters.size(); ++i) {
+    Acts::Ccl::reserve(outv[previousSize + i], data.nClusters[i]);
   }
-  // Get the last cluster as well
-  outv.push_back(std::move(cl));
 
-  return outv;
+  // Fill clusters with cells
+  // We are not using enumerate, since that is less optimal than
+  // this loop
+  for (std::size_t i = 0; i < cells.size(); ++i) {
+    Label label = data.labels[i] - 1;
+    Cluster& cl = outv[previousSize + label];
+    clusterAddCell(cl, cells[i]);
+  }
+
+  // Due to previous merging, we may have now clusters with
+  // no cells. We need to remove them
+  std::size_t invalidClusters = 0ul;
+  for (std::size_t i = 0; i < data.nClusters.size(); ++i) {
+    std::size_t idx = data.nClusters.size() - i - 1;
+    if (data.nClusters[idx] != 0) {
+      continue;
+    }
+    // we have an invalid cluster.
+    // move them all to the back so that we can remove
+    // them later
+    std::swap(outv[previousSize + idx],
+              outv[outv.size() - invalidClusters - 1]);
+    ++invalidClusters;
+  }
+  outv.resize(outv.size() - invalidClusters);
 }
 
-}  // namespace Acts::Ccl::internal
-
-namespace Acts::Ccl {
-
 template <typename Cell>
+  requires(Acts::Ccl::HasRetrievableColumnInfo<Cell> &&
+           Acts::Ccl::HasRetrievableRowInfo<Cell>)
 ConnectResult Connect2D<Cell>::operator()(const Cell& ref,
                                           const Cell& iter) const {
-  int deltaRow = std::abs(getCellRow(ref) - getCellRow(iter));
-  int deltaCol = std::abs(getCellColumn(ref) - getCellColumn(iter));
-  // Iteration is column-wise, so if too far in column, can
-  // safely stop
-  if (deltaCol > 1) {
-    return ConnectResult::eNoConnStop;
+  int deltaRow = getCellRow(iter) - getCellRow(ref);
+  int deltaCol = getCellColumn(iter) - getCellColumn(ref);
+  assert((deltaCol < 0 || (deltaCol == 0 && deltaRow <= 0)) &&
+         "Not iterating backwards");
+
+  switch (deltaCol) {
+    case 0:
+      if (deltaRow == 0) {
+        return ConnectResult::eDuplicate;
+      } else if (deltaRow == -1) {
+        return ConnectResult::eConn;
+      } else {
+        return ConnectResult::eNoConn;
+      }
+    case -1:
+      if (deltaRow > static_cast<int>(conn8)) {
+        return ConnectResult::eNoConn;
+      } else if (deltaRow < -static_cast<int>(conn8)) {
+        return ConnectResult::eNoConnStop;
+      } else {
+        return ConnectResult::eConn;
+      }
+    default:
+      return ConnectResult::eNoConnStop;
   }
-  // For same reason, if too far in row we know the pixel is not
-  // connected, but need to keep iterating
-  if (deltaRow > 1) {
-    return ConnectResult::eNoConn;
-  }
-  // Decide whether or not cluster is connected based on 4- or
-  // 8-connectivity
-  if ((deltaRow + deltaCol) <= (conn8 ? 2 : 1)) {
-    return ConnectResult::eConn;
-  }
-  return ConnectResult::eNoConn;
 }
 
-template <typename Cell>
+template <Acts::Ccl::HasRetrievableColumnInfo Cell>
 ConnectResult Connect1D<Cell>::operator()(const Cell& ref,
                                           const Cell& iter) const {
-  int deltaCol = std::abs(getCellColumn(ref) - getCellColumn(iter));
-  return deltaCol == 1 ? ConnectResult::eConn : ConnectResult::eNoConnStop;
+  int deltaCol = getCellColumn(iter) - getCellColumn(ref);
+  assert((deltaCol <= 0) && "Not iterating backwards");
+
+  switch (deltaCol) {
+    case 0:
+      return ConnectResult::eDuplicate;
+    case -1:
+      return ConnectResult::eConn;
+    default:
+      return ConnectResult::eNoConnStop;
+  }
 }
 
 template <std::size_t GridDim>
-void recordEquivalences(const internal::Connections<GridDim> seen,
-                        internal::DisjointSets& ds) {
+void recordEquivalences(const Connections<GridDim> seen, DisjointSets& ds) {
   // Sanity check: first element should always have
   // label if nconn > 0
   if (seen.nconn > 0 && seen.buf[0] == NO_LABEL) {
@@ -266,65 +221,59 @@ void recordEquivalences(const internal::Connections<GridDim> seen,
 }
 
 template <typename CellCollection, std::size_t GridDim, typename Connect>
-void labelClusters(CellCollection& cells, Connect connect) {
+void labelClusters(Acts::Ccl::ClusteringData& data, CellCollection& cells,
+                   Connect&& connect) {
   using Cell = typename CellCollection::value_type;
-  internal::staticCheckCellType<Cell, GridDim>();
 
-  internal::DisjointSets ds{};
-
+  data.labels.resize(cells.size(), NO_LABEL);
   // Sort cells by position to enable in-order scan
-  std::sort(cells.begin(), cells.end(), internal::Compare<Cell, GridDim>());
+  std::ranges::sort(cells, Acts::Ccl::Compare<Cell, GridDim>());
 
   // First pass: Allocate labels and record equivalences
-  for (auto it = cells.begin(); it != cells.end(); ++it) {
-    const internal::Connections<GridDim> seen =
-        internal::getConnections<Cell, Connect, GridDim>(it, cells, connect);
+  for (std::size_t nCell(0ul); nCell < cells.size(); ++nCell) {
+    const Acts::Ccl::Connections<GridDim> seen =
+        Acts::Ccl::getConnections<Cell, Connect, GridDim>(
+            nCell, cells, data.labels, std::forward<Connect>(connect));
+
     if (seen.nconn == 0) {
       // Allocate new label
-      getCellLabel(*it) = ds.makeSet();
+      data.labels[nCell] = data.ds.makeSet();
     } else {
-      recordEquivalences(seen, ds);
+      recordEquivalences(seen, data.ds);
       // Set label for current cell
-      getCellLabel(*it) = seen.buf[0];
+      data.labels[nCell] = seen.buf[0];
     }
-  }
+  }  // loop on cells
 
   // Second pass: Merge labels based on recorded equivalences
-  for (auto& cell : cells) {
-    Label& lbl = getCellLabel(cell);
-    lbl = ds.findSet(lbl);
-  }
-}
-
-template <typename CellCollection, typename ClusterCollection,
-          std::size_t GridDim = 2>
-ClusterCollection mergeClusters(CellCollection& cells) {
-  using Cell = typename CellCollection::value_type;
-  using Cluster = typename ClusterCollection::value_type;
-  internal::staticCheckGridDim<GridDim>();
-  internal::staticCheckCellType<Cell, GridDim>();
-  internal::staticCheckClusterType<Cluster&, const Cell&>();
-
-  if constexpr (GridDim > 1) {
-    // Sort the cells by their cluster label, only needed if more than
-    // one spatial dimension
-    std::sort(cells.begin(), cells.end(), [](Cell& lhs, Cell& rhs) {
-      return getCellLabel(lhs) < getCellLabel(rhs);
-    });
+  int maxNClusters = 0;
+  for (Label& lbl : data.labels) {
+    lbl = data.ds.findSet(lbl);
+    maxNClusters = std::max(maxNClusters, lbl);
   }
 
-  return internal::mergeClustersImpl<CellCollection, ClusterCollection>(cells);
+  // Third pass: Keep count of how many cells go in each
+  // to-be-created clusters
+  data.nClusters.resize(maxNClusters, 0);
+  for (const Label label : data.labels) {
+    ++data.nClusters[label - 1];
+  }
 }
 
 template <typename CellCollection, typename ClusterCollection,
           std::size_t GridDim, typename Connect>
-ClusterCollection createClusters(CellCollection& cells, Connect connect) {
-  using Cell = typename CellCollection::value_type;
-  using Cluster = typename ClusterCollection::value_type;
-  internal::staticCheckCellType<Cell, GridDim>();
-  internal::staticCheckClusterType<Cluster&, const Cell&>();
-  labelClusters<CellCollection, GridDim, Connect>(cells, connect);
-  return mergeClusters<CellCollection, ClusterCollection, GridDim>(cells);
+  requires(GridDim == 1 || GridDim == 2)
+void createClusters(Acts::Ccl::ClusteringData& data, CellCollection& cells,
+                    ClusterCollection& clusters, Connect&& connect) {
+  if (cells.empty()) {
+    return;
+  }
+  data.clear();
+
+  Acts::Ccl::labelClusters<CellCollection, GridDim, Connect>(
+      data, cells, std::forward<Connect>(connect));
+  Acts::Ccl::mergeClusters<CellCollection, ClusterCollection>(data, cells,
+                                                              clusters);
 }
 
 }  // namespace Acts::Ccl

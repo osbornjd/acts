@@ -1,19 +1,19 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Units.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
-#include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
 #include "ActsFatras/EventData/Barcode.hpp"
 #include "ActsFatras/EventData/Particle.hpp"
 #include "ActsFatras/Kernel/ContinuousProcess.hpp"
+#include "ActsTests/CommonHelpers/PredefinedMaterials.hpp"
 
 #include <algorithm>
 #include <array>
@@ -21,17 +21,18 @@
 #include <random>
 #include <vector>
 
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 using namespace ActsFatras;
 
-namespace {
+namespace ActsTests {
 
 /// A mock process that leaves the particle as-is and creates four daughter
 /// particles with momenta 1,2,3,4 GeV.
 struct MockMakeChildren {
   template <typename generator_t>
   std::array<ActsFatras::Particle, 4> operator()(
-      generator_t & /*generator*/, const Acts::MaterialSlab & /*slab*/,
+      generator_t & /*generator*/, const MaterialSlab & /*slab*/,
       ActsFatras::Particle & /*particle*/) const {
     // create daughter particles
     return {
@@ -59,14 +60,12 @@ struct MockHighP {
 
 struct Fixture {
   std::default_random_engine generator;
-  Acts::MaterialSlab slab{Acts::Test::makeBeryllium(), 1_mm};
+  Acts::MaterialSlab slab{makeBeryllium(), 1_mm};
   Particle parent = Particle().setAbsoluteMomentum(10_GeV);
   std::vector<Particle> children;
 };
 
-}  // namespace
-
-BOOST_AUTO_TEST_SUITE(FatrasContinuousProcess)
+BOOST_AUTO_TEST_SUITE(KernelSuite)
 
 BOOST_AUTO_TEST_CASE(NoSelectors) {
   Fixture f;
@@ -145,3 +144,5 @@ BOOST_AUTO_TEST_CASE(WithChildSelector) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

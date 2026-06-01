@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 
 import acts
-from acts.examples.odd import getOpenDataDetector
+from acts.examples.odd import getOpenDataDetector, getOpenDataDetectorDirectory
 
 PhysmonSetup = collections.namedtuple(
     "Setup",
@@ -22,6 +22,7 @@ PhysmonSetup = collections.namedtuple(
 def makeSetup() -> PhysmonSetup:
     u = acts.UnitConstants
     srcdir = Path(__file__).resolve().parent.parent.parent
+    odd_dir = getOpenDataDetectorDirectory()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("outdir")
@@ -29,18 +30,18 @@ def makeSetup() -> PhysmonSetup:
     args = parser.parse_args()
 
     matDeco = acts.IMaterialDecorator.fromFile(
-        srcdir / "thirdparty/OpenDataDetector/data/odd-material-maps.root",
-        level=acts.logging.INFO,
+        odd_dir / "data/odd-material-maps.root", level=acts.logging.INFO
     )
 
-    detector, trackingGeometry, decorators = getOpenDataDetector(matDeco)
+    detector = getOpenDataDetector(matDeco)
+    trackingGeometry = detector.trackingGeometry()
+    decorators = detector.contextDecorators()
     setup = PhysmonSetup(
         detector=detector,
         trackingGeometry=trackingGeometry,
         decorators=decorators,
-        digiConfig=srcdir
-        / "thirdparty/OpenDataDetector/config/odd-digi-smearing-config.json",
-        geoSel=srcdir / "thirdparty/OpenDataDetector/config/odd-seeding-config.json",
+        digiConfig=srcdir / "Examples/Configs/odd-digi-smearing-config.json",
+        geoSel=srcdir / "Examples/Configs/odd-seeding-config.json",
         field=acts.ConstantBField(acts.Vector3(0, 0, 2 * u.T)),
         outdir=Path(args.outdir),
     )

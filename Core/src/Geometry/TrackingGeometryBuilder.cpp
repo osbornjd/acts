@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Geometry/TrackingGeometryBuilder.hpp"
 
@@ -14,34 +14,36 @@
 #include <stdexcept>
 #include <utility>
 
-Acts::TrackingGeometryBuilder::TrackingGeometryBuilder(
-    const Acts::TrackingGeometryBuilder::Config& cgbConfig,
+namespace Acts {
+
+TrackingGeometryBuilder::TrackingGeometryBuilder(
+    const TrackingGeometryBuilder::Config& cgbConfig,
     std::unique_ptr<const Logger> logger)
     : m_cfg(), m_logger(std::move(logger)) {
   setConfiguration(cgbConfig);
 }
 
-const Acts::TrackingGeometryBuilder::Config&
-Acts::TrackingGeometryBuilder::getConfiguration() const {
+const TrackingGeometryBuilder::Config&
+TrackingGeometryBuilder::getConfiguration() const {
   return m_cfg;
 }
 
-void Acts::TrackingGeometryBuilder::setConfiguration(
-    const Acts::TrackingGeometryBuilder::Config& cgbConfig) {
+void TrackingGeometryBuilder::setConfiguration(
+    const TrackingGeometryBuilder::Config& cgbConfig) {
   if (cgbConfig.trackingVolumeBuilders.empty()) {
     throw std::invalid_argument("Invalid configuration: no volume builders");
   }
   m_cfg = cgbConfig;
 }
 
-void Acts::TrackingGeometryBuilder::setLogger(
+void TrackingGeometryBuilder::setLogger(
     std::unique_ptr<const Logger> newLogger) {
   m_logger = std::move(newLogger);
 }
 
-std::unique_ptr<const Acts::TrackingGeometry>
-Acts::TrackingGeometryBuilder::trackingGeometry(
-    const GeometryContext& gctx) const {
+std::unique_ptr<const TrackingGeometry>
+TrackingGeometryBuilder::trackingGeometry(const GeometryContext& gctx) const {
+  ACTS_DEBUG("Building tracking geometry");
   MutableTrackingVolumePtr highestVolume = nullptr;
   // loop over the builders and wrap one around the other
   for (auto& volumeBuilder : m_cfg.trackingVolumeBuilders) {
@@ -68,3 +70,5 @@ Acts::TrackingGeometryBuilder::trackingGeometry(
         "Unable to construct tracking geometry: no tracking volume");
   }
 }
+
+}  // namespace Acts

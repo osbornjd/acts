@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -14,6 +14,7 @@
 #include "Acts/Visualization/IVisualization3D.hpp"
 #include "Acts/Visualization/ViewConfig.hpp"
 
+#include <filesystem>
 #include <string>
 
 namespace Acts {
@@ -24,17 +25,6 @@ class SurfaceArray;
 class TrackingVolume;
 struct Polyhedron;
 class IVisualization3D;
-
-namespace Experimental {
-class DetectorVolume;
-class Portal;
-}  // namespace Experimental
-
-static const ViewConfig s_viewSensitive;
-static const ViewConfig s_viewPassive;
-static const ViewConfig s_viewVolume;
-static const ViewConfig s_viewGrid;
-static const ViewConfig s_viewLine;
 
 struct GeometryView3D {
   /// Helper method to draw Polyhedron objects
@@ -75,7 +65,7 @@ struct GeometryView3D {
       const ViewConfig& sensitiveConfig = s_viewSensitive,
       const ViewConfig& passiveConfig = s_viewPassive,
       const ViewConfig& gridConfig = s_viewGrid,
-      const std::string& outputDir = ".");
+      const std::filesystem::path& outputDir = std::filesystem::path("."));
 
   /// Helper method to draw Volume objects
   ///
@@ -89,40 +79,6 @@ struct GeometryView3D {
                          const Transform3& transform = Transform3::Identity(),
                          const ViewConfig& viewConfig = s_viewVolume);
 
-  /// Helper method to draw portals objects
-  ///
-  /// @param [in,out] helper The visualization helper
-  /// @param portal The portal to be drawn
-  /// @param gctx The geometry context for which it is drawn
-  /// @param transform An option additional transform
-  /// @param connected The config for connected portals
-  /// @param disconnected The config for disconnected portals
-  static void drawPortal(IVisualization3D& helper,
-                         const Experimental::Portal& portal,
-                         const GeometryContext& gctx,
-                         const Transform3& transform = Transform3::Identity(),
-                         const ViewConfig& connected = ViewConfig({0, 255, 0}),
-                         const ViewConfig& disconnected = ViewConfig({255, 0,
-                                                                      0}));
-
-  /// Helper method to draw DetectorVolume objects
-  ///
-  /// @param [in,out] helper The visualization helper
-  /// @param volume The DetectorVolume to be drawn
-  /// @param gctx The geometry context for which it is drawn
-  /// @param transform An option additional transform
-  /// @param connected The config for connected portals
-  /// @param unconnected The config for unconnected portals
-  /// @param viewConfig The drawing configuration
-  static void drawDetectorVolume(
-      IVisualization3D& helper,
-      const Acts::Experimental::DetectorVolume& volume,
-      const GeometryContext& gctx,
-      const Transform3& transform = Transform3::Identity(),
-      const ViewConfig& connected = ViewConfig({0, 255, 0}),
-      const ViewConfig& unconnected = ViewConfig({255, 0, 0}),
-      const ViewConfig& viewConfig = s_viewSensitive);
-
   /// Helper method to draw Layer objects
   ///
   /// @param [in,out] helper The visualization helper
@@ -132,12 +88,12 @@ struct GeometryView3D {
   /// @param sensitiveConfig The drawing configuration for sensitive surfaces
   /// @param gridConfig The drawing configuration for grid display
   /// @param outputDir Directory to write to
-  static void drawLayer(IVisualization3D& helper, const Layer& layer,
-                        const GeometryContext& gctx,
-                        const ViewConfig& layerConfig = s_viewPassive,
-                        const ViewConfig& sensitiveConfig = s_viewSensitive,
-                        const ViewConfig& gridConfig = s_viewGrid,
-                        const std::string& outputDir = ".");
+  static void drawLayer(
+      IVisualization3D& helper, const Layer& layer, const GeometryContext& gctx,
+      const ViewConfig& layerConfig = s_viewPassive,
+      const ViewConfig& sensitiveConfig = s_viewSensitive,
+      const ViewConfig& gridConfig = s_viewGrid,
+      const std::filesystem::path& outputDir = std::filesystem::path("."));
 
   /// Helper method to draw TrackingVolume objects
   ///
@@ -161,7 +117,8 @@ struct GeometryView3D {
       const ViewConfig& layerView = s_viewPassive,
       const ViewConfig& sensitiveView = s_viewSensitive,
       const ViewConfig& gridView = s_viewGrid, bool writeIt = true,
-      const std::string& tag = "", const std::string& outputDir = ".");
+      const std::string& tag = "",
+      const std::filesystem::path& outputDir = std::filesystem::path("."));
 
   /// Helper method to draw lines - base for all lines
   ///

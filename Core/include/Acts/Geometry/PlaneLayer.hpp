@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -12,19 +12,18 @@
 #include "Acts/Geometry/ApproachDescriptor.hpp"
 #include "Acts/Geometry/Layer.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
-#include "Acts/Surfaces/SurfaceArray.hpp"
 
 #include <memory>
-#include <utility>
 
 namespace Acts {
 
 class PlanarBounds;
+class SurfaceArray;
 
 /// @class PlaneLayer
 ///
 /// Class to describe a planar detector layer for tracking,
-/// it inhertis from both, Layer base class and PlaneSurface class
+/// it inherits from both, Layer base class and PlaneSurface class
 ///
 class PlaneLayer : virtual public PlaneSurface, public Layer {
  public:
@@ -38,15 +37,11 @@ class PlaneLayer : virtual public PlaneSurface, public Layer {
   /// @param laytyp is the layer type
   ///
   /// @return shared pointer to a PlaneLayer
-  static MutableLayerPtr create(
+  static std::shared_ptr<PlaneLayer> create(
       const Transform3& transform, std::shared_ptr<const PlanarBounds> pbounds,
       std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
       double thickness = 0., std::unique_ptr<ApproachDescriptor> ad = nullptr,
-      LayerType laytyp = Acts::active) {
-    return MutableLayerPtr(new PlaneLayer(transform, pbounds,
-                                          std::move(surfaceArray), thickness,
-                                          std::move(ad), laytyp));
-  }
+      LayerType laytyp = active);
 
   PlaneLayer() = delete;
   PlaneLayer(const PlaneLayer& pla) = delete;
@@ -57,7 +52,8 @@ class PlaneLayer : virtual public PlaneSurface, public Layer {
   /// @return returns a reference to a PlaneSurface
   const PlaneSurface& surfaceRepresentation() const override;
 
-  // Non-const version
+  /// Non-const version of surface representation access
+  /// @return Mutable reference to the plane surface
   PlaneSurface& surfaceRepresentation() override;
 
  private:
@@ -78,7 +74,7 @@ class PlaneLayer : virtual public PlaneSurface, public Layer {
              std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
              double thickness = 0.,
              std::unique_ptr<ApproachDescriptor> ades = nullptr,
-             LayerType laytyp = Acts::active);
+             LayerType laytyp = active);
 
   /// Private constructor for a PlaneLayer, is called by create(arge*
   ///

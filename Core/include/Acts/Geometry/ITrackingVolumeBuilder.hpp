@@ -1,17 +1,16 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Geometry/GeometryContext.hpp"
 
 #include <memory>
-#include <tuple>
 #include <vector>
 
 namespace Acts {
@@ -24,6 +23,7 @@ using TrackingVolumePtr = std::shared_ptr<const TrackingVolume>;
 using MutableTrackingVolumePtr = std::shared_ptr<TrackingVolume>;
 using LayerPtr = std::shared_ptr<const Layer>;
 using LayerVector = std::vector<LayerPtr>;
+
 ///  @class ITrackingVolumeBuilder
 ///
 /// Interface class ITrackingVolumeBuilders
@@ -35,7 +35,6 @@ using LayerVector = std::vector<LayerPtr>;
 /// If an innerVolume is given, this is wrapped
 /// If a VolumeBounds object is given this defines the maximum extent.
 ///
-
 class ITrackingVolumeBuilder {
  public:
   /// Virtual destructor

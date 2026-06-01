@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -18,72 +18,74 @@ namespace ActsExamples {
 
 class SimVertexBarcode {
  public:
-  using Value = SimBarcode::Value;
+  using PrimaryVertexId = SimBarcode::PrimaryVertexId;
+  using SecondaryVertexId = SimBarcode::SecondaryVertexId;
+  using ParticleId = SimBarcode::ParticleId;
+  using GenerationId = SimBarcode::GenerationId;
+  using SubParticleId = SimBarcode::SubParticleId;
+
+  explicit constexpr SimVertexBarcode(SimBarcode barcode)
+      : m_id(barcode.vertexId()) {}
 
   constexpr SimVertexBarcode() = default;
-  constexpr SimVertexBarcode(Value encoded) : m_id(SimBarcode(encoded)) {}
-  constexpr SimVertexBarcode(SimBarcode vertexId)
-      : m_id(vertexId.setParticle(0).setSubParticle(0)) {
-    if (vertexId != vertexId.vertexId()) {
-      throw std::invalid_argument("SimVertexBarcode: invalid vertexId");
-    }
-  }
-
-  /// Get the encoded value of all index levels.
-  constexpr Value value() const { return m_id.value(); }
 
   /// Return the barcode.
   constexpr SimBarcode barcode() const { return m_id; }
 
   /// Return the primary vertex identifier.
-  constexpr Value vertexPrimary() const { return m_id.vertexPrimary(); }
+  constexpr PrimaryVertexId vertexPrimary() const {
+    return m_id.vertexPrimary();
+  }
   /// Return the secondary vertex identifier.
-  constexpr Value vertexSecondary() const { return m_id.vertexSecondary(); }
+  constexpr SecondaryVertexId vertexSecondary() const {
+    return m_id.vertexSecondary();
+  }
   /// Return the generation identifier.
-  constexpr Value generation() const { return m_id.generation(); }
+  constexpr GenerationId generation() const { return m_id.generation(); }
 
-  /// Set the primary vertex identifier.
-  constexpr SimVertexBarcode& setVertexPrimary(Value id) {
-    return m_id.setVertexPrimary(id), *this;
+  /// Create a new barcode with a different primary vertex identifier.
+  [[nodiscard]]
+  constexpr SimVertexBarcode withVertexPrimary(PrimaryVertexId id) const {
+    return SimVertexBarcode(m_id.withVertexPrimary(id));
   }
-  /// Set the secondary vertex identifier.
-  constexpr SimVertexBarcode& setVertexSecondary(Value id) {
-    return m_id.setVertexSecondary(id), *this;
+  /// Create a new barcode with a different secondary vertex identifier.
+  [[nodiscard]]
+  constexpr SimVertexBarcode withVertexSecondary(SecondaryVertexId id) const {
+    return SimVertexBarcode(m_id.withVertexSecondary(id));
   }
-  /// Set the particle identifier.
-  constexpr SimVertexBarcode& setGeneration(Value id) {
-    return m_id.setGeneration(id), *this;
+  /// Create a new barcode with a different generation identifier.
+  [[nodiscard]]
+  constexpr SimVertexBarcode withGeneration(GenerationId id) const {
+    return SimVertexBarcode(m_id.withGeneration(id));
   }
+
+  std::size_t hash() const { return m_id.hash(); }
 
  private:
   /// The vertex ID
   /// Note that only primary, secondary and generation should be set
-  SimBarcode m_id = 0;
+  SimBarcode m_id;
 
   friend constexpr bool operator<(SimVertexBarcode lhs, SimVertexBarcode rhs) {
     return lhs.m_id < rhs.m_id;
   }
+
   friend constexpr bool operator==(SimVertexBarcode lhs, SimVertexBarcode rhs) {
     return lhs.m_id == rhs.m_id;
   }
-  friend constexpr bool operator!=(SimVertexBarcode lhs, SimVertexBarcode rhs) {
-    return lhs.m_id != rhs.m_id;
-  }
+
   friend inline std::ostream& operator<<(std::ostream& os,
                                          SimVertexBarcode idx) {
     return os << idx.m_id;
   }
 };
 
-/// A simultated vertex e.g. from a physics process.
+/// A simulated vertex e.g. from a physics process.
 struct SimVertex {
-  using Scalar = Acts::ActsScalar;
-  using Vector4 = Acts::ActsVector<4>;
-
   /// The vertex ID
-  SimVertexBarcode id;
+  SimVertexBarcode id = SimVertexBarcode(SimBarcode::Invalid());
   /// The vertex four-position
-  Vector4 position4 = Vector4::Zero();
+  Acts::Vector4 position4 = Acts::Vector4::Zero();
   /// The vertex process type
   ActsFatras::ProcessType process = ActsFatras::ProcessType::eUndefined;
   /// The incoming particles into the vertex
@@ -99,7 +101,7 @@ struct SimVertex {
   /// Associated particles are left empty by default and must be filled by the
   /// user after construction.
   SimVertex(
-      SimVertexBarcode id_, const Vector4& position4_,
+      SimVertexBarcode id_, const Acts::Vector4& position4_,
       ActsFatras::ProcessType process_ = ActsFatras::ProcessType::eUndefined)
       : id(id_), position4(position4_), process(process_) {}
   // explicitly default rule-of-five.
@@ -113,7 +115,7 @@ struct SimVertex {
   /// The vertex three-position.
   auto position() const { return position4.head<3>(); }
   /// The vertex time.
-  Scalar time() const { return position4[3]; }
+  double time() const { return position4[3]; }
 };
 
 namespace detail {
@@ -136,3 +138,13 @@ using SimVertexContainer =
     ::boost::container::flat_set<SimVertex, detail::CompareVertexId>;
 
 }  // namespace ActsExamples
+
+// specialize std::hash so Barcode can be used e.g. in an unordered_map
+namespace std {
+template <>
+struct hash<ActsExamples::SimVertexBarcode> {
+  auto operator()(ActsExamples::SimVertexBarcode barcode) const noexcept {
+    return barcode.hash();
+  }
+};
+}  // namespace std

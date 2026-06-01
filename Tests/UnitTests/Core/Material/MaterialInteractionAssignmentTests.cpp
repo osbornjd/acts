@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -23,11 +23,13 @@
 
 #include <limits>
 
-namespace Acts::Test {
+using namespace Acts;
 
-auto tContext = GeometryContext();
+namespace ActsTests {
 
-BOOST_AUTO_TEST_SUITE(MaterialInteractionAssignmentSuite)
+auto tContext = GeometryContext::dangerouslyDefaultConstruct();
+
+BOOST_AUTO_TEST_SUITE(MaterialSuite)
 
 BOOST_AUTO_TEST_CASE(AssignToClosest) {
   // Create a vector of surfaces
@@ -38,7 +40,7 @@ BOOST_AUTO_TEST_CASE(AssignToClosest) {
                                            100.0)};
 
   for (auto [is, surface] : enumerate(surfaces)) {
-    surface->assignGeometryId(GeometryIdentifier().setSensitive(is + 1));
+    surface->assignGeometryId(GeometryIdentifier().withSensitive(is + 1));
   }
 
   std::vector<IAssignmentFinder::SurfaceAssignment> intersectedSurfaces = {
@@ -74,10 +76,10 @@ BOOST_AUTO_TEST_CASE(AssignToClosest) {
 
   // Check that it is assigned to the closest surface always
   for (const auto& mi : assigned) {
-    ActsScalar minDistance = std::numeric_limits<ActsScalar>::max();
+    double minDistance = std::numeric_limits<double>::max();
     const Surface* closestSurface = nullptr;
     for (const auto& [surface, position, direction] : intersectedSurfaces) {
-      ActsScalar distance = (mi.position - position).norm();
+      double distance = (mi.position - position).norm();
       if (distance < minDistance) {
         minDistance = distance;
         closestSurface = surface;
@@ -96,7 +98,7 @@ BOOST_AUTO_TEST_CASE(AssignToClosest_withGlobalVeto) {
                                            100.0)};
 
   for (auto [is, surface] : enumerate(surfaces)) {
-    surface->assignGeometryId(GeometryIdentifier().setSensitive(is + 1));
+    surface->assignGeometryId(GeometryIdentifier().withSensitive(is + 1));
   }
 
   std::vector<IAssignmentFinder::SurfaceAssignment> intersectedSurfaces = {
@@ -120,7 +122,7 @@ BOOST_AUTO_TEST_CASE(AssignToClosest_withGlobalVeto) {
 
   // Veto everything above 40 mm
   struct RadialVeto {
-    ActsScalar rMax = 40.0;
+    double rMax = 40.0;
     bool operator()(const MaterialInteraction& mi) const {
       return VectorHelpers::perp(mi.position) > rMax;
     }
@@ -148,7 +150,7 @@ BOOST_AUTO_TEST_CASE(AssignToClosest_withLocalVeto) {
                                            100.0)};
 
   for (auto [is, surface] : enumerate(surfaces)) {
-    surface->assignGeometryId(GeometryIdentifier().setSensitive(is + 1));
+    surface->assignGeometryId(GeometryIdentifier().withSensitive(is + 1));
   }
 
   std::vector<IAssignmentFinder::SurfaceAssignment> intersectedSurfaces = {
@@ -183,7 +185,8 @@ BOOST_AUTO_TEST_CASE(AssignToClosest_withLocalVeto) {
   // We assign this to
   std::vector<
       std::pair<GeometryIdentifier, MaterialInteractionAssignment::LocalVeto>>
-      localVetoVector = {{GeometryIdentifier().setSensitive(2), VetoThisOne{}}};
+      localVetoVector = {
+          {GeometryIdentifier().withSensitive(2), VetoThisOne{}}};
   GeometryHierarchyMap<MaterialInteractionAssignment::LocalVeto> localVetos(
       localVetoVector);
   MaterialInteractionAssignment::Options options;
@@ -209,7 +212,7 @@ BOOST_AUTO_TEST_CASE(AssignToClosest_withReassignment) {
                                            100.0)};
 
   for (auto [is, surface] : enumerate(surfaces)) {
-    surface->assignGeometryId(GeometryIdentifier().setSensitive(is + 1));
+    surface->assignGeometryId(GeometryIdentifier().withSensitive(is + 1));
   }
 
   std::vector<IAssignmentFinder::SurfaceAssignment> intersectedSurfaces = {
@@ -250,7 +253,7 @@ BOOST_AUTO_TEST_CASE(AssignToClosest_withReassignment) {
   std::vector<std::pair<GeometryIdentifier,
                         MaterialInteractionAssignment::ReAssignment>>
       reassignmentVector = {
-          {GeometryIdentifier().setSensitive(2), ReAssignToNeighbor{}}};
+          {GeometryIdentifier().withSensitive(2), ReAssignToNeighbor{}}};
   GeometryHierarchyMap<MaterialInteractionAssignment::ReAssignment>
       reassignments(reassignmentVector);
   MaterialInteractionAssignment::Options options;
@@ -268,16 +271,14 @@ BOOST_AUTO_TEST_CASE(AssignToClosest_withReassignment) {
 
   // Check that the geoid with number 2 never shows up
   for (const auto& mi : assigned) {
-    BOOST_CHECK_NE(mi.intersectionID, GeometryIdentifier().setSensitive(2));
+    BOOST_CHECK_NE(mi.intersectionID, GeometryIdentifier().withSensitive(2));
   }
 }
 
 BOOST_AUTO_TEST_CASE(AssignWithPathLength) {
   auto surface =
       Surface::makeShared<CylinderSurface>(Transform3::Identity(), 20.0, 100.0);
-  surface->assignGeometryId(GeometryIdentifier().setSensitive(1));
-
-  using SurfaceHit = std::tuple<const Surface*, Vector3, Vector3>;
+  surface->assignGeometryId(GeometryIdentifier().withSensitive(1));
 
   Vector3 position = {20., 10., 0.};
   Vector3 direction = position.normalized();
@@ -309,4 +310,4 @@ BOOST_AUTO_TEST_CASE(AssignWithPathLength) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

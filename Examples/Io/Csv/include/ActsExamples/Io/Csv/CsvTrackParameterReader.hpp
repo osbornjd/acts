@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -21,7 +21,6 @@
 #include <utility>
 
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// Read track parameters in comma-separated-value format.
 ///
@@ -58,7 +57,7 @@ class CsvTrackParameterReader final : public IReader {
   std::pair<std::size_t, std::size_t> availableEvents() const final;
 
   /// Read out data from the input stream.
-  ProcessCode read(const ActsExamples::AlgorithmContext& ctx) final;
+  ProcessCode read(const AlgorithmContext& ctx) final;
 
   /// Readonly access to the config
   const Config& config() const { return m_cfg; }

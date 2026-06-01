@@ -1,12 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Clusterization/Clusterization.hpp"
@@ -21,20 +20,16 @@
 
 #include <boost/functional/hash.hpp>
 
-namespace Acts::Test {
+using namespace Acts;
 
 struct Cell1D {
-  Cell1D(int colv) : col(colv) {}
+  explicit Cell1D(int colv) : col(colv) {}
   int col;
   Ccl::Label label{Ccl::NO_LABEL};
 };
 
 bool cellComp(const Cell1D& left, const Cell1D& right) {
   return left.col < right.col;
-}
-
-Ccl::Label& getCellLabel(Cell1D& cell) {
-  return cell.label;
 }
 
 int getCellColumn(const Cell1D& cell) {
@@ -55,12 +50,16 @@ bool clHashComp(const Cluster1D& left, const Cluster1D& right) {
 }
 
 void hash(Cluster1D& cl) {
-  std::sort(cl.cells.begin(), cl.cells.end(), cellComp);
+  std::ranges::sort(cl.cells, cellComp);
   cl.hash = 0;
   for (const Cell1D& c : cl.cells) {
     boost::hash_combine(cl.hash, c.col);
   }
 }
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(ClusterizationSuite)
 
 BOOST_AUTO_TEST_CASE(Grid_1D_rand) {
   using Cell = Cell1D;
@@ -112,14 +111,16 @@ BOOST_AUTO_TEST_CASE(Grid_1D_rand) {
 
     std::shuffle(cells.begin(), cells.end(), rnd);
 
-    ClusterC newCls = Ccl::createClusters<CellC, ClusterC, 1>(cells);
+    Ccl::ClusteringData data;
+    ClusterC newCls;
+    Ccl::createClusters<CellC, ClusterC, 1>(data, cells, newCls);
 
     for (Cluster& cl : newCls) {
       hash(cl);
     }
 
-    std::sort(clusters.begin(), clusters.end(), clHashComp);
-    std::sort(newCls.begin(), newCls.end(), clHashComp);
+    std::ranges::sort(clusters, clHashComp);
+    std::ranges::sort(newCls, clHashComp);
 
     BOOST_CHECK_EQUAL(clusters.size(), newCls.size());
     for (std::size_t i = 0; i < clusters.size(); i++) {
@@ -128,4 +129,22 @@ BOOST_AUTO_TEST_CASE(Grid_1D_rand) {
   }
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_CASE(Grid_1D_duplicate_cells) {
+  using Cell = Cell1D;
+  using CellC = std::vector<Cell>;
+  using Cluster = Cluster1D;
+  using ClusterC = std::vector<Cluster>;
+
+  CellC cells = {Cell(42), Cell(42)};
+  ClusterC clusters;
+
+  Ccl::ClusteringData data;
+
+  BOOST_CHECK_THROW(
+      (Ccl::createClusters<CellC, ClusterC, 1>(data, cells, clusters)),
+      std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

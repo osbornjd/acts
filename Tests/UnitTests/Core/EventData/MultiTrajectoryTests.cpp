@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/tools/context.hpp>
@@ -23,7 +23,7 @@
 #include "Acts/EventData/detail/TestTrackState.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <algorithm>
 #include <array>
@@ -40,7 +40,7 @@ namespace {
 
 using namespace Acts;
 using namespace Acts::UnitLiterals;
-using namespace Acts::Test;
+using namespace ActsTests;
 using namespace Acts::detail::Test;
 using namespace Acts::HashedStringLiteral;
 namespace bd = boost::unit_test::data;
@@ -49,7 +49,7 @@ using ParametersVector = BoundTrackParameters::ParametersVector;
 using CovarianceMatrix = BoundTrackParameters::CovarianceMatrix;
 using Jacobian = BoundMatrix;
 
-const GeometryContext gctx;
+const auto gctx = GeometryContext::dangerouslyDefaultConstruct();
 // fixed seed for reproducible tests
 std::default_random_engine rng(31415);
 
@@ -65,7 +65,9 @@ using CommonTests = MultiTrajectoryTestsCommon<Factory>;
 
 }  // namespace
 
-BOOST_AUTO_TEST_SUITE(EventDataMultiTrajectory)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(EventDataSuite)
 
 BOOST_AUTO_TEST_CASE(Build) {
   CommonTests ct;
@@ -82,7 +84,7 @@ BOOST_AUTO_TEST_CASE(ConstCorrectness) {
   {
     VectorMultiTrajectory::TrackStateProxy tsp = t.getTrackState(i0);
     static_cast<void>(tsp);
-    VectorMultiTrajectory::ConstTrackStateProxy ctsp = t.getTrackState(i0);
+    VectorMultiTrajectory::ConstTrackStateProxy ctsp{t.getTrackState(i0)};
     static_cast<void>(ctsp);
 
     tsp.predicted().setRandom();
@@ -92,7 +94,7 @@ BOOST_AUTO_TEST_CASE(ConstCorrectness) {
   }
 
   // is this something we actually want?
-  ConstVectorMultiTrajectory ct = t;
+  ConstVectorMultiTrajectory ct{t};
   BOOST_CHECK_EQUAL(ct.size(), t.size());
 
   ConstVectorMultiTrajectory ctm{std::move(t)};
@@ -203,6 +205,11 @@ BOOST_AUTO_TEST_CASE(MultiTrajectoryExtraColumnsRuntime) {
   ct.testMultiTrajectoryExtraColumnsRuntime();
 }
 
+BOOST_AUTO_TEST_CASE(MultiTrajectoryAllocateCalibratedInit) {
+  CommonTests ct;
+  ct.testMultiTrajectoryAllocateCalibratedInit(rng);
+}
+
 BOOST_AUTO_TEST_CASE(MemoryStats) {
   using namespace boost::histogram;
   using cat = axis::category<std::string>;
@@ -278,4 +285,26 @@ BOOST_AUTO_TEST_CASE(Accessors) {
   // superChi2Const(ts) = 66.66;
 }
 
+BOOST_AUTO_TEST_CASE(ChangeSourceLinkType) {
+  VectorMultiTrajectory mtj;
+  auto ts = mtj.makeTrackState();
+
+  int value = 5;
+  ts.setUncalibratedSourceLink(SourceLink{value});
+
+  BOOST_CHECK_EQUAL(ts.getUncalibratedSourceLink().get<int>(), value);
+  BOOST_CHECK_THROW(ts.getUncalibratedSourceLink().get<double>(),
+                    std::bad_any_cast);
+
+  double otherValue = 42.42;
+
+  // this changes the stored type
+  ts.setUncalibratedSourceLink(SourceLink{otherValue});
+  BOOST_CHECK_EQUAL(ts.getUncalibratedSourceLink().get<double>(), otherValue);
+  BOOST_CHECK_THROW(ts.getUncalibratedSourceLink().get<int>(),
+                    std::bad_any_cast);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

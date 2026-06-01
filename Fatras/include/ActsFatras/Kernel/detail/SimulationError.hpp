@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -13,9 +13,11 @@
 
 namespace ActsFatras::detail {
 
+/// @ingroup errors
 enum class SimulationError {
   // ensure all values are non-zero
-  eInvalidInputParticleId = 1,
+  /// Input particle id with non-zero generation or sub-particle
+  InvalidInputParticleId = 1,
 };
 
 /// Construct and error_code from the enum.

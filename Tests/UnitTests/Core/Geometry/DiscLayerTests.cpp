@@ -1,12 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -26,10 +25,11 @@
 #include <utility>
 #include <vector>
 
-namespace Acts {
-namespace Test {
-namespace Layers {
-BOOST_AUTO_TEST_SUITE(Layers)
+using namespace Acts;
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 /// Unit test for creating compliant/non-compliant DiscLayer object
 BOOST_AUTO_TEST_CASE(DiscLayerConstruction) {
@@ -56,10 +56,9 @@ BOOST_AUTO_TEST_CASE(DiscLayerConstruction) {
   // construct with thickness:
   auto pDiscLayerWithThickness =
       DiscLayer::create(pTransform, pDisc, nullptr, thickness);
-  BOOST_CHECK_EQUAL(pDiscLayerWithThickness->thickness(), thickness);
+  BOOST_CHECK_EQUAL(pDiscLayerWithThickness->layerThickness(), thickness);
   // with an approach descriptor...
-  std::unique_ptr<ApproachDescriptor> ad(
-      new GenericApproachDescriptor(aSurfaces));
+  auto ad(std::make_unique<GenericApproachDescriptor>(aSurfaces));
   auto adPtr = ad.get();
   auto pDiscLayerWithApproachDescriptor =
       DiscLayer::create(pTransform, pDisc, nullptr, thickness, std::move(ad));
@@ -84,6 +83,5 @@ BOOST_AUTO_TEST_CASE(DiscLayerProperties) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Layers
-}  // namespace Test
-}  // namespace Acts
+
+}  // namespace ActsTests

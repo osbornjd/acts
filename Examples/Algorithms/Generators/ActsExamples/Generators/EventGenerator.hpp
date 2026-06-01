@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -16,16 +16,22 @@
 #include "ActsExamples/Framework/IReader.hpp"
 #include "ActsExamples/Framework/ProcessCode.hpp"
 #include "ActsExamples/Framework/RandomNumbers.hpp"
+#include "ActsExamples/Utilities/MultiplicityGenerators.hpp"
+#include "ActsExamples/Utilities/ParametricParticleGenerator.hpp"
+#include "ActsExamples/Utilities/VertexGenerators.hpp"
 
 #include <cstddef>
-#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+namespace HepMC3 {
+class GenEvent;
+class GenVertex;
+}  // namespace HepMC3
+
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// Event generator based on separate particles and vertex generators.
 ///
@@ -47,42 +53,6 @@ class EventGenerator final : public ActsExamples::IReader {
   /// particle barcode except the primary vertex. The primary vertex will be
   /// set/overwritten by the event generator.
 
-  /// @brief Generator interface for event multiplicity of vertices
-  struct MultiplicityGenerator {
-    /// @brief Virtual destructor required
-    virtual ~MultiplicityGenerator() = default;
-    /// @brief Generate the multiplicity of vertices
-    ///
-    /// @param rng Shared random number generator instance
-    /// @return std::size_t The multiplicity for the event
-    virtual std::size_t operator()(RandomEngine& rng) const = 0;
-  };
-
-  /// @brief Generator interface for a vertex position
-  struct PrimaryVertexPositionGenerator {
-    /// @brief Virtual destructor required
-    virtual ~PrimaryVertexPositionGenerator() = default;
-    /// @brief Generate a vertex position
-    ///
-    /// @param rng Shared random number generator instance
-    /// @return Acts::Vector4 The vertex position
-    virtual Acts::Vector4 operator()(RandomEngine& rng) const = 0;
-  };
-
-  /// @brief Generator interface for vertices and particles
-  struct ParticlesGenerator {
-    /// @brief Virtual destructor required
-    virtual ~ParticlesGenerator() = default;
-    /// @brief Generate vertices and particles for one interaction
-    /// @note This method cannot be `const` because the Pythia8 generator
-    ///       uses the Pythia8 interfaces, which is non-const
-    ///
-    /// @param rng Shared random number generator instance
-    /// @return The vertex and particle containers
-    virtual std::pair<SimVertexContainer, SimParticleContainer> operator()(
-        RandomEngine& rng) = 0;
-  };
-
   /// @brief Combined struct which contains all generator components
   struct Generator {
     std::shared_ptr<MultiplicityGenerator> multiplicity = nullptr;
@@ -91,21 +61,25 @@ class EventGenerator final : public ActsExamples::IReader {
   };
 
   struct Config {
-    /// Name of the output particles collection.
-    std::string outputParticles;
-    /// Name of the vertex collection.
-    std::string outputVertices;
+    /// Name of the output event collection.
+    std::optional<std::string> outputEvent = "hepmc3_event";
+
     /// List of generators that should be used to generate the event.
     std::vector<Generator> generators;
     /// The random number service.
     std::shared_ptr<const RandomNumbers> randomNumbers;
+
+    /// If true, print the listing of the generated event. This can be very
+    /// verbose
+    bool printListing = false;
   };
 
   EventGenerator(const Config& cfg, Acts::Logging::Level lvl);
 
   /// Name of the reader.
   std::string name() const final;
-  /// Available events range. Always return [0,SIZE_MAX) since we generate them.
+  /// Available events range. Always return
+  /// [0,std::numeric_limits<std::size_t>::max()) since we generate them.
   std::pair<std::size_t, std::size_t> availableEvents() const final;
   /// Generate an event.
   ProcessCode read(const AlgorithmContext& ctx) final;
@@ -116,12 +90,17 @@ class EventGenerator final : public ActsExamples::IReader {
  private:
   const Acts::Logger& logger() const { return *m_logger; }
 
+  void handleVertex(const HepMC3::GenVertex& genVertex, SimVertex& vertex,
+                    std::vector<SimVertex>& vertices,
+                    std::vector<SimParticle>& particles,
+                    std::size_t& nSecondaryVertices, std::size_t& nParticles,
+                    std::vector<bool>& seenVertices);
+
   Config m_cfg;
   std::unique_ptr<const Acts::Logger> m_logger;
 
-  WriteDataHandle<SimParticleContainer> m_outputParticles{this,
-                                                          "OutputParticles"};
-  WriteDataHandle<SimVertexContainer> m_outputVertices{this, "OutputVertices"};
+  WriteDataHandle<std::shared_ptr<HepMC3::GenEvent>> m_outputEvent{
+      this, "OutputEvent"};
 };
 
 }  // namespace ActsExamples

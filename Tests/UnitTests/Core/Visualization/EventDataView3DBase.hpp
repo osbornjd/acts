@@ -1,16 +1,14 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/EventData/Measurement.hpp"
-#include "Acts/EventData/MeasurementHelpers.hpp"
 #include "Acts/EventData/SourceLink.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
@@ -23,23 +21,21 @@
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Material/HomogeneousSurfaceMaterial.hpp"
-#include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
-#include "Acts/Tests/CommonHelpers/DetectorElementStub.hpp"
-#include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
 #include "Acts/TrackFitting/GainMatrixSmoother.hpp"
 #include "Acts/TrackFitting/GainMatrixUpdater.hpp"
 #include "Acts/TrackFitting/KalmanFitter.hpp"
 #include "Acts/Utilities/CalibrationContext.hpp"
 #include "Acts/Visualization/EventDataView3D.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
+#include "ActsTests/CommonHelpers/DetectorElementStub.hpp"
+#include "ActsTests/CommonHelpers/PredefinedMaterials.hpp"
 
 #include <cmath>
-#include <fstream>
 #include <optional>
 #include <random>
 #include <sstream>
@@ -76,9 +72,9 @@ void createDetector(GeometryContext& tgContext,
   // Construct the rotation
   RotationMatrix3 rotation = RotationMatrix3::Identity();
   double rotationAngle = 90_degree;
-  Vector3 xPos(cos(rotationAngle), 0., sin(rotationAngle));
+  Vector3 xPos(std::cos(rotationAngle), 0., std::sin(rotationAngle));
   Vector3 yPos(0., 1., 0.);
-  Vector3 zPos(-sin(rotationAngle), 0., cos(rotationAngle));
+  Vector3 zPos(-std::sin(rotationAngle), 0., std::cos(rotationAngle));
   rotation.col(0) = xPos;
   rotation.col(1) = yPos;
   rotation.col(2) = zPos;
@@ -88,7 +84,7 @@ void createDetector(GeometryContext& tgContext,
       std::make_shared<const RectangleBounds>(RectangleBounds(50_mm, 50_mm));
 
   // Material of the surfaces
-  MaterialSlab matProp(Acts::Test::makeSilicon(), 0.5_mm);
+  MaterialSlab matProp(ActsTests::makeSilicon(), 0.5_mm);
   const auto surfaceMaterial =
       std::make_shared<HomogeneousSurfaceMaterial>(matProp);
 
@@ -114,7 +110,7 @@ void createDetector(GeometryContext& tgContext,
         [](const Transform3& trans,
            const std::shared_ptr<const RectangleBounds>& bounds,
            double thickness) {
-          return new Test::DetectorElementStub(trans, bounds, thickness);
+          return new ActsTests::DetectorElementStub(trans, bounds, thickness);
         };
     CuboidVolumeBuilder::LayerConfig lConf;
     lConf.surfaceCfg = {sConf};
@@ -149,7 +145,7 @@ void createDetector(GeometryContext& tgContext,
   // Get the surfaces;
   surfaces.reserve(nSurfaces);
   detector->visitSurfaces([&](const Surface* surface) {
-    if (surface != nullptr && surface->associatedDetectorElement() != nullptr) {
+    if (surface != nullptr && surface->isSensitive()) {
       std::cout << "surface " << surface->geometryId() << " placed at: ("
                 << surface->center(tgContext).transpose() << " )" << std::endl;
       surfaces.push_back(surface);
@@ -166,10 +162,10 @@ void createDetector(GeometryContext& tgContext,
 static inline std::string testBoundTrackParameters(IVisualization3D& helper) {
   std::stringstream ss;
 
-  ViewConfig pcolor({20, 120, 20});
-  ViewConfig scolor({235, 198, 52});
+  ViewConfig pcolor{.color = {20, 120, 20}};
+  ViewConfig scolor{.color = {235, 198, 52}};
 
-  auto gctx = GeometryContext();
+  auto gctx = GeometryContext::dangerouslyDefaultConstruct();
   auto identity = Transform3::Identity();
 
   // rectangle and plane
@@ -215,12 +211,13 @@ static inline std::string testBoundTrackParameters(IVisualization3D& helper) {
 /// @param helper The visualization helper
 ///
 /// @return an overall string including all written output
-static inline std::string testMeasurement(IVisualization3D& helper) {
+static inline std::string testMeasurement(IVisualization3D& helper,
+                                          const double localErrorScale = 100.) {
   using namespace UnitLiterals;
   std::stringstream ss;
 
   // Create a test context
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
   // Create a detector
   const std::size_t nSurfaces = 7;
@@ -231,8 +228,8 @@ static inline std::string testMeasurement(IVisualization3D& helper) {
   // Create measurements (assuming they are for a linear track parallel to
   // global x-axis)
   std::cout << "Creating measurements:" << std::endl;
-  std::vector<detail::Test::TestSourceLink> sourcelinks;
-  sourcelinks.reserve(nSurfaces);
+  std::vector<detail::Test::TestSourceLink> sourceLinks;
+  sourceLinks.reserve(nSurfaces);
   Vector2 lPosCenter{5_mm, 5_mm};
   Vector2 resolution{200_um, 150_um};
   SquareMatrix2 cov2D = resolution.cwiseProduct(resolution).asDiagonal();
@@ -241,23 +238,22 @@ static inline std::string testMeasurement(IVisualization3D& helper) {
     Vector2 loc = lPosCenter;
     loc[0] += resolution[0] * gauss(generator);
     loc[1] += resolution[1] * gauss(generator);
-    sourcelinks.emplace_back(detail::Test::TestSourceLink{
+    sourceLinks.emplace_back(detail::Test::TestSourceLink{
         eBoundLoc0, eBoundLoc1, loc, cov2D, surface->geometryId()});
   }
 
-  double localErrorScale = 100.;
-  ViewConfig mcolor({255, 145, 48});
+  ViewConfig mcolor{.color = {255, 145, 48}};
   mcolor.offset = 0.01;
 
   // Draw the measurements
   std::cout << "Draw the measurements" << std::endl;
-  //  auto singleMeasurement = sourcelinks[0];
-  for (auto& singleMeasurement : sourcelinks) {
+  //  auto singleMeasurement = sourceLinks[0];
+  for (auto& singleMeasurement : sourceLinks) {
     auto cov = singleMeasurement.covariance;
     auto lposition = singleMeasurement.parameters;
 
     auto surf = detector->findSurface(singleMeasurement.m_geometryId);
-    auto transf = surf->transform(tgContext);
+    auto transf = surf->localToGlobalTransform(tgContext);
 
     EventDataView3D::drawMeasurement(helper, lposition, cov, transf,
                                      localErrorScale, mcolor);
@@ -279,7 +275,7 @@ static inline std::string testMultiTrajectory(IVisualization3D& helper) {
   std::stringstream ss;
 
   // Create a test context
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
   MagneticFieldContext mfContext = MagneticFieldContext();
   CalibrationContext calContext = CalibrationContext();
 
@@ -292,8 +288,8 @@ static inline std::string testMultiTrajectory(IVisualization3D& helper) {
   // Create measurements (assuming they are for a linear track parallel to
   // global x-axis)
   std::cout << "Creating measurements:" << std::endl;
-  std::vector<Acts::SourceLink> sourcelinks;
-  sourcelinks.reserve(nSurfaces);
+  std::vector<Acts::SourceLink> sourceLinks;
+  sourceLinks.reserve(nSurfaces);
   Vector2 lPosCenter{5_mm, 5_mm};
   Vector2 resolution{200_um, 150_um};
   SquareMatrix2 cov2D = resolution.cwiseProduct(resolution).asDiagonal();
@@ -302,7 +298,7 @@ static inline std::string testMultiTrajectory(IVisualization3D& helper) {
     Vector2 loc = lPosCenter;
     loc[0] += resolution[0] * gauss(generator);
     loc[1] += resolution[1] * gauss(generator);
-    sourcelinks.emplace_back(detail::Test::TestSourceLink{
+    sourceLinks.emplace_back(detail::Test::TestSourceLink{
         eBoundLoc0, eBoundLoc1, loc, cov2D, surface->geometryId()});
   }
 
@@ -328,8 +324,9 @@ static inline std::string testMultiTrajectory(IVisualization3D& helper) {
       0., 0., 0., 0.01, 0., 0., 0., 0., 0., 0., 1.;
   Vector3 rPos(-350._mm, 100_um * gauss(generator), 100_um * gauss(generator));
   Vector3 rDir(1, 0.025 * gauss(generator), 0.025 * gauss(generator));
-  CurvilinearTrackParameters rStart(makeVector4(rPos, 42_ns), rDir, 1_e / 1_GeV,
-                                    cov, ParticleHypothesis::pion());
+  BoundTrackParameters rStart = BoundTrackParameters::createCurvilinear(
+      makeVector4(rPos, 42_ns), rDir, 1_e / 1_GeV, cov,
+      ParticleHypothesis::pion());
 
   const Surface* rSurface = &rStart.referenceSurface();
 
@@ -358,13 +355,14 @@ static inline std::string testMultiTrajectory(IVisualization3D& helper) {
           &surfaceAccessor);
 
   KalmanFitterOptions kfOptions(tgContext, mfContext, calContext, extensions,
-                                PropagatorPlainOptions(), rSurface);
+                                PropagatorPlainOptions(tgContext, mfContext),
+                                rSurface);
 
   Acts::TrackContainer tracks{Acts::VectorTrackContainer{},
                               Acts::VectorMultiTrajectory{}};
 
   // Fit the track
-  auto fitRes = kFitter.fit(sourcelinks.begin(), sourcelinks.end(), rStart,
+  auto fitRes = kFitter.fit(sourceLinks.begin(), sourceLinks.end(), rStart,
                             kfOptions, tracks);
   if (!fitRes.ok()) {
     std::cout << "Fit failed" << std::endl;
@@ -378,14 +376,14 @@ static inline std::string testMultiTrajectory(IVisualization3D& helper) {
   double localErrorScale = 100.;
   double directionErrorScale = 100000;
 
-  ViewConfig scolor({214, 214, 214});
-  ViewConfig mcolor({255, 145, 48});
+  ViewConfig scolor{.color = {214, 214, 214}};
+  ViewConfig mcolor{.color = {255, 145, 48}};
   mcolor.offset = -0.01;
-  ViewConfig ppcolor({51, 204, 51});
+  ViewConfig ppcolor{.color = {51, 204, 51}};
   ppcolor.offset = -0.02;
-  ViewConfig fpcolor({255, 255, 0});
+  ViewConfig fpcolor{.color = {255, 255, 0}};
   fpcolor.offset = -0.03;
-  ViewConfig spcolor({0, 125, 255});
+  ViewConfig spcolor{.color = {0, 125, 255}};
   spcolor.offset = -0.04;
 
   EventDataView3D::drawMultiTrajectory(

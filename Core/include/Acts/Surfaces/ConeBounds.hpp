@@ -1,24 +1,21 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Definitions/Tolerance.hpp"
-#include "Acts/Surfaces/BoundaryCheck.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
-#include "Acts/Utilities/detail/periodic.hpp"
 
 #include <array>
 #include <cmath>
 #include <cstdlib>
 #include <iosfwd>
-#include <stdexcept>
+#include <numbers>
 #include <vector>
 
 namespace Acts {
@@ -33,9 +30,10 @@ namespace Acts {
 ///
 ///  @image html ConeBounds.gif
 ///
-
 class ConeBounds : public SurfaceBounds {
  public:
+  /// @enum BoundValues
+  /// Enumeration for the bound values
   enum BoundValues : int {
     eAlpha = 0,
     eMinZ = 1,
@@ -45,8 +43,6 @@ class ConeBounds : public SurfaceBounds {
     eSize = 5
   };
 
-  ConeBounds() = delete;
-
   /// Constructor - open cone with alpha, by default a full cone
   /// but optionally can make a conical section
   ///
@@ -55,7 +51,7 @@ class ConeBounds : public SurfaceBounds {
   /// @param halfphi is the half opening angle (default is pi)
   /// @param avphi is the phi value around which the bounds are opened
   /// (default=0)
-  ConeBounds(double alpha, bool symm, double halfphi = M_PI,
+  ConeBounds(double alpha, bool symm, double halfphi = std::numbers::pi,
              double avphi = 0.) noexcept(false);
 
   /// Constructor - open cone with alpha, minz and maxz, by
@@ -67,33 +63,50 @@ class ConeBounds : public SurfaceBounds {
   /// @param halfphi is the half opening angle (default is pi)
   /// @param avphi is the phi value around which the bounds are opened
   /// (default=0)
-  ConeBounds(double alpha, double minz, double maxz, double halfphi = M_PI,
+  ConeBounds(double alpha, double minz, double maxz,
+             double halfphi = std::numbers::pi,
              double avphi = 0.) noexcept(false);
 
   /// Constructor - from parameters array
   ///
   /// @param values The parameter array
-  ConeBounds(const std::array<double, eSize>& values) noexcept(false);
+  explicit ConeBounds(const std::array<double, eSize>& values) noexcept(false);
 
-  ~ConeBounds() override = default;
+  /// @copydoc SurfaceBounds::type
+  BoundsType type() const final { return eCone; }
 
-  BoundsType type() const final;
+  /// @copydoc SurfaceBounds::isCartesian
+  bool isCartesian() const final { return true; }
 
-  /// Return the bound values as dynamically sized vector
-  ///
-  /// @return this returns a copy of the internal values
+  /// @copydoc SurfaceBounds::boundToCartesianJacobian
+  SquareMatrix2 boundToCartesianJacobian(const Vector2& lposition) const final {
+    static_cast<void>(lposition);
+    return SquareMatrix2::Identity();
+  }
+
+  /// @copydoc SurfaceBounds::boundToCartesianMetric
+  SquareMatrix2 boundToCartesianMetric(const Vector2& lposition) const final {
+    static_cast<void>(lposition);
+    return SquareMatrix2::Identity();
+  }
+
+  /// @copydoc SurfaceBounds::values
   std::vector<double> values() const final;
 
-  /// inside method for local position
-  ///
-  /// @param lposition is the local position to be checked
-  /// @param bcheck is the boundary check directive
-  /// @return is a boolean indicating if the position is inside
-  bool inside(const Vector2& lposition,
-              const BoundaryCheck& bcheck = BoundaryCheck(true)) const final;
+  /// @copydoc SurfaceBounds::inside
+  bool inside(const Vector2& lposition) const final;
+
+  /// @copydoc SurfaceBounds::closestPoint
+  Vector2 closestPoint(const Vector2& lposition,
+                       const SquareMatrix2& metric) const final;
+
+  using SurfaceBounds::inside;
+
+  /// @copydoc SurfaceBounds::center
+  /// @note For ConeBounds: returns (averagePhi, (minZ + maxZ)/2) in cone coordinates
+  Vector2 center() const final;
 
   /// Output Method for std::ostream
-  ///
   /// @param sl is the ostrea into which the dump is done
   /// @return is the input object
   std::ostream& toStream(std::ostream& sl) const final;
@@ -102,13 +115,15 @@ class ConeBounds : public SurfaceBounds {
   ///
   /// @param z is the z value for which r is requested
   /// @return is the r value associated with z
-  double r(double z) const;
+  double r(double z) const { return std::abs(z * m_tanAlpha); }
 
   /// Return tangent of alpha (pre-computed)
-  double tanAlpha() const;
+  /// @return Tangent of the cone half-angle
+  double tanAlpha() const { return m_tanAlpha; }
 
   /// Access to the bound values
   /// @param bValue the class nested enum for the array access
+  /// @return Value of the specified bound parameter
   double get(BoundValues bValue) const { return m_values[bValue]; }
 
  private:
@@ -121,38 +136,10 @@ class ConeBounds : public SurfaceBounds {
 
   /// Private helper function to shift a local 2D position
   ///
+  /// Shift r-phi coordinate to be centered around the average phi.
+  ///
   /// @param lposition The original local position
   Vector2 shifted(const Vector2& lposition) const;
 };
-
-inline double ConeBounds::r(double z) const {
-  return std::abs(z * m_tanAlpha);
-}
-
-inline double ConeBounds::tanAlpha() const {
-  return m_tanAlpha;
-}
-
-inline std::vector<double> ConeBounds::values() const {
-  std::vector<double> valvector;
-  valvector.insert(valvector.begin(), m_values.begin(), m_values.end());
-  return valvector;
-}
-
-inline void ConeBounds::checkConsistency() noexcept(false) {
-  if (get(eAlpha) < 0. || get(eAlpha) >= M_PI) {
-    throw std::invalid_argument("ConeBounds: invalid open angle.");
-  }
-  if (get(eMinZ) > get(eMaxZ) ||
-      std::abs(get(eMinZ) - get(eMaxZ)) < s_epsilon) {
-    throw std::invalid_argument("ConeBounds: invalid z range setup.");
-  }
-  if (get(eHalfPhiSector) < 0. || abs(eHalfPhiSector) > M_PI) {
-    throw std::invalid_argument("ConeBounds: invalid phi sector setup.");
-  }
-  if (get(eAveragePhi) != detail::radian_sym(get(eAveragePhi))) {
-    throw std::invalid_argument("ConeBounds: invalid phi positioning.");
-  }
-}
 
 }  // namespace Acts

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -13,18 +13,15 @@
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 
-#include <cstddef>
 #include <iosfwd>
-#include <vector>
 
 namespace Acts {
 
-/// @class BinnedSurfaceMaterial
+/// @ingroup material
 ///
-/// It extends the @c ISurfaceMaterial base class and is an array pf
+/// It extends the @ref ISurfaceMaterial base class and is an array pf
 /// MaterialSlab. This is not memory optimised as every bin
 /// holds one material property object.
-
 class BinnedSurfaceMaterial : public ISurfaceMaterial {
  public:
   /// Default Constructor - deleted
@@ -75,23 +72,30 @@ class BinnedSurfaceMaterial : public ISurfaceMaterial {
   BinnedSurfaceMaterial(const BinnedSurfaceMaterial& bsm) = default;
 
   /// Assignment Move operator
+  /// @param bsm The source object to move from
+  /// @return Reference to this object after move assignment
   BinnedSurfaceMaterial& operator=(BinnedSurfaceMaterial&& bsm) = default;
 
   /// Assignment operator
+  /// @param bsm The source object to copy from
+  /// @return Reference to this object after copy assignment
   BinnedSurfaceMaterial& operator=(const BinnedSurfaceMaterial& bsm) = default;
 
   /// Destructor
   ~BinnedSurfaceMaterial() override = default;
 
-  /// Scale operator
+  /// Scale operation
   ///
-  /// @param scale is the scale factor for the full material
-  BinnedSurfaceMaterial& operator*=(double scale) final;
+  /// @param factor is the scale factor for the full material
+  /// @return Reference to this object after scaling
+  BinnedSurfaceMaterial& scale(double factor) final;
 
   /// Return the BinUtility
+  /// @return Reference to the bin utility used for material binning
   const BinUtility& binUtility() const;
 
   /// @brief Retrieve the entire material slab matrix
+  /// @return Reference to the complete matrix of material slabs
   const MaterialSlabMatrix& fullMaterial() const;
 
   /// @copydoc ISurfaceMaterial::materialSlab(const Vector2&) const
@@ -101,6 +105,8 @@ class BinnedSurfaceMaterial : public ISurfaceMaterial {
   const MaterialSlab& materialSlab(const Vector3& gp) const final;
 
   /// Output Method for std::ostream, to be overloaded by child classes
+  /// @param sl The output stream to write to
+  /// @return Reference to the output stream after writing
   std::ostream& toStream(std::ostream& sl) const final;
 
  private:
@@ -112,7 +118,7 @@ class BinnedSurfaceMaterial : public ISurfaceMaterial {
 };
 
 inline const BinUtility& BinnedSurfaceMaterial::binUtility() const {
-  return (m_binUtility);
+  return m_binUtility;
 }
 
 inline const MaterialSlabMatrix& BinnedSurfaceMaterial::fullMaterial() const {

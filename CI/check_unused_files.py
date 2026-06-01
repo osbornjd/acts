@@ -35,14 +35,13 @@ def main():
         ".git",
         ".github",
         ".idea",
+        ".devcontainer",
     )
     exclude_files = (
         "acts_logo_colored.svg",
         ".gitignore",
         "README.md",
         "CMakeLists.txt",
-        "DetUtils.h",
-        "CommandLineArguments.h",
         # Filename not completed in source
         "vertexing_event_mu20_beamspot.csv",
         "vertexing_event_mu20_tracks.csv",
@@ -53,12 +52,23 @@ def main():
         "Magfield.ipynb",
         "SolenoidField.ipynb",
         # TODO Add README next to the following files?
-        "default-input-config-generic.json",
-        "geoSelection-openDataDetector.json",
-        "alignment-geo-contextualDetector.json",
+        "generic-input-config.json",
+        "generic-alignment-geo.json",
+        "odd-digi-smearing-config-notime.json",
         # TODO Mention these files somewhere?
         "generate_particle_data_table.py",
-        "lazy_autodoc.py",
+        "Examples/Python/tests/test_toroidal_field.py" "lazy_autodoc.py",
+        "codegen/src/codegen/sympy_common.py",
+        "CompressedIO.h",
+        # Files for python binding generation
+        "tgeo_aux.py.in",
+        "serve.py",
+        "SNIPPETS.md",
+        "todo.md",
+        "bugs.md",
+        "deprecated.md",
+        "acts-version-manager.js",
+        "tex-mml-chtml.js",
     )
 
     suffix_header = (
@@ -80,6 +90,9 @@ def main():
     suffix_doc = (
         ".md",
         ".rst",
+        ".dox",
+        ".html",
+        ".bib",
     )
     suffix_other = (
         "",
@@ -96,6 +109,7 @@ def main():
         ".toml",
         ".txt",
         ".yml",
+        ".xml",
     )
     suffix_allowed = (
         suffix_header
@@ -166,7 +180,7 @@ def main():
 
             elif filepath.suffix in suffix_python:
                 # Skip the python tests folder
-                if str(root).find("Examples/Python") != -1:
+                if str(root).find("Python/Examples") != -1:
                     continue
 
                 if not file_can_be_removed("import .*" + filepath.stem, dirs_base):

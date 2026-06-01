@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -12,7 +12,6 @@
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/ITrackingVolumeBuilder.hpp"
 #include "Acts/Geometry/ITrackingVolumeHelper.hpp"
-#include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
 #include <algorithm>
@@ -23,7 +22,6 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
-#include <vector>
 
 namespace Acts {
 
@@ -32,6 +30,7 @@ class ISurfaceMaterial;
 class ILayerBuilder;
 class IConfinedTrackingVolumeBuilder;
 
+/// Volume wrapping conditions for cylinder volume building
 /// @enum WrappingCondition
 enum WrappingCondition {
   Undefined = 0,         ///< inconsistency detected
@@ -65,9 +64,9 @@ struct VolumeConfig {
   /// Adapt to the dimensions of another config in Z
   /// it will take the maximum/minimum values and just overwrite them
   ///
-  /// @param [in] lConfig is the config to which it should be adapded
+  /// @param [in] lConfig is the config to which it should be adapted
   void adaptZ(const VolumeConfig& lConfig) {
-    if (lConfig) {
+    if (lConfig.present) {
       zMin = std::min(zMin, lConfig.zMin);
       zMax = std::max(zMax, lConfig.zMax);
     }
@@ -76,9 +75,9 @@ struct VolumeConfig {
   /// Adapt to the dimensions of another config in R
   /// it will take the maximum/minimum values and just overwrite them
   ///
-  /// @param [in] lConfig is the config to which it should be adapded
+  /// @param [in] lConfig is the config to which it should be adapted
   void adaptR(const VolumeConfig& lConfig) {
-    if (lConfig) {
+    if (lConfig.present) {
       rMin = std::min(rMin, lConfig.rMin);
       rMax = std::max(rMax, lConfig.rMax);
     }
@@ -87,7 +86,7 @@ struct VolumeConfig {
   /// Adapt to the dimensions of another config
   /// it will take the maximum/minimum values and just overwrite them
   ///
-  /// @param [in] lConfig is the config to which it should be adapded
+  /// @param [in] lConfig is the config to which it should be adapted
   void adapt(const VolumeConfig& lConfig) {
     adaptZ(lConfig);
     adaptR(lConfig);
@@ -159,6 +158,7 @@ struct VolumeConfig {
   /// Check if contained full set
   ///
   /// @param [in] vConfig is the config against which is checked
+  /// @return True if the given config is fully contained by this one
   bool contains(const VolumeConfig& vConfig) const {
     return (containsInR(vConfig) && containsInZ(vConfig));
   }
@@ -166,6 +166,7 @@ struct VolumeConfig {
   /// Check if contained radially
   ///
   /// @param [in] vConfig is the config against which is checked
+  /// @return True if the given config is contained radially
   bool containsInR(const VolumeConfig& vConfig) const {
     return (rMin >= vConfig.rMax);
   }
@@ -173,20 +174,19 @@ struct VolumeConfig {
   /// Check if contained longitudinally
   ///
   /// @param [in] vConfig is the config against which is checked
+  /// @return True if the given config is contained longitudinally
   bool containsInZ(const VolumeConfig& vConfig) const {
     return (vConfig.zMin > zMin && vConfig.zMax < zMax);
   }
 
   /// Method for output formatting
+  /// @return String representation of this volume config
   std::string toString() const {
     /// for screen output
     std::stringstream sl;
     sl << rMin << ", " << rMax << " / " << zMin << ", " << zMax;
     return sl.str();
   }
-
-  /// Conversion operator to bool
-  operator bool() const { return present; }
 };
 
 /// @brief The WrappingSetup that is happening here
@@ -194,7 +194,9 @@ struct WrappingConfig {
  public:
   /// the new volumes
   VolumeConfig nVolumeConfig;
+  /// Configuration for the central volume in wrapping setup
   VolumeConfig cVolumeConfig;
+  /// Configuration for the positive volume in wrapping setup
   VolumeConfig pVolumeConfig;
 
   /// the combined volume
@@ -202,15 +204,18 @@ struct WrappingConfig {
 
   /// existing volume config with potential gaps
   VolumeConfig existingVolumeConfig;
+  /// Configuration for the first gap volume in wrapping
   VolumeConfig fGapVolumeConfig;
+  /// Configuration for the second gap volume in wrapping
   VolumeConfig sGapVolumeConfig;
 
   /// externally provided config, this can only change the
   /// the ncp volumes
   VolumeConfig externalVolumeConfig;
 
-  // WrappingCondition
+  /// Wrapping condition determining how volumes are combined
   WrappingCondition wCondition = Undefined;
+  /// String representation of wrapping condition for debug output
   std::string wConditionScreen = "[left untouched]";
 
   /// constructor
@@ -222,39 +227,40 @@ struct WrappingConfig {
     containerVolumeConfig.present = true;
     std::string wConditionAddon = "";
     // if we have more than one config present
-    if ((nVolumeConfig && cVolumeConfig) || (cVolumeConfig && pVolumeConfig) ||
-        (nVolumeConfig && pVolumeConfig)) {
+    if ((nVolumeConfig.present && cVolumeConfig.present) ||
+        (cVolumeConfig.present && pVolumeConfig.present) ||
+        (nVolumeConfig.present && pVolumeConfig.present)) {
       wCondition = Wrapping;
       wConditionScreen = "grouped to ";
     }
     // adapt the new volume config to the existing configs
-    if (nVolumeConfig) {
+    if (nVolumeConfig.present) {
       containerVolumeConfig.adapt(nVolumeConfig);
       wConditionScreen += "[n]";
     }
-    if (cVolumeConfig) {
+    if (cVolumeConfig.present) {
       containerVolumeConfig.adapt(cVolumeConfig);
       wConditionScreen += "[c]";
     }
-    if (pVolumeConfig) {
+    if (pVolumeConfig.present) {
       containerVolumeConfig.adapt(pVolumeConfig);
       wConditionScreen += "[p]";
     }
     // adapt the external one
-    if (externalVolumeConfig) {
+    if (externalVolumeConfig.present) {
       containerVolumeConfig.adapt(externalVolumeConfig);
     }
     // attach the volume configs
-    if (nVolumeConfig && cVolumeConfig) {
+    if (nVolumeConfig.present && cVolumeConfig.present) {
       nVolumeConfig.midPointAttachZ(cVolumeConfig);
     }
-    if (cVolumeConfig && pVolumeConfig) {
+    if (cVolumeConfig.present && pVolumeConfig.present) {
       cVolumeConfig.midPointAttachZ(pVolumeConfig);
     }
     // adapt r afterwards
     // - easy if no existing volume
     // - possible if no central volume
-    if (!existingVolumeConfig || !cVolumeConfig) {
+    if (!existingVolumeConfig.present || !cVolumeConfig.present) {
       nVolumeConfig.adaptR(containerVolumeConfig);
       cVolumeConfig.adaptR(containerVolumeConfig);
       pVolumeConfig.adaptR(containerVolumeConfig);
@@ -265,17 +271,19 @@ struct WrappingConfig {
   void wrapInsertAttach() {
     // action is only needed if an existing volume
     // is present
-    if (existingVolumeConfig) {
+    if (existingVolumeConfig.present) {
       // 0 - simple attachment case
-      if (!cVolumeConfig) {
+      if (!cVolumeConfig.present) {
         // check if it can be easily attached
-        if (nVolumeConfig && nVolumeConfig.zMax < existingVolumeConfig.zMin) {
+        if (nVolumeConfig.present &&
+            nVolumeConfig.zMax < existingVolumeConfig.zMin) {
           nVolumeConfig.attachZ(existingVolumeConfig);
           // will attach the new volume(s)
           wCondition = Attaching;
           wConditionScreen = "[n attached]";
         }
-        if (pVolumeConfig && pVolumeConfig.zMin > existingVolumeConfig.zMax) {
+        if (pVolumeConfig.present &&
+            pVolumeConfig.zMin > existingVolumeConfig.zMax) {
           pVolumeConfig.attachZ(existingVolumeConfig);
           // will attach the new volume(s)
           wCondition = Attaching;
@@ -385,9 +393,9 @@ struct WrappingConfig {
           fGapVolumeConfig.zMax = existingVolumeConfig.zMin;
         } else {
           // adapt lower z boundary
-          if (nVolumeConfig) {
+          if (nVolumeConfig.present) {
             nVolumeConfig.zMin = existingVolumeConfig.zMin;
-          } else if (cVolumeConfig) {
+          } else if (cVolumeConfig.present) {
             cVolumeConfig.zMin = existingVolumeConfig.zMin;
           }
         }
@@ -399,9 +407,9 @@ struct WrappingConfig {
           sGapVolumeConfig.zMax = referenceVolume.zMax;
         } else {
           // adapt higher z boundary
-          if (pVolumeConfig) {
+          if (pVolumeConfig.present) {
             pVolumeConfig.zMax = existingVolumeConfig.zMax;
-          } else if (cVolumeConfig) {
+          } else if (cVolumeConfig.present) {
             cVolumeConfig.zMax = existingVolumeConfig.zMax;
           }
         }
@@ -411,34 +419,35 @@ struct WrappingConfig {
   }
 
   /// Method for output formatting
+  /// @return String representation of this wrapping config
   std::string toString() const {
     // for screen output
     std::stringstream sl;
-    if (containerVolumeConfig) {
+    if (containerVolumeConfig.present) {
       sl << "New container built with       configuration: "
          << containerVolumeConfig.toString() << '\n';
     }
     // go through the new ones first
-    if (nVolumeConfig) {
+    if (nVolumeConfig.present) {
       sl << " - n: Negative Endcap, current configuration: "
          << nVolumeConfig.toString() << '\n';
     }
-    if (cVolumeConfig) {
+    if (cVolumeConfig.present) {
       sl << " - c: Barrel, current          configuration: "
          << cVolumeConfig.toString() << '\n';
     }
-    if (pVolumeConfig) {
+    if (pVolumeConfig.present) {
       sl << " - p: Negative Endcap, current configuration: "
          << pVolumeConfig.toString() << '\n';
     }
-    if (existingVolumeConfig) {
+    if (existingVolumeConfig.present) {
       sl << "Existing volume with           configuration: "
          << existingVolumeConfig.toString() << '\n';
-      if (fGapVolumeConfig) {
+      if (fGapVolumeConfig.present) {
         sl << " - g1: First gap volume,       configuration : "
            << fGapVolumeConfig.toString() << '\n';
       }
-      if (sGapVolumeConfig) {
+      if (sGapVolumeConfig.present) {
         sl << " - g2: Second gap volume,      configuration : "
            << sGapVolumeConfig.toString() << '\n';
       }
@@ -452,7 +461,7 @@ struct WrappingConfig {
 
 /// @class CylinderVolumeBuilder
 ///
-/// A volume builder to be used for building a concentrical cylindrical volumes
+/// A volume builder to be used for building concentric cylinder volumes
 ///  - a) configured volume
 ///  - b) wrapping around a cylindrical/disk layer config
 ///
@@ -509,9 +518,10 @@ class CylinderVolumeBuilder : public ITrackingVolumeBuilder {
   ///
   /// @param [in] cvbConfig is the configuration struct to steer the builder
   /// @param [in] logger logging instance
-  CylinderVolumeBuilder(const Config& cvbConfig,
-                        std::unique_ptr<const Logger> logger = getDefaultLogger(
-                            "CylinderVolumeBuilder", Logging::INFO));
+  explicit CylinderVolumeBuilder(const Config& cvbConfig,
+                                 std::unique_ptr<const Logger> logger =
+                                     getDefaultLogger("CylinderVolumeBuilder",
+                                                      Logging::INFO));
 
   /// Destructor
   ~CylinderVolumeBuilder() override;

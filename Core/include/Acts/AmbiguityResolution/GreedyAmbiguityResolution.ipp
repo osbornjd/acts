@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -14,17 +14,17 @@
 
 namespace Acts {
 
-template <typename track_container_t, typename traj_t,
-          template <typename> class holder_t, typename source_link_hash_t,
+template <TrackContainerFrontend track_container_t, typename source_link_hash_t,
           typename source_link_equality_t>
 void GreedyAmbiguityResolution::computeInitialState(
-    const TrackContainer<track_container_t, traj_t, holder_t>& tracks,
-    State& state, source_link_hash_t&& sourceLinkHash,
+    const track_container_t& tracks, State& state,
+    source_link_hash_t&& sourceLinkHash,
     source_link_equality_t&& sourceLinkEquality) const {
   auto measurementIndexMap =
       std::unordered_map<SourceLink, std::size_t, source_link_hash_t,
-                         source_link_equality_t>(0, sourceLinkHash,
-                                                 sourceLinkEquality);
+                         source_link_equality_t>(
+          0, std::forward<source_link_hash_t>(sourceLinkHash),
+          std::forward<source_link_equality_t>(sourceLinkEquality));
 
   // Iterate through all input tracks, collect their properties like measurement
   // count and chi2 and fill the measurement map in order to relate tracks to
@@ -36,7 +36,7 @@ void GreedyAmbiguityResolution::computeInitialState(
     }
     std::vector<std::size_t> measurements;
     for (auto ts : track.trackStatesReversed()) {
-      if (ts.typeFlags().test(Acts::TrackStateFlag::MeasurementFlag)) {
+      if (ts.typeFlags().isMeasurement()) {
         SourceLink sourceLink = ts.getUncalibratedSourceLink();
         // assign a new measurement index if the source link was not seen yet
         auto emplace = measurementIndexMap.try_emplace(

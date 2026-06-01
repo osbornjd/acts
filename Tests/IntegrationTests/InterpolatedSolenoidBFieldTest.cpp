@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
@@ -13,20 +13,21 @@
 #include "Acts/MagneticField/BFieldMapUtils.hpp"
 #include "Acts/MagneticField/InterpolatedBFieldMap.hpp"
 #include "Acts/MagneticField/SolenoidBField.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
+#include "Acts/Utilities/Axis.hpp"
 #include "Acts/Utilities/Grid.hpp"
-#include "Acts/Utilities/detail/Axis.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <numbers>
 #include <random>
-
-using namespace Acts::UnitLiterals;
+#include <type_traits>
 
 namespace bdata = boost::unit_test::data;
 
-namespace Acts::IntegrationTest {
+using namespace Acts;
+using namespace Acts::UnitLiterals;
 
 const double L = 5.8_m;
 const double R = (2.56 + 2.46) * 0.5 * 0.5_m;
@@ -52,9 +53,8 @@ auto makeFieldMap(const SolenoidBField& field) {
   auto map =
       solenoidFieldMap({rMin, rMax}, {zMin, zMax}, {nBinsR, nBinsZ}, field);
   // I know this is the correct grid type
-  using Grid_t = Acts::Grid<Acts::Vector2, Acts::detail::EquidistantAxis,
-                            Acts::detail::EquidistantAxis>;
-  const Grid_t& grid = map.getGrid();
+  const auto& grid = map.getGrid();
+  using Grid_t = std::decay_t<decltype(grid)>;
   using index_t = Grid_t::index_t;
   using point_t = Grid_t::point_t;
 
@@ -76,12 +76,12 @@ auto makeFieldMap(const SolenoidBField& field) {
   return map;
 }
 
-Acts::SolenoidBField bSolenoidField({R, L, nCoils, bMagCenter});
+SolenoidBField bSolenoidField({R, L, nCoils, bMagCenter});
 auto bFieldMap = makeFieldMap(bSolenoidField);
-auto bCache = bFieldMap.makeCache(Acts::MagneticFieldContext{});
+auto bCache = bFieldMap.makeCache(MagneticFieldContext{});
 
 struct StreamWrapper {
-  StreamWrapper(std::ofstream ofstr) : m_ofstr(std::move(ofstr)) {
+  explicit StreamWrapper(std::ofstream ofstr) : m_ofstr(std::move(ofstr)) {
     m_ofstr << "x;y;z;B_x;B_y;B_z;Bm_x;Bm_y;Bm_z" << std::endl;
   }
 
@@ -100,10 +100,10 @@ BOOST_DATA_TEST_CASE(
                        bdata::distribution =
                            std::uniform_real_distribution<double>(0,
                                                                   R * 1.5))) ^
-        bdata::random((bdata::engine = std::mt19937(), bdata::seed = 3,
-                       bdata::distribution =
-                           std::uniform_real_distribution<double>(-M_PI,
-                                                                  M_PI))) ^
+        bdata::random(
+            (bdata::engine = std::mt19937(), bdata::seed = 3,
+             bdata::distribution = std::uniform_real_distribution<double>(
+                 -std::numbers::pi, std::numbers::pi))) ^
         bdata::xrange(ntests),
     z, r, phi, index) {
   if (index % 1000 == 0) {
@@ -111,8 +111,8 @@ BOOST_DATA_TEST_CASE(
   }
 
   Vector3 pos(r * std::cos(phi), r * std::sin(phi), z);
-  Vector3 B = bSolenoidField.getField(pos) / Acts::UnitConstants::T;
-  Vector3 Bm = bFieldMap.getField(pos, bCache).value() / Acts::UnitConstants::T;
+  Vector3 B = bSolenoidField.getField(pos) / UnitConstants::T;
+  Vector3 Bm = bFieldMap.getField(pos, bCache).value() / UnitConstants::T;
 
   // test less than 5% deviation
   if (std::abs(r - R) > 10 && (std::abs(z) < L / 3. || r > 20)) {
@@ -126,5 +126,3 @@ BOOST_DATA_TEST_CASE(
   ofstr << B.x() << ";" << B.y() << ";" << B.z() << ";";
   ofstr << Bm.x() << ";" << Bm.y() << ";" << Bm.z() << std::endl;
 }
-
-}  // namespace Acts::IntegrationTest

@@ -1,26 +1,22 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Definitions/Common.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/EventData/GenericBoundTrackParameters.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Utilities/UnitVectors.hpp"
@@ -31,23 +27,25 @@
 #include "Acts/Vertexing/IVertexFinder.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <iostream>
 #include <memory>
+#include <numbers>
 #include <random>
 #include <system_error>
 #include <vector>
 
-namespace bdata = boost::unit_test::data;
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 using Acts::VectorHelpers::makeVector4;
 
-namespace Acts::Test {
+namespace ActsTests {
 
 using Covariance = BoundSquareMatrix;
 
 // Create a test context
-GeometryContext geoContext = GeometryContext();
+GeometryContext geoContext = GeometryContext::dangerouslyDefaultConstruct();
 MagneticFieldContext magFieldContext = MagneticFieldContext();
 
 const double zVertexPos1 = 12.;
@@ -63,10 +61,12 @@ std::normal_distribution<double> z2dist(zVertexPos2 * 1_mm, 0.5_mm);
 // Track pT distribution
 std::uniform_real_distribution<double> pTDist(0.1_GeV, 100_GeV);
 // Track phi distribution
-std::uniform_real_distribution<double> phiDist(-M_PI, M_PI);
+std::uniform_real_distribution<double> phiDist(-std::numbers::pi,
+                                               std::numbers::pi);
 // Track eta distribution
 std::uniform_real_distribution<double> etaDist(-4., 4.);
 
+BOOST_AUTO_TEST_SUITE(VertexingSuite)
 ///
 /// @brief Unit test for GridDensityVertexFinder without caching
 /// of track density values
@@ -97,7 +97,10 @@ BOOST_AUTO_TEST_CASE(grid_density_vertex_finder_test) {
   VertexingOptions vertexingOptions(geoContext, magFieldContext);
 
   using Finder1 = GridDensityVertexFinder;
-  Finder1::Config cfg1{{{100, mainGridSize, trkGridSize}}};
+  GaussianGridTrackDensity::Config gDensityConfig(100, mainGridSize,
+                                                  trkGridSize);
+  GaussianGridTrackDensity gDensity(gDensityConfig);
+  Finder1::Config cfg1(gDensity);
   cfg1.cacheGridStateForTrackRemoval = false;
   cfg1.extractParameters.connect<&InputTrack::extractParameters>();
   Finder1 finder1(cfg1);
@@ -132,11 +135,11 @@ BOOST_AUTO_TEST_CASE(grid_density_vertex_finder_test) {
     double pt = pTDist(gen);
     double phi = phiDist(gen);
     double eta = etaDist(gen);
-    double charge = etaDist(gen) > 0 ? 1 : -1;
+    double charge = std::copysign(1., etaDist(gen));
 
     // project the position on the surface
     Vector3 direction = makeDirectionFromPhiEta(phi, eta);
-    auto intersection =
+    Intersection3D intersection =
         perigeeSurface->intersect(geoContext, pos, direction).closest();
     pos = intersection.position();
 
@@ -145,7 +148,7 @@ BOOST_AUTO_TEST_CASE(grid_density_vertex_finder_test) {
     pos[eZ] = ((i % 4) == 0) ? z2dist(gen) : z1dist(gen);
 
     trackVec.push_back(BoundTrackParameters::create(
-                           perigeeSurface, geoContext, makeVector4(pos, 0),
+                           geoContext, perigeeSurface, makeVector4(pos, 0),
                            direction, charge / pt, covMat,
                            ParticleHypothesis::pion())
                            .value());
@@ -251,11 +254,11 @@ BOOST_AUTO_TEST_CASE(grid_density_vertex_finder_track_caching_test) {
     double pt = pTDist(gen);
     double phi = phiDist(gen);
     double eta = etaDist(gen);
-    double charge = etaDist(gen) > 0 ? 1 : -1;
+    double charge = std::copysign(1., etaDist(gen));
 
     // project the position on the surface
     Vector3 direction = makeDirectionFromPhiEta(phi, eta);
-    auto intersection =
+    Intersection3D intersection =
         perigeeSurface->intersect(geoContext, pos, direction).closest();
     pos = intersection.position();
 
@@ -264,7 +267,7 @@ BOOST_AUTO_TEST_CASE(grid_density_vertex_finder_track_caching_test) {
     pos[eZ] = ((i % 4) == 0) ? z2dist(gen) : z1dist(gen);
 
     trackVec.push_back(BoundTrackParameters::create(
-                           perigeeSurface, geoContext, makeVector4(pos, 0),
+                           geoContext, perigeeSurface, makeVector4(pos, 0),
                            direction, charge / pt, covMat,
                            ParticleHypothesis::pion())
                            .value());
@@ -382,7 +385,10 @@ BOOST_AUTO_TEST_CASE(grid_density_vertex_finder_seed_width_test) {
   vertexingOptions.constraint = constraintVtx;
 
   using Finder1 = GridDensityVertexFinder;
-  Finder1::Config cfg1{{{100, mainGridSize, trkGridSize}}};
+  GaussianGridTrackDensity::Config gDensityConfig(100, mainGridSize,
+                                                  trkGridSize);
+  GaussianGridTrackDensity gDensity(gDensityConfig);
+  Finder1::Config cfg1(gDensity);
   cfg1.cacheGridStateForTrackRemoval = false;
   cfg1.estimateSeedWidth = true;
   cfg1.extractParameters.connect<&InputTrack::extractParameters>();
@@ -419,18 +425,18 @@ BOOST_AUTO_TEST_CASE(grid_density_vertex_finder_seed_width_test) {
     double pt = pTDist(gen);
     double phi = phiDist(gen);
     double eta = etaDist(gen);
-    double charge = etaDist(gen) > 0 ? 1 : -1;
+    double charge = std::copysign(1., etaDist(gen));
 
     // project the position on the surface
     Vector3 direction = makeDirectionFromPhiEta(phi, eta);
-    auto intersection =
+    Intersection3D intersection =
         perigeeSurface->intersect(geoContext, pos, direction).closest();
     pos = intersection.position();
 
     pos[eZ] = z1dist(gen);
 
     trackVec.push_back(BoundTrackParameters::create(
-                           perigeeSurface, geoContext, makeVector4(pos, 0),
+                           geoContext, perigeeSurface, makeVector4(pos, 0),
                            direction, charge / pt, covMat,
                            ParticleHypothesis::pion())
                            .value());
@@ -481,4 +487,6 @@ BOOST_AUTO_TEST_CASE(grid_density_vertex_finder_seed_width_test) {
   CHECK_CLOSE_ABS(covZZ1, covZZ2, 1e-4);
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

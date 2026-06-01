@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -24,12 +24,13 @@
 
 #include "TrackingVolumeCreation.hpp"
 
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 
-namespace Acts::Test {
+namespace ActsTests {
 
 // Create a test context
-GeometryContext tgContext = GeometryContext();
+GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
 ///  create three cylinder surfaces
 ///  the surface radius (will also be the layer radius)
@@ -57,6 +58,8 @@ auto iVolume = constructCylinderVolume(
     tgContext, iVsurfaceHalfLengthZ, iVsurfaceR, iVsurfaceRstagger,
     iVsurfaceZoverlap, iVlayerEnvelope, iVvolumeEnvelope, 0., iVvolumeR,
     "InnerVolume");
+
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_AUTO_TEST_CASE(GeometryIdentifier_innervolume_test) {
   BOOST_CHECK_EQUAL(0ul, iVolume->geometryId().value());
@@ -137,4 +140,6 @@ BOOST_AUTO_TEST_CASE(GeometryIdentifier_containervolume_test) {
   }
 }
 
-}  //  namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

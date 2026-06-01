@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -13,13 +13,11 @@
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/GenericBoundTrackParameters.hpp"
-#include "Acts/EventData/GenericCurvilinearTrackParameters.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/SourceLink.hpp"
 #include "Acts/EventData/TrackContainer.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/EventData/TrackProxy.hpp"
-#include "Acts/EventData/TrackStatePropMask.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
 #include "Acts/EventData/VectorTrackContainer.hpp"
 #include "Acts/EventData/detail/TestSourceLink.hpp"
@@ -31,32 +29,25 @@
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/StraightLineStepper.hpp"
-#include "Acts/Surfaces/PlaneSurface.hpp"
+#include "Acts/Surfaces/CurvilinearSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/CubicTrackingGeometry.hpp"
-#include "Acts/Tests/CommonHelpers/LineSurfaceStub.hpp"
-#include "Acts/Tests/CommonHelpers/MeasurementsCreator.hpp"
 #include "Acts/TrackFinding/CombinatorialKalmanFilter.hpp"
 #include "Acts/TrackFinding/MeasurementSelector.hpp"
+#include "Acts/TrackFinding/TrackStateCreator.hpp"
 #include "Acts/TrackFitting/GainMatrixSmoother.hpp"
 #include "Acts/TrackFitting/GainMatrixUpdater.hpp"
-#include "Acts/TrackFitting/KalmanFitter.hpp"
 #include "Acts/Utilities/CalibrationContext.hpp"
-#include "Acts/Utilities/Delegate.hpp"
-#include "Acts/Utilities/HashedString.hpp"
 #include "Acts/Utilities/Holders.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
+#include "ActsTests/CommonHelpers/CubicTrackingGeometry.hpp"
+#include "ActsTests/CommonHelpers/MeasurementsCreator.hpp"
 
-#include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <functional>
 #include <limits>
-#include <map>
 #include <memory>
-#include <ostream>
 #include <random>
 #include <string>
 #include <system_error>
@@ -64,17 +55,19 @@
 #include <utility>
 #include <vector>
 
-namespace Acts {
-class TrackingGeometry;
-}  // namespace Acts
-
-namespace {
-
-using namespace Acts::Test;
+using namespace Acts;
 using namespace Acts::detail::Test;
 using namespace Acts::UnitLiterals;
 
-static const auto pion = Acts::ParticleHypothesis::pion();
+namespace ActsTests {
+
+static const auto pion = ParticleHypothesis::pion();
+
+using TrackContainer =
+    TrackContainer<VectorTrackContainer, VectorMultiTrajectory,
+                   detail::ValueHolder>;
+using TrackStateContainerBackend =
+    typename TrackContainer::TrackStateContainerBackend;
 
 struct Detector {
   // expected number of measurements for the given detector
@@ -82,21 +75,21 @@ struct Detector {
 
   // geometry
   CubicTrackingGeometry store;
-  std::shared_ptr<const Acts::TrackingGeometry> geometry;
+  std::shared_ptr<const TrackingGeometry> geometry;
 
   // resolutions
   MeasurementResolution resPixel = {MeasurementType::eLoc01, {25_um, 50_um}};
   MeasurementResolution resStrip0 = {MeasurementType::eLoc0, {100_um}};
   MeasurementResolution resStrip1 = {MeasurementType::eLoc1, {150_um}};
   MeasurementResolutionMap resolutions = {
-      {Acts::GeometryIdentifier().setVolume(2), resPixel},
-      {Acts::GeometryIdentifier().setVolume(3).setLayer(2), resStrip0},
-      {Acts::GeometryIdentifier().setVolume(3).setLayer(4), resStrip1},
-      {Acts::GeometryIdentifier().setVolume(3).setLayer(6), resStrip0},
-      {Acts::GeometryIdentifier().setVolume(3).setLayer(8), resStrip1},
+      {GeometryIdentifier().withVolume(2), resPixel},
+      {GeometryIdentifier().withVolume(3).withLayer(2), resStrip0},
+      {GeometryIdentifier().withVolume(3).withLayer(4), resStrip1},
+      {GeometryIdentifier().withVolume(3).withLayer(6), resStrip0},
+      {GeometryIdentifier().withVolume(3).withLayer(8), resStrip1},
   };
 
-  Detector(const Acts::GeometryContext& geoCtx)
+  explicit Detector(const GeometryContext& geoCtx)
       : store(geoCtx), geometry(store()) {}
 };
 
@@ -127,11 +120,9 @@ struct TestContainerAccessor {
       return m_iterator == other.m_iterator;
     }
 
-    bool operator!=(const Iterator& other) const { return !(*this == other); }
-
-    Acts::SourceLink operator*() const {
+    SourceLink operator*() const {
       const auto& sl = m_iterator->second;
-      return Acts::SourceLink{sl};
+      return SourceLink{sl};
     }
 
     BaseIterator m_iterator;
@@ -141,7 +132,7 @@ struct TestContainerAccessor {
   const Container* container = nullptr;
 
   // get the range of elements with requested key
-  std::pair<Iterator, Iterator> range(const Acts::Surface& surface) const {
+  std::pair<Iterator, Iterator> range(const Surface& surface) const {
     assert(container != nullptr);
     auto [begin, end] = container->equal_range(surface.geometryId());
     return {Iterator{begin}, Iterator{end}};
@@ -149,97 +140,92 @@ struct TestContainerAccessor {
 };
 
 struct Fixture {
-  using StraightPropagator =
-      Acts::Propagator<Acts::StraightLineStepper, Acts::Navigator>;
-  using ConstantFieldStepper = Acts::EigenStepper<>;
-  using ConstantFieldPropagator =
-      Acts::Propagator<ConstantFieldStepper, Acts::Navigator>;
+  using StraightPropagator = Propagator<StraightLineStepper, Navigator>;
+  using ConstantFieldStepper = EigenStepper<>;
+  using ConstantFieldPropagator = Propagator<ConstantFieldStepper, Navigator>;
 
-  using Trajectory = Acts::VectorMultiTrajectory;
-
-  using KalmanUpdater = Acts::GainMatrixUpdater;
-  using KalmanSmoother = Acts::GainMatrixSmoother;
-  using CombinatorialKalmanFilter =
-      Acts::CombinatorialKalmanFilter<ConstantFieldPropagator, Trajectory>;
+  using KalmanUpdater = GainMatrixUpdater;
+  using KalmanSmoother = GainMatrixSmoother;
+  using TestCombinatorialKalmanFilter =
+      CombinatorialKalmanFilter<ConstantFieldPropagator, TrackContainer>;
   using TestSourceLinkContainer =
-      std::unordered_multimap<Acts::GeometryIdentifier, TestSourceLink>;
+      std::unordered_multimap<GeometryIdentifier, TestSourceLink>;
   using TestSourceLinkAccessor = TestContainerAccessor<TestSourceLinkContainer>;
-  using CombinatorialKalmanFilterOptions =
-      Acts::CombinatorialKalmanFilterOptions<TestSourceLinkAccessor::Iterator,
-                                             Trajectory>;
+  using TestCombinatorialKalmanFilterOptions =
+      CombinatorialKalmanFilterOptions<TrackContainer>;
 
   KalmanUpdater kfUpdater;
   KalmanSmoother kfSmoother;
 
-  Acts::GeometryContext geoCtx;
-  Acts::MagneticFieldContext magCtx;
-  Acts::CalibrationContext calCtx;
+  GeometryContext geoCtx = GeometryContext::dangerouslyDefaultConstruct();
+  MagneticFieldContext magCtx;
+  CalibrationContext calCtx;
 
   Detector detector;
 
   // track parameters before and after the detector
-  std::vector<Acts::CurvilinearTrackParameters> startParameters;
-  std::vector<Acts::CurvilinearTrackParameters> endParameters;
+  std::vector<BoundTrackParameters> startParameters;
+  std::vector<BoundTrackParameters> endParameters;
 
   // generated measurements
   TestSourceLinkContainer sourceLinks;
 
   // CKF implementation to be tested
-  CombinatorialKalmanFilter ckf;
+  TestCombinatorialKalmanFilter ckf;
   // configuration for the measurement selector
-  Acts::MeasurementSelector::Config measurementSelectorCfg = {
+  MeasurementSelector::Config measurementSelectorCfg = {
       // global default: no chi2 cut, only one measurement per surface
-      {Acts::GeometryIdentifier(),
-       {{}, {std::numeric_limits<double>::max()}, {1u}}},
+      {GeometryIdentifier(), {{}, {std::numeric_limits<double>::max()}, {1u}}},
   };
 
-  Acts::MeasurementSelector measSel{measurementSelectorCfg};
+  MeasurementSelector measSel{measurementSelectorCfg};
 
-  Acts::CombinatorialKalmanFilterExtensions<Trajectory> getExtensions() const {
-    Acts::CombinatorialKalmanFilterExtensions<Trajectory> extensions;
-    extensions.calibrator
-        .template connect<&testSourceLinkCalibrator<Trajectory>>();
-    extensions.updater.template connect<&KalmanUpdater::operator()<Trajectory>>(
-        &kfUpdater);
-    extensions.measurementSelector
-        .template connect<&Acts::MeasurementSelector::select<Trajectory>>(
-            &measSel);
+  CombinatorialKalmanFilterExtensions<TrackContainer> getExtensions() const {
+    CombinatorialKalmanFilterExtensions<TrackContainer> extensions;
+    extensions.updater.template connect<
+        &KalmanUpdater::operator()<TrackStateContainerBackend>>(&kfUpdater);
     return extensions;
   }
 
-  std::unique_ptr<const Acts::Logger> logger;
+  std::unique_ptr<const Logger> logger;
 
-  Fixture(double bz)
+  explicit Fixture(double bz)
       : detector(geoCtx),
         ckf(makeConstantFieldPropagator(detector.geometry, bz)),
-        logger(Acts::getDefaultLogger("CkfTest", Acts::Logging::INFO)) {
+        logger(getDefaultLogger("CkfTest", Logging::INFO)) {
     // construct initial parameters
     // create common covariance matrix from reasonable standard deviations
-    Acts::BoundVector stddev;
-    stddev[Acts::eBoundLoc0] = 100_um;
-    stddev[Acts::eBoundLoc1] = 100_um;
-    stddev[Acts::eBoundTime] = 25_ns;
-    stddev[Acts::eBoundPhi] = 2_degree;
-    stddev[Acts::eBoundTheta] = 2_degree;
-    stddev[Acts::eBoundQOverP] = 1 / 100_GeV;
-    Acts::BoundSquareMatrix cov = stddev.cwiseProduct(stddev).asDiagonal();
+    BoundVector stddev;
+    stddev[eBoundLoc0] = 100_um;
+    stddev[eBoundLoc1] = 100_um;
+    stddev[eBoundTime] = 25_ns;
+    stddev[eBoundPhi] = 2_degree;
+    stddev[eBoundTheta] = 2_degree;
+    stddev[eBoundQOverP] = 1 / 100_GeV;
+    BoundSquareMatrix cov = stddev.cwiseProduct(stddev).asDiagonal();
     // all tracks close to the transverse plane along the x axis w/ small
     // variations in position, direction.
-    Acts::Vector4 mStartPos0(-3_m, 0.0, 0.0, 1_ns);
-    Acts::Vector4 mStartPos1(-3_m, -15_mm, -15_mm, 2_ns);
-    Acts::Vector4 mStartPos2(-3_m, 15_mm, 15_mm, -1_ns);
+    Vector4 mStartPos0(-3_m, 0.0, 0.0, 1_ns);
+    Vector4 mStartPos1(-3_m, -15_mm, -15_mm, 2_ns);
+    Vector4 mStartPos2(-3_m, 15_mm, 15_mm, -1_ns);
     startParameters = {
-        {mStartPos0, 0_degree, 90_degree, 1_e / 1_GeV, cov, pion},
-        {mStartPos1, -1_degree, 91_degree, 1_e / 1_GeV, cov, pion},
-        {mStartPos2, 1_degree, 89_degree, -1_e / 1_GeV, cov, pion},
+        BoundTrackParameters::createCurvilinear(mStartPos0, 0_degree, 90_degree,
+                                                1_e / 1_GeV, cov, pion),
+        BoundTrackParameters::createCurvilinear(
+            mStartPos1, -1_degree, 91_degree, 1_e / 1_GeV, cov, pion),
+        BoundTrackParameters::createCurvilinear(mStartPos2, 1_degree, 89_degree,
+                                                -1_e / 1_GeV, cov, pion),
     };
-    Acts::Vector4 mEndPos0(3_m, 0.0, 0.0, 1_ns);
-    Acts::Vector4 mEndPos1(3_m, -100_mm, -100_mm, 2_ns);
-    Acts::Vector4 mEndPos2(3_m, 100_mm, 100_mm, -1_ns);
+    Vector4 mEndPos0(3_m, 0.0, 0.0, 1_ns);
+    Vector4 mEndPos1(3_m, -100_mm, -100_mm, 2_ns);
+    Vector4 mEndPos2(3_m, 100_mm, 100_mm, -1_ns);
     endParameters = {
-        {mEndPos0, 0_degree, 90_degree, 1_e / 1_GeV, cov * 100, pion},
-        {mEndPos1, -1_degree, 91_degree, 1_e / 1_GeV, cov * 100, pion},
-        {mEndPos2, 1_degree, 89_degree, -1_e / 1_GeV, cov * 100, pion},
+        BoundTrackParameters::createCurvilinear(mEndPos0, 0_degree, 90_degree,
+                                                1_e / 1_GeV, cov * 100, pion),
+        BoundTrackParameters::createCurvilinear(mEndPos1, -1_degree, 91_degree,
+                                                1_e / 1_GeV, cov * 100, pion),
+        BoundTrackParameters::createCurvilinear(mEndPos2, 1_degree, 89_degree,
+                                                -1_e / 1_GeV, cov * 100, pion),
     };
 
     // create some measurements
@@ -258,62 +244,97 @@ struct Fixture {
 
   // Construct a straight-line propagator.
   static StraightPropagator makeStraightPropagator(
-      std::shared_ptr<const Acts::TrackingGeometry> geo) {
-    Acts::Navigator::Config cfg{std::move(geo)};
+      std::shared_ptr<const TrackingGeometry> geo) {
+    Navigator::Config cfg{std::move(geo)};
     cfg.resolvePassive = false;
     cfg.resolveMaterial = true;
     cfg.resolveSensitive = true;
-    Acts::Navigator navigator{cfg};
-    Acts::StraightLineStepper stepper;
+    Navigator navigator{cfg};
+    StraightLineStepper stepper;
     return StraightPropagator(stepper, std::move(navigator));
   }
 
   // Construct a propagator using a constant magnetic field along z.
   static ConstantFieldPropagator makeConstantFieldPropagator(
-      std::shared_ptr<const Acts::TrackingGeometry> geo, double bz) {
-    Acts::Navigator::Config cfg{std::move(geo)};
+      std::shared_ptr<const TrackingGeometry> geo, double bz) {
+    Navigator::Config cfg{std::move(geo)};
     cfg.resolvePassive = false;
     cfg.resolveMaterial = true;
     cfg.resolveSensitive = true;
-    Acts::Navigator navigator{cfg};
-    auto field =
-        std::make_shared<Acts::ConstantBField>(Acts::Vector3(0.0, 0.0, bz));
+    Navigator navigator{cfg};
+    auto field = std::make_shared<ConstantBField>(Vector3(0.0, 0.0, bz));
     ConstantFieldStepper stepper(std::move(field));
     return ConstantFieldPropagator(std::move(stepper), std::move(navigator));
   }
 
-  CombinatorialKalmanFilterOptions makeCkfOptions() const {
+  TestCombinatorialKalmanFilterOptions makeCkfOptions() const {
+    // leave the accessor empty, this will have to be set before running the CKF
     return CombinatorialKalmanFilterOptions(
-        geoCtx, magCtx, calCtx,
-        Acts::SourceLinkAccessorDelegate<
-            TestSourceLinkAccessor::Iterator>{},  // leave the accessor empty,
-                                                  // this will have to be set
-                                                  // before running the CKF
-        getExtensions(), Acts::PropagatorPlainOptions());
+        geoCtx, magCtx, calCtx, getExtensions(),
+        PropagatorPlainOptions(geoCtx, magCtx));
   }
 };
 
-}  // namespace
+// set up composable track state creator from these components:
+//  - source link accessor,
+//  - measurement selector
+//  - track  state candidate creator
+template <typename source_link_accessor_t>
+inline auto makeTrackStateCreator(const source_link_accessor_t& slAccessor,
+                                  const MeasurementSelector& measSel) {
+  using TrackStateCreatorType =
+      TrackStateCreator<typename source_link_accessor_t::Iterator,
+                        TrackContainer>;
+  TrackStateCreatorType trackStateCreator;
+  trackStateCreator.sourceLinkAccessor
+      .template connect<&source_link_accessor_t::range>(&slAccessor);
+  trackStateCreator.calibrator.template connect<
+      &testSourceLinkCalibrator<TrackStateContainerBackend>>();
+  trackStateCreator.measurementSelector.template connect<
+      &MeasurementSelector::select<TrackStateContainerBackend>>(&measSel);
+  return trackStateCreator;
+}
 
-BOOST_AUTO_TEST_SUITE(TrackFindingCombinatorialKalmanFilter)
+}  // namespace ActsTests
+
+namespace Acts {
+
+// somehow this is not automatically instantiated
+template Result<std::pair<
+    std::vector<
+        ActsTests::TrackStateContainerBackend::TrackStateProxy>::iterator,
+    std::vector<
+        ActsTests::TrackStateContainerBackend::TrackStateProxy>::iterator>>
+MeasurementSelector::select<ActsTests::TrackStateContainerBackend>(
+    std::vector<ActsTests::TrackStateContainerBackend::TrackStateProxy>&, bool&,
+    const Logger&) const;
+}  // namespace Acts
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(TrackFindingSuite)
 
 BOOST_AUTO_TEST_CASE(ZeroFieldForward) {
   Fixture f(0_T);
 
   auto options = f.makeCkfOptions();
   // this is the default option. set anyway for consistency
-  options.propagatorPlainOptions.direction = Acts::Direction::Forward;
+  options.propagatorPlainOptions.direction = Direction::Forward();
   // Construct a plane surface as the target surface
-  auto pSurface = Acts::Surface::makeShared<Acts::PlaneSurface>(
-      Acts::Vector3{-3_m, 0., 0.}, Acts::Vector3{1., 0., 0});
+  std::shared_ptr<PlaneSurface> pSurface =
+      CurvilinearSurface(Vector3{-3_m, 0., 0.}, Vector3{1., 0., 0})
+          .planeSurface();
 
   Fixture::TestSourceLinkAccessor slAccessor;
   slAccessor.container = &f.sourceLinks;
-  options.sourcelinkAccessor.connect<&Fixture::TestSourceLinkAccessor::range>(
-      &slAccessor);
 
-  Acts::TrackContainer tc{Acts::VectorTrackContainer{},
-                          Acts::VectorMultiTrajectory{}};
+  auto trackStateCreator = makeTrackStateCreator(slAccessor, f.measSel);
+
+  options.extensions.createTrackStates
+      .template connect<&decltype(trackStateCreator)::createTrackStates>(
+          &trackStateCreator);
+
+  TrackContainer tc{VectorTrackContainer{}, VectorMultiTrajectory{}};
 
   // run the CKF for all initial track states
   for (std::size_t trackId = 0u; trackId < f.startParameters.size();
@@ -359,18 +380,21 @@ BOOST_AUTO_TEST_CASE(ZeroFieldBackward) {
   Fixture f(0_T);
 
   auto options = f.makeCkfOptions();
-  options.propagatorPlainOptions.direction = Acts::Direction::Backward;
+  options.propagatorPlainOptions.direction = Direction::Backward();
   // Construct a plane surface as the target surface
-  auto pSurface = Acts::Surface::makeShared<Acts::PlaneSurface>(
-      Acts::Vector3{3_m, 0., 0.}, Acts::Vector3{1., 0., 0});
+  std::shared_ptr<PlaneSurface> pSurface =
+      CurvilinearSurface(Vector3{3_m, 0., 0.}, Vector3{1., 0., 0})
+          .planeSurface();
 
   Fixture::TestSourceLinkAccessor slAccessor;
   slAccessor.container = &f.sourceLinks;
-  options.sourcelinkAccessor.connect<&Fixture::TestSourceLinkAccessor::range>(
-      &slAccessor);
 
-  Acts::TrackContainer tc{Acts::VectorTrackContainer{},
-                          Acts::VectorMultiTrajectory{}};
+  auto trackStateCreator = makeTrackStateCreator(slAccessor, f.measSel);
+  options.extensions.createTrackStates
+      .template connect<&decltype(trackStateCreator)::createTrackStates>(
+          &trackStateCreator);
+
+  TrackContainer tc{VectorTrackContainer{}, VectorMultiTrajectory{}};
 
   // run the CKF for all initial track states
   for (std::size_t trackId = 0u; trackId < f.startParameters.size();
@@ -411,3 +435,5 @@ BOOST_AUTO_TEST_CASE(ZeroFieldBackward) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

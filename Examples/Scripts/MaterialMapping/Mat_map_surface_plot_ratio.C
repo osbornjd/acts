@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Mat_map_surface_plot.C"
 
@@ -86,23 +86,23 @@ void plot_ratio(std::vector<TH2F*> Map_prop, std::vector<TH2F*> Map_geant, const
 /// Plot the material ratio between the geantino scan and the map validation for each surface.
 /// nbprocess : number of parameter to be processed
 /// name : name of the output directory.
-/// name_prop : name of the output directory for the map valdation.
+/// name_prop : name of the output directory for the map validation.
 /// name_geant : name of the output directory for the geantino scan.
-/// The map valdation and geantino scan plots are only saved if name_prop and name_geant are defined.
+/// The map validation and geantino scan plots are only saved if name_prop and name_geant are defined.
 
-void Mat_map_surface_plot_ratio(std::string input_file_prop = "", std::string input_file_geant = "", int nbprocess = -1, std::string name = "", std::string name_prop = "", std::string name_geant = ""){
+void Mat_map_surface_plot_ratio(std::string input_file_prop = "", std::string input_file_geant = "", int nbprocess = -1, std::string name = "", std::string name_prop = "", std::string name_geant = "", std::string geometry_file = "geometry-map.json"){
 
   gStyle->SetOptStat(0);
   gStyle->SetOptTitle(0);
 
-  std::map<uint64_t,std::vector<TH2F*>> surface_hist_prop;
-  std::map<uint64_t,sinfo> surface_info_prop;
+  std::map<std::uint64_t,std::vector<TH2F*>> surface_hist_prop;
+  std::map<std::uint64_t,sinfo> surface_info_prop;
 
-  std::map<uint64_t,std::vector<TH2F*>> surface_hist_geant;
-  std::map<uint64_t,sinfo> surface_info_geant;
+  std::map<std::uint64_t,std::vector<TH2F*>> surface_hist_geant;
+  std::map<std::uint64_t,sinfo> surface_info_geant;
 
-  Fill(surface_hist_prop, surface_info_prop, input_file_prop, nbprocess);
-  Fill(surface_hist_geant, surface_info_geant, input_file_geant, nbprocess);
+  Fill(surface_hist_prop, surface_info_prop, input_file_prop, geometry_file, nbprocess);
+  Fill(surface_hist_geant, surface_info_geant, input_file_geant, geometry_file, nbprocess);
 
   for (auto hist_it = surface_hist_prop.begin(); hist_it != surface_hist_prop.end(); hist_it++){
     if(name_prop != "") plot(hist_it->second, surface_info_prop[hist_it->first], name_prop);

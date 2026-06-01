@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -16,27 +16,30 @@
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/BoundingBox.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
 #include "Acts/Visualization/PlyVisualization3D.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <array>
 #include <cmath>
 #include <fstream>
 #include <memory>
+#include <numbers>
 #include <utility>
 #include <vector>
 
-namespace Acts::Test {
+using namespace Acts;
 
-GeometryContext gctx = GeometryContext();
+namespace ActsTests {
 
-BOOST_AUTO_TEST_SUITE(Volumes)
+GeometryContext gctx = GeometryContext::dangerouslyDefaultConstruct();
+
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_AUTO_TEST_CASE(construction_test) {
-  std::array<Vector3, 8> vertices;
+  std::array<Vector3, 8> vertices{};
   vertices = {{{0, 0, 0},
                {2, 0, 0},
                {2, 1, 0},
@@ -60,7 +63,7 @@ BOOST_AUTO_TEST_CASE(construction_test) {
 }
 
 BOOST_AUTO_TEST_CASE(GenericCuboidBoundsOrientedSurfaces) {
-  std::array<Vector3, 8> vertices;
+  std::array<Vector3, 8> vertices{};
   vertices = {{{0, 0, 0},
                {2, 0, 0},
                {2, 1, 0},
@@ -112,7 +115,7 @@ BOOST_AUTO_TEST_CASE(GenericCuboidBoundsOrientedSurfaces) {
 
   Transform3 trf;
   trf = Translation3(Vector3(0, 8, -5)) *
-        AngleAxis3(M_PI / 3., Vector3(1, -3, 9).normalized());
+        AngleAxis3(std::numbers::pi / 3., Vector3(1, -3, 9).normalized());
 
   surfaces = cubo.orientedSurfaces(trf);
   for (const auto& srf : surfaces) {
@@ -126,7 +129,7 @@ BOOST_AUTO_TEST_CASE(GenericCuboidBoundsOrientedSurfaces) {
 }
 
 BOOST_AUTO_TEST_CASE(ply_test) {
-  std::array<Vector3, 8> vertices;
+  std::array<Vector3, 8> vertices{};
   vertices = {{{0, 0, 0},
                {2, 0, 0},
                {2, 1, 0},
@@ -146,7 +149,7 @@ BOOST_AUTO_TEST_CASE(ply_test) {
 
 BOOST_AUTO_TEST_CASE(bounding_box_creation) {
   float tol = 1e-4;
-  std::array<Vector3, 8> vertices;
+  std::array<Vector3, 8> vertices{};
   vertices = {{{0, 0, 0},
                {2, 0, 0.4},
                {2, 1, 0.4},
@@ -160,7 +163,7 @@ BOOST_AUTO_TEST_CASE(bounding_box_creation) {
   auto bb = gcvb.boundingBox();
 
   Transform3 rot;
-  rot = AngleAxis3(M_PI / 2., Vector3::UnitX());
+  rot = AngleAxis3(std::numbers::pi / 2., Vector3::UnitX());
 
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
   BOOST_CHECK_EQUAL(bb.max(), Vector3(2, 1, 1));
@@ -172,14 +175,14 @@ BOOST_AUTO_TEST_CASE(bounding_box_creation) {
   CHECK_CLOSE_ABS(bb.max(), Vector3(2, 0, 1), tol);
   BOOST_CHECK_EQUAL(bb.min(), Vector3(0, -1, 0));
 
-  rot = AngleAxis3(M_PI / 2., Vector3::UnitZ());
+  rot = AngleAxis3(std::numbers::pi / 2., Vector3::UnitZ());
   bb = gcvb.boundingBox(&rot);
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
   CHECK_CLOSE_ABS(bb.max(), Vector3(0, 2, 1), tol);
   CHECK_CLOSE_ABS(bb.min(), Vector3(-1, 0., 0.), tol);
 
   rot = AngleAxis3(0.542, Vector3::UnitZ()) *
-        AngleAxis3(M_PI / 5., Vector3(1, 3, 6).normalized());
+        AngleAxis3(std::numbers::pi / 5., Vector3(1, 3, 6).normalized());
 
   bb = gcvb.boundingBox(&rot);
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
@@ -191,14 +194,14 @@ BOOST_AUTO_TEST_CASE(bounding_box_creation) {
   BOOST_CHECK_EQUAL(boundValues.size(), 24u);
 
   auto bValueArrray =
-      to_array<GenericCuboidVolumeBounds::BoundValues::eSize, ActsScalar>(
+      toArray<GenericCuboidVolumeBounds::BoundValues::eSize, double>(
           boundValues);
   GenericCuboidVolumeBounds gcvbCopy(bValueArrray);
   BOOST_CHECK_EQUAL(gcvbCopy.values().size(), 24u);
 
   // Redo the check from above
   rot = AngleAxis3(0.542, Vector3::UnitZ()) *
-        AngleAxis3(M_PI / 5., Vector3(1, 3, 6).normalized());
+        AngleAxis3(std::numbers::pi / 5., Vector3(1, 3, 6).normalized());
 
   bb = gcvbCopy.boundingBox(&rot);
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
@@ -207,7 +210,7 @@ BOOST_AUTO_TEST_CASE(bounding_box_creation) {
 }
 
 BOOST_AUTO_TEST_CASE(GenericCuboidVolumeBoundarySurfaces) {
-  std::array<Vector3, 8> vertices;
+  std::array<Vector3, 8> vertices{};
   vertices = {{{0, 0, 0},
                {4, 0, 0},
                {4, 2, 0},
@@ -223,10 +226,9 @@ BOOST_AUTO_TEST_CASE(GenericCuboidVolumeBoundarySurfaces) {
   BOOST_CHECK_EQUAL(gcvbOrientedSurfaces.size(), 6);
 
   for (auto& os : gcvbOrientedSurfaces) {
-    auto geoCtx = GeometryContext();
+    auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
     auto osCenter = os.surface->center(geoCtx);
-    const auto* pSurface =
-        dynamic_cast<const Acts::PlaneSurface*>(os.surface.get());
+    const auto* pSurface = dynamic_cast<const PlaneSurface*>(os.surface.get());
     BOOST_REQUIRE_MESSAGE(pSurface != nullptr,
                           "The surface is not a plane surface");
     auto osNormal = pSurface->normal(geoCtx);
@@ -239,4 +241,4 @@ BOOST_AUTO_TEST_CASE(GenericCuboidVolumeBoundarySurfaces) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Acts::Test
+}  // namespace ActsTests

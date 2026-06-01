@@ -1,17 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Surfaces/BoundaryCheck.hpp"
+#include "Acts/Surfaces/BoundaryTolerance.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
 
 #include <cstddef>
@@ -29,25 +27,52 @@ class SurfaceBoundsStub : public SurfaceBounds {
     std::iota(m_values.begin(), m_values.end(), 0);
   }
 
-#if defined(__GNUC__) && __GNUC__ == 13 && !defined(__clang__)
+#if defined(__GNUC__) && (__GNUC__ == 13 || __GNUC__ == 14) && \
+    !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
 #pragma GCC diagnostic ignored "-Wstringop-overflow"
 #endif
   SurfaceBoundsStub(const SurfaceBoundsStub& other) = default;
-#if defined(__GNUC__) && __GNUC__ == 13 && !defined(__clang__)
+  SurfaceBoundsStub& operator=(const SurfaceBoundsStub& other) = default;
+#if defined(__GNUC__) && (__GNUC__ == 13 || __GNUC__ == 14) && \
+    !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
-  ~SurfaceBoundsStub() override = default;
-  BoundsType type() const final {
-    return SurfaceBounds::eOther;
+  BoundsType type() const final { return eOther; }
+
+  bool isCartesian() const final { return true; }
+
+  SquareMatrix2 boundToCartesianJacobian(const Vector2& lposition) const final {
+    static_cast<void>(lposition);
+    return SquareMatrix2::Identity();
   }
-  std::vector<double> values() const override {
-    return m_values;
+
+  SquareMatrix2 boundToCartesianMetric(const Vector2& lposition) const final {
+    static_cast<void>(lposition);
+    return SquareMatrix2::Identity();
   }
-  bool inside(const Vector2& /*lpos*/,
-              const BoundaryCheck& /*bcheck*/) const final {
+
+  std::vector<double> values() const final { return m_values; }
+
+  bool inside(const Vector2& lposition) const final {
+    static_cast<void>(lposition);
+    return true;
+  }
+
+  Vector2 closestPoint(const Vector2& lposition,
+                       const SquareMatrix2& metric) const final {
+    static_cast<void>(metric);
+    return lposition;
+  }
+
+  Vector2 center() const final { return Vector2(0.0, 0.0); }
+
+  bool inside(const Vector2& lposition,
+              const BoundaryTolerance& boundaryTolerance) const final {
+    static_cast<void>(lposition);
+    static_cast<void>(boundaryTolerance);
     return true;
   }
 
@@ -60,8 +85,14 @@ class SurfaceBoundsStub : public SurfaceBounds {
   std::vector<double> m_values;
 };
 
-namespace Test {
-BOOST_AUTO_TEST_SUITE(Surfaces)
+}  // namespace Acts
+
+using namespace Acts;
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(SurfacesSuite)
+
 /// Unit test for creating compliant/non-compliant SurfaceBounds object
 BOOST_AUTO_TEST_CASE(SurfaceBoundsConstruction) {
   SurfaceBoundsStub u;
@@ -69,6 +100,7 @@ BOOST_AUTO_TEST_CASE(SurfaceBoundsConstruction) {
   SurfaceBoundsStub t(s);
   SurfaceBoundsStub v(u);
 }
+
 BOOST_AUTO_TEST_CASE(SurfaceBoundsProperties) {
   SurfaceBoundsStub surface(5);
   std::vector<double> reference{0, 1, 2, 3, 4};
@@ -76,6 +108,7 @@ BOOST_AUTO_TEST_CASE(SurfaceBoundsProperties) {
   BOOST_CHECK_EQUAL_COLLECTIONS(reference.cbegin(), reference.cend(),
                                 boundValues.cbegin(), boundValues.cend());
 }
+
 /// Unit test for testing SurfaceBounds properties
 BOOST_AUTO_TEST_CASE(SurfaceBoundsEquality) {
   SurfaceBoundsStub surface(1);
@@ -83,17 +116,18 @@ BOOST_AUTO_TEST_CASE(SurfaceBoundsEquality) {
   SurfaceBoundsStub differentSurface(2);
   BOOST_CHECK_EQUAL(surface, copiedSurface);
   BOOST_CHECK_NE(surface, differentSurface);
+
   SurfaceBoundsStub assignedSurface;
   assignedSurface = surface;
   BOOST_CHECK_EQUAL(surface, assignedSurface);
+
   const auto& surfaceboundValues = surface.values();
   const auto& assignedboundValues = assignedSurface.values();
   BOOST_CHECK_EQUAL_COLLECTIONS(
       surfaceboundValues.cbegin(), surfaceboundValues.cend(),
       assignedboundValues.cbegin(), assignedboundValues.cend());
 }
+
 BOOST_AUTO_TEST_SUITE_END()
 
-}  // namespace Test
-
-}  // namespace Acts
+}  // namespace ActsTests

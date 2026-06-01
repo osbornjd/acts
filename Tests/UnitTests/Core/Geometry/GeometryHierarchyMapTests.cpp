@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -16,13 +16,13 @@
 #include <utility>
 #include <vector>
 
-namespace {
+using namespace Acts;
 
-using Acts::GeometryIdentifier;
+namespace {
 
 // helper function to create geometry ids
 GeometryIdentifier makeId(int volume = 0, int layer = 0, int sensitive = 0) {
-  return GeometryIdentifier().setVolume(volume).setLayer(layer).setSensitive(
+  return GeometryIdentifier().withVolume(volume).withLayer(layer).withSensitive(
       sensitive);
 }
 
@@ -31,7 +31,7 @@ struct Thing {
   double value = 1.0;
 };
 
-using Container = Acts::GeometryHierarchyMap<Thing>;
+using Container = GeometryHierarchyMap<Thing>;
 
 }  // namespace
 
@@ -49,7 +49,7 @@ using Container = Acts::GeometryHierarchyMap<Thing>;
 BOOST_TEST_DONT_PRINT_LOG_VALUE(Container::Iterator)
 BOOST_TEST_DONT_PRINT_LOG_VALUE(Thing)
 
-BOOST_AUTO_TEST_SUITE(GeometryHierarchyMap)
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_AUTO_TEST_CASE(ConstructDefault) {
   Container c;

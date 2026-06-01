@@ -1,22 +1,32 @@
-add_library(
-  ActsExamplesDetectorTGeo SHARED
-  src/TGeoDetector.cpp
-  src/TGeoITkModuleSplitter.cpp)
-  
+acts_add_library(
+    ExamplesDetectorTGeo
+    src/AlignedTGeoDetectorElement.cpp
+    src/TGeoDetector.cpp
+    src/TGeoITkModuleSplitter.cpp
+    ACTS_INCLUDE_FOLDER include/ActsExamples
+)
+
 target_include_directories(
-  ActsExamplesDetectorTGeo
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    ActsExamplesDetectorTGeo
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
 target_link_libraries(
-  ActsExamplesDetectorTGeo
-  PUBLIC
-    ActsCore ActsPluginIdentification ActsPluginTGeo ActsPluginJson
-    ActsExamplesFramework ActsExamplesDetectorGeneric)
+    ActsExamplesDetectorTGeo
+    PUBLIC
+        Acts::PluginRoot
+        Acts::PluginJson
+        Acts::ExamplesFramework
+        Acts::ExamplesDetectorGeneric
+        Acts::ExamplesDetectorsCommon
+        Acts::ExamplesITkModuleSplitting
+)
+
+acts_compile_headers(ExamplesDetectorTGeo GLOB "include/**/*.hpp")
 
 install(
-  TARGETS ActsExamplesDetectorTGeo
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    TARGETS ActsExamplesDetectorTGeo
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 
-install(
-  DIRECTORY include/ActsExamples 
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
+install(DIRECTORY include/ActsExamples DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

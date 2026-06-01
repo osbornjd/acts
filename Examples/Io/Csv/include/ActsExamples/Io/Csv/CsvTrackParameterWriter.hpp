@@ -1,17 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
-#include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "ActsExamples/EventData/Track.hpp"
-#include "ActsExamples/EventData/Trajectories.hpp"
 #include "ActsExamples/Framework/DataHandle.hpp"
 #include "ActsExamples/Framework/IWriter.hpp"
 #include "ActsExamples/Framework/ProcessCode.hpp"
@@ -20,10 +18,8 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// Write track parameters in comma-separated-value format.
 ///
@@ -37,9 +33,7 @@ struct AlgorithmContext;
 class CsvTrackParameterWriter final : public IWriter {
  public:
   struct Config {
-    /// Optional. Input track parameters collection
-    std::string inputTrackParameters;
-    /// Optional. Input track container.
+    /// Input track container.
     std::string inputTracks;
     /// Where to place output files
     std::string outputDir;
@@ -73,8 +67,7 @@ class CsvTrackParameterWriter final : public IWriter {
   Config m_cfg;
   std::unique_ptr<const Acts::Logger> m_logger;
 
-  ReadDataHandle<TrackParametersContainer> m_inputTrackParameters{
-      this, "InputTrackParameters"};
+  /// Input track collection
   ReadDataHandle<ConstTrackContainer> m_inputTracks{this, "InputTracks"};
 };
 

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Vertexing/FullBilloirVertexFitter.hpp"
 
@@ -21,7 +21,8 @@ namespace {
 ///
 /// @brief Struct to cache track-specific matrix operations in Billoir fitter
 struct BilloirTrack {
-  BilloirTrack(const Acts::InputTrack& params) : originalTrack(params) {}
+  explicit BilloirTrack(const Acts::InputTrack& params)
+      : originalTrack(params) {}
 
   BilloirTrack(const BilloirTrack& arg) = default;
 
@@ -29,15 +30,15 @@ struct BilloirTrack {
   double chi2 = 0;
 
   // We drop the summation index i from Ref. (1) for better readability
-  Acts::ActsMatrix<Acts::eBoundSize, Acts::eBoundSize> W;  // Wi weight matrix
-  Acts::ActsMatrix<Acts::eBoundSize, 4> D;  // Di (position Jacobian)
-  Acts::ActsMatrix<Acts::eBoundSize, 3> E;  // Ei (momentum Jacobian)
-  Acts::ActsSquareMatrix<3> C;              //  = sum{Ei^T Wi * Ei}
-  Acts::ActsMatrix<4, 3> B;                 //  = Di^T * Wi * Ei
-  Acts::ActsSquareMatrix<3> Cinv;           //  = (Ei^T * Wi * Ei)^-1
-  Acts::Vector3 U;                          //  = Ei^T * Wi * dqi
-  Acts::ActsMatrix<4, 3> BCinv;             //  = Bi * Ci^-1
-  Acts::BoundVector deltaQ;
+  Acts::ActsMatrix<Acts::eBoundSize, Acts::eBoundSize> W{};  // Wi weight matrix
+  Acts::ActsMatrix<Acts::eBoundSize, 4> D{};  // Di (position Jacobian)
+  Acts::ActsMatrix<Acts::eBoundSize, 3> E{};  // Ei (momentum Jacobian)
+  Acts::ActsSquareMatrix<3> C{};              //  = sum{Ei^T Wi * Ei}
+  Acts::ActsMatrix<4, 3> B{};                 //  = Di^T * Wi * Ei
+  Acts::ActsSquareMatrix<3> Cinv{};           //  = (Ei^T * Wi * Ei)^-1
+  Acts::Vector3 U{};                          //  = Ei^T * Wi * dqi
+  Acts::ActsMatrix<4, 3> BCinv{};             //  = Bi * Ci^-1
+  Acts::BoundVector deltaQ{};
 };
 
 /// @struct BilloirVertex

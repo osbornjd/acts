@@ -5,6 +5,10 @@ from typing import Optional
 
 import acts
 import acts.examples
+from acts.examples.root import (
+    RootParticleReader,
+    RootSimHitReader,
+)
 
 u = acts.UnitConstants
 
@@ -15,6 +19,7 @@ def runTruthTrackingGsf(
     digiConfigFile: Path,
     outputDir: Path,
     inputParticlePath: Optional[Path] = None,
+    inputSimHitsPath: Optional[Path] = None,
     decorators=[],
     s: acts.examples.Sequencer = None,
 ):
@@ -26,12 +31,20 @@ def runTruthTrackingGsf(
         MomentumConfig,
         addFatras,
         addDigitization,
+        ParticleSelectorConfig,
+        addDigiParticleSelection,
     )
     from acts.examples.reconstruction import (
         addSeeding,
         SeedingAlgorithm,
-        TruthSeedRanges,
+        TrackSmearingSigmas,
         addTruthTrackingGsf,
+    )
+    from acts.examples.root import (
+        RootParticleReader,
+        RootTrackStatesWriter,
+        RootTrackSummaryWriter,
+        RootTrackFitterPerformanceWriter,
     )
 
     s = s or acts.examples.Sequencer(
@@ -43,6 +56,7 @@ def runTruthTrackingGsf(
 
     rnd = acts.examples.RandomNumbers(seed=42)
     outputDir = Path(outputDir)
+    logger = acts.logging.getLogger("GSF Example")
 
     if inputParticlePath is None:
         addParticleGun(
@@ -59,25 +73,35 @@ def runTruthTrackingGsf(
             rnd=rnd,
         )
     else:
-        acts.logging.getLogger("GSF Example").info(
-            "Reading particles from %s", inputParticlePath.resolve()
-        )
+        logger.info("Reading particles from %s", inputParticlePath.resolve())
         assert inputParticlePath.exists()
         s.addReader(
-            acts.examples.RootParticleReader(
+            RootParticleReader(
                 level=acts.logging.INFO,
                 filePath=str(inputParticlePath.resolve()),
-                outputParticles="particles_input",
+                outputParticles="particles_generated",
             )
         )
+        s.addWhiteboardAlias("particles", "particles_generated")
 
-    addFatras(
-        s,
-        trackingGeometry,
-        field,
-        rnd=rnd,
-        enableInteractions=True,
-    )
+    if inputSimHitsPath is None:
+        addFatras(
+            s,
+            trackingGeometry,
+            field,
+            rnd=rnd,
+            enableInteractions=True,
+        )
+    else:
+        logger.info("Reading hits from %s", inputSimHitsPath.resolve())
+        s.addReader(
+            RootSimHitReader(
+                level=acts.logging.INFO,
+                filePath=str(inputSimHitsPath.resolve()),
+                outputSimHits="simhits",
+            )
+        )
+        s.addWhiteboardAlias("particles_simulated_selected", "particles_generated")
 
     addDigitization(
         s,
@@ -87,18 +111,48 @@ def runTruthTrackingGsf(
         rnd=rnd,
     )
 
+    addDigiParticleSelection(
+        s,
+        ParticleSelectorConfig(
+            pt=(0.9 * u.GeV, None),
+            measurements=(7, None),
+            removeNeutral=True,
+            removeSecondaries=True,
+        ),
+    )
+
     addSeeding(
         s,
         trackingGeometry,
         field,
         rnd=rnd,
-        inputParticles="particles_input",
+        inputParticles="particles_generated",
         seedingAlgorithm=SeedingAlgorithm.TruthSmeared,
-        particleHypothesis=acts.ParticleHypothesis.electron,
-        truthSeedRanges=TruthSeedRanges(
-            pt=(1 * u.GeV, None),
-            nHits=(7, None),
+        trackSmearingSigmas=TrackSmearingSigmas(
+            # zero everything so the GSF has a chance to find the measurements
+            loc0=0,
+            loc0PtA=0,
+            loc0PtB=0,
+            loc1=0,
+            loc1PtA=0,
+            loc1PtB=0,
+            time=0,
+            phi=0,
+            theta=0,
+            ptRel=0,
         ),
+        particleHypothesis=acts.ParticleHypothesis.electron,
+        initialSigmas=[
+            1 * u.mm,
+            1 * u.mm,
+            1 * u.degree,
+            1 * u.degree,
+            0 / u.GeV,
+            1 * u.ns,
+        ],
+        initialSigmaQoverPt=0.1 / u.GeV,
+        initialSigmaPtRel=0.1,
+        initialVarInflation=[1e0, 1e0, 1e0, 1e0, 1e0, 1e0],
     )
 
     addTruthTrackingGsf(
@@ -120,10 +174,10 @@ def runTruthTrackingGsf(
     s.addWhiteboardAlias("tracks", "selected-tracks")
 
     s.addWriter(
-        acts.examples.RootTrackStatesWriter(
+        RootTrackStatesWriter(
             level=acts.logging.INFO,
             inputTracks="tracks",
-            inputParticles="truth_seeds_selected",
+            inputParticles="particles_selected",
             inputTrackParticleMatching="track_particle_matching",
             inputSimHits="simhits",
             inputMeasurementSimHitsMap="measurement_simhits_map",
@@ -132,10 +186,10 @@ def runTruthTrackingGsf(
     )
 
     s.addWriter(
-        acts.examples.RootTrackSummaryWriter(
+        RootTrackSummaryWriter(
             level=acts.logging.INFO,
             inputTracks="tracks",
-            inputParticles="truth_seeds_selected",
+            inputParticles="particles_selected",
             inputTrackParticleMatching="track_particle_matching",
             filePath=str(outputDir / "tracksummary_gsf.root"),
             writeGsfSpecific=True,
@@ -143,10 +197,10 @@ def runTruthTrackingGsf(
     )
 
     s.addWriter(
-        acts.examples.TrackFitterPerformanceWriter(
+        RootTrackFitterPerformanceWriter(
             level=acts.logging.INFO,
             inputTracks="tracks",
-            inputParticles="truth_seeds_selected",
+            inputParticles="particles_selected",
             inputTrackParticleMatching="track_particle_matching",
             filePath=str(outputDir / "performance_gsf.root"),
         )
@@ -158,19 +212,26 @@ def runTruthTrackingGsf(
 if "__main__" == __name__:
     srcdir = Path(__file__).resolve().parent.parent.parent.parent
 
-    detector, trackingGeometry, decorators = acts.examples.GenericDetector.create()
+    # ODD
+    from acts.examples.odd import getOpenDataDetector
+
+    detector = getOpenDataDetector()
+    trackingGeometry = detector.trackingGeometry()
+    digiConfigFile = srcdir / "Examples/Configs/odd-digi-smearing-config.json"
+
+    ## GenericDetector
+    # detector = acts.examples.GenericDetector()
+    # trackingGeometry = detector.trackingGeometry()
+    # digiConfigFile = (
+    #     srcdir
+    #     / "Examples/Configs/generic-digi-smearing-config.json"
+    # )
 
     field = acts.ConstantBField(acts.Vector3(0, 0, 2 * u.T))
-
-    inputParticlePath = Path("particles.root")
-    if not inputParticlePath.exists():
-        inputParticlePath = None
 
     runTruthTrackingGsf(
         trackingGeometry=trackingGeometry,
         field=field,
-        digiConfigFile=srcdir
-        / "Examples/Algorithms/Digitization/share/default-smearing-config-generic.json",
-        inputParticlePath=inputParticlePath,
+        digiConfigFile=digiConfigFile,
         outputDir=Path.cwd(),
     ).run()

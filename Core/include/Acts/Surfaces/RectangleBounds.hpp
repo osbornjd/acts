@@ -1,23 +1,19 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Surfaces/BoundaryCheck.hpp"
 #include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
 
 #include <array>
-#include <cassert>
 #include <iosfwd>
-#include <limits>
-#include <stdexcept>
 #include <vector>
 
 namespace Acts {
@@ -31,6 +27,8 @@ namespace Acts {
 /// generic shifted rectangles
 class RectangleBounds : public PlanarBounds {
  public:
+  /// @enum BoundValues
+  /// Enumeration for the bound values
   enum BoundValues : int {
     eMinX = 0,
     eMinY = 1,
@@ -38,8 +36,6 @@ class RectangleBounds : public PlanarBounds {
     eMaxY = 3,
     eSize = 4
   };
-
-  RectangleBounds() = delete;
 
   /// Constructor with halflength in x and y - symmetric
   ///
@@ -53,7 +49,8 @@ class RectangleBounds : public PlanarBounds {
   /// Constructor - from fixed size array - generic
   ///
   /// @param values The parameter values
-  RectangleBounds(const std::array<double, eSize>& values) noexcept(false)
+  explicit RectangleBounds(const std::array<double, eSize>& values) noexcept(
+      false)
       : m_min({values[eMinX], values[eMinY]}),
         m_max({values[eMaxX], values[eMaxY]}) {
     checkConsistency();
@@ -68,57 +65,63 @@ class RectangleBounds : public PlanarBounds {
     checkConsistency();
   }
 
-  ~RectangleBounds() override = default;
+  /// @copydoc SurfaceBounds::type
+  BoundsType type() const final { return eRectangle; }
 
-  BoundsType type() const final;
-
+  /// @copydoc SurfaceBounds::values
   std::vector<double> values() const final;
 
-  /// Inside check for the bounds object driven by the boundary check directive
-  /// Each Bounds has a method inside, which checks if a LocalPosition is inside
-  /// the bounds  Inside can be called without/with tolerances.
-  ///
-  /// @param lposition Local position (assumed to be in right surface frame)
-  /// @param bcheck boundary check directive
-  /// @return boolean indicator for the success of this operation
-  bool inside(const Vector2& lposition,
-              const BoundaryCheck& bcheck) const final;
+  /// @copydoc SurfaceBounds::inside
+  bool inside(const Vector2& lposition) const final;
+
+  /// @copydoc SurfaceBounds::closestPoint
+  Vector2 closestPoint(const Vector2& lposition,
+                       const SquareMatrix2& metric) const final;
+
+  using SurfaceBounds::inside;
 
   /// Return the vertices
   ///
-  /// @param lseg the number of segments used to approximate
-  /// and eventually curved line
-  ///
+  /// @param quarterSegments is the number of segments used to describe curved
+  /// segments in a quarter of the phi range.
   /// @note the number of segments is ignored in this representation
   ///
   /// @return vector for vertices in 2D
-  std::vector<Vector2> vertices(unsigned int lseg = 1) const final;
+  std::vector<Vector2> vertices(unsigned int quarterSegments = 0u) const final;
 
   // Bounding box representation
   const RectangleBounds& boundingBox() const final;
 
+  /// @copydoc SurfaceBounds::center
+  /// @note For RectangleBounds: returns the geometric center (min + max) / 2
+  Vector2 center() const final;
+
   /// Output Method for std::ostream
   ///
   /// @param sl is the ostream for the dump
+  /// @return Reference to the output stream after writing
   std::ostream& toStream(std::ostream& sl) const final;
 
   /// Access to the bound values
   /// @param bValue the class nested enum for the array access
+  /// @return The requested bound value
   double get(BoundValues bValue) const;
 
   /// Access to the half length in X
-  double halfLengthX() const;
+  /// @return Half the width of the rectangle in X direction
+  double halfLengthX() const { return 0.5 * (m_max.x() - m_min.x()); }
 
   /// Access to the half length in Y
-  double halfLengthY() const;
+  /// @return Half the width of the rectangle in Y direction
+  double halfLengthY() const { return 0.5 * (m_max.y() - m_min.y()); }
 
   /// Get the min vertex defining the bounds
   /// @return The min vertex
-  const Vector2& min() const;
+  const Vector2& min() const { return m_min; }
 
   /// Get the max vertex defining the bounds
   /// @return The max vertex
-  const Vector2& max() const;
+  const Vector2& max() const { return m_max; }
 
  private:
   Vector2 m_min;
@@ -128,54 +131,5 @@ class RectangleBounds : public PlanarBounds {
   /// if consistency is not given
   void checkConsistency() noexcept(false);
 };
-
-inline SurfaceBounds::BoundsType RectangleBounds::type() const {
-  return SurfaceBounds::eRectangle;
-}
-
-inline const Vector2& RectangleBounds::min() const {
-  return m_min;
-}
-
-inline const Vector2& RectangleBounds::max() const {
-  return m_max;
-}
-
-inline double RectangleBounds::halfLengthX() const {
-  return 0.5 * (m_max.x() - m_min.x());
-}
-
-inline double RectangleBounds::halfLengthY() const {
-  return 0.5 * (m_max.y() - m_min.y());
-}
-
-inline std::vector<double> RectangleBounds::values() const {
-  return {m_min.x(), m_min.y(), m_max.x(), m_max.y()};
-}
-
-inline double RectangleBounds::get(BoundValues bValue) const {
-  switch (bValue) {
-    case eMinX:
-      return m_min.x();
-    case eMinY:
-      return m_min.y();
-    case eMaxX:
-      return m_max.x();
-    case eMaxY:
-      return m_max.y();
-    default:
-      assert(false && "Invalid BoundValue enum value");
-      return std::numeric_limits<double>::quiet_NaN();
-  }
-}
-
-inline void RectangleBounds::checkConsistency() noexcept(false) {
-  if (get(eMinX) > get(eMaxX)) {
-    throw std::invalid_argument("RectangleBounds: invalid local x setup");
-  }
-  if (get(eMinY) > get(eMaxY)) {
-    throw std::invalid_argument("RectangleBounds: invalid local y setup");
-  }
-}
 
 }  // namespace Acts

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -43,54 +43,60 @@ class GaussianTrackDensity {
           lowerBound(lowerBound_),
           upperBound(upperBound_) {}
 
+    /// Trial z position for the track
     double z = 0;
     // Cached information for a single track
-    // z-independent term in exponent
+    /// z-independent term in exponent
     double c0 = 0;
-    // linear coefficient in exponent
+    /// linear coefficient in exponent
     double c1 = 0;
-    // quadratic coefficient in exponent
+    /// quadratic coefficient in exponent
     double c2 = 0;
-    // The lower bound
+    /// The lower bound for track density evaluation
     double lowerBound = 0;
-    // The upper bound
+    /// The upper bound for track density evaluation
     double upperBound = 0;
   };
 
   /// @brief The Config struct
   struct Config {
-    Config(double d0Sig = 3.5, double z0Sig = 12.)
+    /// Constructor with significance parameters
+    /// @param d0Sig Maximum d0 significance for track selection (default: 3.5)
+    /// @param z0Sig Maximum z0 significance for track selection (default: 12.0)
+    explicit Config(double d0Sig = 3.5, double z0Sig = 12.)
         : d0MaxSignificance(d0Sig),
           z0MaxSignificance(z0Sig),
           d0SignificanceCut(d0Sig * d0Sig),
           z0SignificanceCut(z0Sig * z0Sig) {}
 
-    // Assumed shape of density function:
-    // Gaussian (true) or parabolic (false)
+    /// Assumed shape of density function: Gaussian (true) or parabolic (false)
     bool isGaussianShaped = true;
 
-    // Maximum d0 impact parameter significance to use a track
+    /// Maximum d0 impact parameter significance to use a track
     double d0MaxSignificance;
-    // Maximum z0 impact parameter significance to use a track
+    /// Maximum z0 impact parameter significance to use a track
     double z0MaxSignificance;
-    // Corresponding cut values
+    /// Corresponding cut values for d0 significance
     double d0SignificanceCut;
+    /// Corresponding cut values for z0 significance
     double z0SignificanceCut;
 
-    // Function to extract parameters from InputTrack
+    /// Function to extract parameters from InputTrack
     InputTrack::Extractor extractParameters;
   };
 
   /// @brief The State struct
   struct State {
-    // Constructor with size track map
-    State(unsigned int nTracks) { trackEntries.reserve(nTracks); }
-    // Vector to cache track information
+    /// Constructor with expected number of tracks
+    /// @param nTracks Expected number of tracks (used to reserve memory)
+    explicit State(unsigned int nTracks) { trackEntries.reserve(nTracks); }
+    /// Vector to cache track information for density calculation
     std::vector<TrackEntry> trackEntries;
   };
 
   /// Constructor with config
-  GaussianTrackDensity(const Config& cfg) : m_cfg(cfg) {
+  /// @param cfg The configuration parameters
+  explicit GaussianTrackDensity(const Config& cfg) : m_cfg(cfg) {
     if (!m_cfg.extractParameters.connected()) {
       throw std::invalid_argument(
           "GaussianTrackDensity: "
@@ -175,7 +181,8 @@ class GaussianTrackDensity {
   class GaussianTrackDensityStore {
    public:
     // Initialise at the z coordinate at which the density is to be evaluated
-    GaussianTrackDensityStore(double z_coordinate) : m_z(z_coordinate) {}
+    explicit GaussianTrackDensityStore(double z_coordinate)
+        : m_z(z_coordinate) {}
 
     // Add the contribution of a single track to the density
     void addTrackToDensity(const TrackEntry& entry);

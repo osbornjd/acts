@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -27,6 +27,13 @@ inline double roundWithPrecision(double val, int precision) {
   return val;
 }
 }  // namespace detail
+
+/// @brief Define a generic concept whether an object can be piped to an ostream / cout
+/// @tparam ObjType: Generic class type
+template <typename ObjType>
+concept hasPrintOperator = requires(const ObjType& obj, std::ostream& ostr) {
+  { ostr << obj } -> std::same_as<std::ostream&>;
+};
 
 /// Print out a matrix in a structured way.
 ///
@@ -104,10 +111,11 @@ inline std::string toString(const Acts::Transform3& transform,
   return sout.str();
 }
 
-/// Print out a vector of ActsScalar
+/// Print out a vector of double
 /// @param pVector The vector to print
 /// @param precision Numeric output precision
-inline std::string toString(const std::vector<ActsScalar>& pVector,
+/// @return A formatted string representation of the vector
+inline std::string toString(const std::vector<double>& pVector,
                             int precision = 4) {
   std::ostringstream sout;
   sout << std::setiosflags(std::ios::fixed) << std::setprecision(precision);

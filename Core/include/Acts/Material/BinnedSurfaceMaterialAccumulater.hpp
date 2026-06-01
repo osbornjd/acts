@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -25,12 +25,13 @@ class BinnedSurfaceMaterialAccumulater final
  public:
   /// @brief Nested config struct
   struct Config {
-    GeometryContext geoContext;
+    /// Geometry context for coordinate transformations
+    GeometryContext geoContext = GeometryContext::dangerouslyDefaultConstruct();
 
     /// Correct for empty bins (recommended)
     bool emptyBinCorrection = true;
 
-    /// The surfaces to be used for the accummulation
+    /// The surfaces to be used for the accumulation
     std::vector<const Surface*> materialSurfaces = {};
   };
 
@@ -45,12 +46,13 @@ class BinnedSurfaceMaterialAccumulater final
   ///
   /// @param cfg the configuration struct
   /// @param mlogger the logger
-  BinnedSurfaceMaterialAccumulater(
+  explicit BinnedSurfaceMaterialAccumulater(
       const Config& cfg,
       std::unique_ptr<const Logger> mlogger =
           getDefaultLogger("BinnedSurfaceMaterialAccumulater", Logging::INFO));
 
   /// Factory for creating the state
+  /// @return Unique pointer to newly created accumulator state
   std::unique_ptr<ISurfaceMaterialAccumulater::State> createState()
       const override;
 
@@ -71,6 +73,7 @@ class BinnedSurfaceMaterialAccumulater final
   /// @param state the state of the accumulator
   ///
   /// @note this does the run average over the (binned) material
+  /// @return Map of surface materials indexed by geometry identifiers
   std::map<GeometryIdentifier, std::shared_ptr<const ISurfaceMaterial>>
   finalizeMaterial(ISurfaceMaterialAccumulater::State& state) const override;
 

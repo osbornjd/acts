@@ -1,17 +1,17 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Geometry/DetectorElementBase.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/Surface.hpp"
+#include "Acts/Surfaces/SurfacePlacementBase.hpp"
 
 #include <memory>
 #include <utility>
@@ -24,13 +24,13 @@ class DiscBounds;
 class ISurfaceMaterial;
 }  // namespace Acts
 
-namespace ActsExamples::Telescope {
+namespace ActsExamples {
 
 /// @class TelescopeDetectorElement
 ///
 /// This is a lightweight type of detector element,
 /// it simply implements the base class.
-class TelescopeDetectorElement : public Acts::DetectorElementBase {
+class TelescopeDetectorElement : public Acts::SurfacePlacementBase {
  public:
   /// @class ContextType
   /// convention: nested to the Detector element
@@ -73,14 +73,14 @@ class TelescopeDetectorElement : public Acts::DetectorElementBase {
   Acts::Surface& surface() final;
 
   /// The maximal thickness of the detector element wrt normal axis
-  double thickness() const final;
+  double thickness() const;
 
   /// Return local to global transform associated with this identifier
   ///
   /// @param gctx The current geometry context object, e.g. alignment
   ///
   /// @note this is called from the surface().transform() in the PROXY mode
-  const Acts::Transform3& transform(
+  const Acts::Transform3& localToGlobalTransform(
       const Acts::GeometryContext& gctx) const final;
 
   /// Return the nominal local to global transform
@@ -99,6 +99,8 @@ class TelescopeDetectorElement : public Acts::DetectorElementBase {
   /// Return the set of alignment transforms in flight
   const std::vector<std::unique_ptr<Acts::Transform3>>& alignedTransforms()
       const;
+  /// Is the detector element a sensitive element
+  bool isSensitive() const final { return true; }
 
  private:
   /// the transform for positioning in 3D space
@@ -127,7 +129,7 @@ inline double TelescopeDetectorElement::thickness() const {
   return m_elementThickness;
 }
 
-inline const Acts::Transform3& TelescopeDetectorElement::transform(
+inline const Acts::Transform3& TelescopeDetectorElement::localToGlobalTransform(
     const Acts::GeometryContext& gctx) const {
   // Check if a different transform than the nominal exists
   if (!m_alignedTransforms.empty()) {
@@ -159,4 +161,4 @@ TelescopeDetectorElement::alignedTransforms() const {
   return m_alignedTransforms;
 }
 
-}  // namespace ActsExamples::Telescope
+}  // namespace ActsExamples

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -12,10 +12,10 @@
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/TrackFitting/GsfOptions.hpp"
-#include "Acts/Utilities/Identity.hpp"
 #include "Acts/Utilities/detail/periodic.hpp"
 
 #include <cmath>
+#include <numbers>
 #include <optional>
 #include <tuple>
 
@@ -91,10 +91,10 @@ auto gaussianMixtureCov(const components_t components,
 
     // Apply corrections for cyclic coordinates
     auto handleCyclicCov = [&l = pars_l, &m = mean, &diff = diff](auto desc) {
-      diff[desc.idx] =
-          difference_periodic(l[desc.idx] / desc.constant,
-                              m[desc.idx] / desc.constant, 2 * M_PI) *
-          desc.constant;
+      diff[desc.idx] = difference_periodic(l[desc.idx] / desc.constant,
+                                           m[desc.idx] / desc.constant,
+                                           2 * std::numbers::pi) *
+                       desc.constant;
     };
 
     std::apply([&](auto... dsc) { (handleCyclicCov(dsc), ...); }, angleDesc);
@@ -123,7 +123,7 @@ auto gaussianMixtureCov(const components_t components,
 /// std::tuple< weight, mean, std::optional< cov > >
 /// @tparam angle_desc_t A angle description object which defines the cyclic
 /// angles in the bound parameters
-template <typename components_t, typename projector_t = Identity,
+template <typename components_t, typename projector_t = std::identity,
           typename angle_desc_t = AngleDescription<Surface::Plane>::Desc>
 auto gaussianMixtureMeanCov(const components_t components,
                             projector_t &&projector = projector_t{},
@@ -160,40 +160,36 @@ auto gaussianMixtureMeanCov(const components_t components,
     return RetType{beginPars / beginWeight, beginCov / beginWeight};
   }
 
-  // Zero initialized values for aggregation
-  ActsVector<D> mean = ActsVector<D>::Zero();
+  // Do the (circular) mean with complex arithmetic.
+  // For normal values, just keep the real values. For angles, use the complex
+  // phase. Weighting then transparently happens by multiplying a real-valued
+  // weight.
+  using CVec = Eigen::Matrix<std::complex<double>, D, 1>;
+  CVec cMean = CVec::Zero();
   WeightType sumOfWeights{0.0};
 
   for (const auto &cmp : components) {
     const auto &[weight_l, pars_l, cov_l] = projector(cmp);
 
-    sumOfWeights += weight_l;
-    mean += weight_l * pars_l;
+    CVec pars_l_c = pars_l;
 
-    // Apply corrections for cyclic coordinates
-    auto handleCyclicMean = [&ref = beginPars, &pars = pars_l,
-                             &weight = weight_l, &mean = mean](auto desc) {
-      const auto delta = (ref[desc.idx] - pars[desc.idx]) / desc.constant;
-
-      if (delta > M_PI) {
-        mean[desc.idx] += (2 * M_PI) * weight * desc.constant;
-      } else if (delta < -M_PI) {
-        mean[desc.idx] -= (2 * M_PI) * weight * desc.constant;
-      }
+    auto setPolar = [&](auto desc) {
+      pars_l_c[desc.idx] = std::polar(1.0, pars_l[desc.idx] / desc.constant);
     };
+    std::apply([&](auto... dsc) { (setPolar(dsc), ...); }, angleDesc);
 
-    std::apply([&](auto... dsc) { (handleCyclicMean(dsc), ...); }, angleDesc);
+    sumOfWeights += weight_l;
+    cMean += weight_l * pars_l_c;
   }
 
-  mean /= sumOfWeights;
+  cMean /= sumOfWeights;
 
-  auto wrap = [&](auto desc) {
-    mean[desc.idx] =
-        wrap_periodic(mean[desc.idx] / desc.constant, -M_PI, 2 * M_PI) *
-        desc.constant;
+  ActsVector<D> mean = cMean.real();
+
+  auto getArg = [&](auto desc) {
+    mean[desc.idx] = desc.constant * std::arg(cMean[desc.idx]);
   };
-
-  std::apply([&](auto... dsc) { (wrap(dsc), ...); }, angleDesc);
+  std::apply([&](auto... dsc) { (getArg(dsc), ...); }, angleDesc);
 
   // MARK: fpeMaskBegin(FLTUND, 1, #2347)
   const auto cov =
@@ -212,7 +208,7 @@ auto gaussianMixtureMeanCov(const components_t components,
 /// like a std::tuple< double, BoundVector, BoundMatrix >
 ///
 /// @return parameters and covariance as std::tuple< BoundVector, BoundMatrix >
-template <typename mixture_t, typename projector_t = Acts::Identity>
+template <typename mixture_t, typename projector_t = std::identity>
 auto mergeGaussianMixture(const mixture_t &mixture, const Surface &surface,
                           ComponentMergeMethod method,
                           projector_t &&projector = projector_t{}) {

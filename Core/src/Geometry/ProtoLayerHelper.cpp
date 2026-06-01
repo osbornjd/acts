@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Geometry/ProtoLayerHelper.hpp"
 
@@ -13,14 +13,14 @@
 #include "Acts/Geometry/ProtoLayer.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 
-#include <array>
 #include <ostream>
-#include <string>
 
-std::vector<Acts::ProtoLayer> Acts::ProtoLayerHelper::protoLayers(
+namespace Acts {
+
+std::vector<ProtoLayer> ProtoLayerHelper::protoLayers(
     const GeometryContext& gctx, const std::vector<const Surface*>& surfaces,
     const SortingConfig& sorting) const {
-  std::vector<Acts::ProtoLayer> protoLayers;
+  std::vector<ProtoLayer> protoLayers;
 
   using SurfaceCluster = std::pair<Extent, std::vector<const Surface*>>;
   std::vector<SurfaceCluster> clusteredSurfaces;
@@ -43,7 +43,10 @@ std::vector<Acts::ProtoLayer> Acts::ProtoLayerHelper::protoLayers(
 
   // Loop over surfaces and sort into clusters
   for (auto& sf : surfaces) {
-    auto sfExtent = sf->polyhedronRepresentation(gctx, 1).extent();
+    // To prevent problematic isInsidePolygon check for straw surfaces with only
+    // one lseg
+    int lseg = (sf->type() != Surface::Straw) ? 1 : 2;
+    auto sfExtent = sf->polyhedronRepresentation(gctx, lseg).extent();
     sfExtent.envelope()[sorting.first] = {sorting.second, sorting.second};
     auto& sfCluster = findCluster(sfExtent);
     sfCluster.first.extend(sfExtent);
@@ -59,14 +62,14 @@ std::vector<Acts::ProtoLayer> Acts::ProtoLayerHelper::protoLayers(
   return protoLayers;
 }
 
-std::vector<Acts::ProtoLayer> Acts::ProtoLayerHelper::protoLayers(
+std::vector<ProtoLayer> ProtoLayerHelper::protoLayers(
     const GeometryContext& gctx, const std::vector<const Surface*>& surfaces,
     const std::vector<SortingConfig>& sortings) const {
   ACTS_DEBUG("Received " << surfaces.size() << " surfaces at input.");
   std::vector<std::vector<const Surface*>> sortSurfaces = {surfaces};
   for (const auto& sorting : sortings) {
     ACTS_VERBOSE("-> Sorting a set of " << sortSurfaces.size() << " in "
-                                        << binningValueNames()[sorting.first]);
+                                        << axisDirectionName(sorting.first));
     std::vector<std::vector<const Surface*>> subSurfaces;
     for (const auto& ssurfaces : sortSurfaces) {
       ACTS_VERBOSE("-> Surfaces for this sorting step: " << ssurfaces.size());
@@ -82,7 +85,7 @@ std::vector<Acts::ProtoLayer> Acts::ProtoLayerHelper::protoLayers(
   }
   ACTS_DEBUG("Yielded " << sortSurfaces.size() << " at output.");
 
-  std::vector<Acts::ProtoLayer> finalProtoLayers;
+  std::vector<ProtoLayer> finalProtoLayers;
 
   for (const auto& ssurfaces : sortSurfaces) {
     finalProtoLayers.push_back(ProtoLayer(gctx, ssurfaces));
@@ -90,3 +93,5 @@ std::vector<Acts::ProtoLayer> Acts::ProtoLayerHelper::protoLayers(
 
   return finalProtoLayers;
 }
+
+}  // namespace Acts

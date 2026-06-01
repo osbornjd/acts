@@ -1,15 +1,14 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Material/MaterialSlab.hpp"
-#include "Acts/Utilities/TypeTraits.hpp"
 #include "ActsFatras/EventData/Particle.hpp"
 
 #include <bitset>
@@ -81,34 +80,29 @@ using TupleFilter = typename TupleFilterImpl<predicate_t, tuple_t,
 ///
 /// Only checks for the existence of the templated `generatePathLimits` method
 template <typename process_t>
-class IsPointLikeProcess {
-  struct MockUniformRandomBitGenerator {
-    using result_type = unsigned int;
-
-    static constexpr result_type min() { return 0u; }
-    static constexpr result_type max() { return 1u << 15u; }
-    constexpr result_type operator()() { return 0u; }
-  };
-
-  METHOD_TRAIT(generatePathLimits_method_t, generatePathLimits);
-
-  using scalar_pair_t = std::pair<Particle::Scalar, Particle::Scalar>;
-
- public:
-  static constexpr bool value = Acts::Concepts::has_method<
-      const process_t, scalar_pair_t, generatePathLimits_method_t,
-      MockUniformRandomBitGenerator&, const Particle&>;
+concept PointLikeProcessConcept = requires(
+    const process_t& p, std::uniform_int_distribution<unsigned int>& rng,
+    const Particle& prt) {
+  { p.generatePathLimits(rng, prt) } -> std::same_as<std::pair<double, double>>;
 };
 
 template <typename process_t>
-struct IsContinuousProcess {
-  static constexpr bool value = !IsPointLikeProcess<process_t>::value;
+concept ContinuousProcessConcept = !PointLikeProcessConcept<process_t>;
+
+template <typename process_t>
+struct PointLikeProcessTrait {
+  static constexpr bool value = PointLikeProcessConcept<process_t>;
+};
+
+template <typename process_t>
+struct ContinuousProcessTrait {
+  static constexpr bool value = ContinuousProcessConcept<process_t>;
 };
 
 template <typename processes_t>
-using ContinuousIndices = TupleFilter<IsContinuousProcess, processes_t>;
+using ContinuousIndices = TupleFilter<ContinuousProcessTrait, processes_t>;
 template <typename processes_t>
-using PointLikeIndices = TupleFilter<IsPointLikeProcess, processes_t>;
+using PointLikeIndices = TupleFilter<PointLikeProcessTrait, processes_t>;
 
 }  // namespace detail
 
@@ -117,9 +111,9 @@ using PointLikeIndices = TupleFilter<IsPointLikeProcess, processes_t>;
 /// Two different type of interaction processes are supported: continuous and
 /// point-like interactions.
 ///
-/// Continuous processes scale with the passed material. They tpyically
+/// Continuous processes scale with the passed material. They typically
 /// describe effective results of a large number of small interactions such as
-/// multiple scattering or ionisation. Continous process types **must** provide
+/// multiple scattering or ionisation. Continuous process types **must** provide
 /// a call operator with the following signature:
 ///
 ///     template <typename generator_t>
@@ -167,7 +161,7 @@ using PointLikeIndices = TupleFilter<IsPointLikeProcess, processes_t>;
 ///   destruction is typically of more interest to the user and this simplifies
 ///   validation.
 ///
-/// The physics processes are extendable by the user to accomodate their
+/// The physics processes are extendable by the user to accommodate their
 /// specific requirements. While the set of available physics processes must be
 /// configured at compile-time, within that set, processes can again be
 /// selectively disabled at run-time. By default all processes are applied.
@@ -181,15 +175,18 @@ class InteractionList {
  public:
   /// Point-like interaction selection.
   struct Selection {
-    Particle::Scalar x0Limit =
-        std::numeric_limits<Particle::Scalar>::infinity();
-    Particle::Scalar l0Limit =
-        std::numeric_limits<Particle::Scalar>::infinity();
-    std::size_t x0Process = SIZE_MAX;
-    std::size_t l0Process = SIZE_MAX;
+    /// X0 (radiation length) limit for interaction selection
+    double x0Limit = std::numeric_limits<double>::infinity();
+    /// L0 (absorption length) limit for interaction selection
+    double l0Limit = std::numeric_limits<double>::infinity();
+    /// X0-based process index for point-like interactions
+    std::size_t x0Process = std::numeric_limits<std::size_t>::max();
+    /// L0-based process index for point-like interactions
+    std::size_t l0Process = std::numeric_limits<std::size_t>::max();
   };
 
   /// Disable a specific process identified by index.
+  /// @param process Index of the process to disable
   void disable(std::size_t process) { m_mask.set(process); }
   /// Disable a specific process identified by type.
   ///
@@ -201,6 +198,7 @@ class InteractionList {
   }
 
   /// Access a specific process identified by index.
+  /// @return Reference to the process at the specified index
   template <std::size_t kProcess>
   std::tuple_element_t<kProcess, Processes>& get() {
     return std::get<kProcess>(m_processes);
@@ -209,6 +207,7 @@ class InteractionList {
   ///
   /// @warning This function only works if all configured processes have
   ///   different types.
+  /// @return Reference to the process of the specified type
   template <typename process_t>
   process_t& get() {
     return std::get<process_t>(m_processes);
@@ -221,7 +220,7 @@ class InteractionList {
   /// @param[in]     slab      is the passed material
   /// @param[in,out] particle  is the particle being updated
   /// @param[out]    generated is the container of generated particles
-  /// @return Break condition, i.e. whether a process stoped the propagation
+  /// @return Break condition, i.e. whether a process stopped the propagation
   template <typename generator_t>
   bool runContinuous(generator_t& rng, const Acts::MaterialSlab& slab,
                      Particle& particle,

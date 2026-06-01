@@ -1,26 +1,30 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Geometry/Layer.hpp"
 
-#include "Acts/Definitions/Direction.hpp"
-#include "Acts/Definitions/Tolerance.hpp"
 #include "Acts/Material/IMaterialDecorator.hpp"
+#include "Acts/Propagator/NavigationTarget.hpp"
 #include "Acts/Propagator/Navigator.hpp"
+#include "Acts/Surfaces/BoundaryTolerance.hpp"
 #include "Acts/Surfaces/Surface.hpp"
+#include "Acts/Surfaces/SurfaceArray.hpp"
+#include "Acts/Utilities/Enumerate.hpp"
+#include "Acts/Utilities/Helpers.hpp"
+#include "Acts/Utilities/Intersection.hpp"
 
 #include <algorithm>
-#include <functional>
-#include <iterator>
 #include <vector>
 
-Acts::Layer::Layer(std::unique_ptr<SurfaceArray> surfaceArray, double thickness,
-                   std::unique_ptr<ApproachDescriptor> ades, LayerType laytyp)
+namespace Acts {
+
+Layer::Layer(std::unique_ptr<SurfaceArray> surfaceArray, double thickness,
+             std::unique_ptr<ApproachDescriptor> ades, LayerType laytyp)
     : m_nextLayers(NextLayers(nullptr, nullptr)),
       m_surfaceArray(surfaceArray.release()),
       m_layerThickness(thickness),
@@ -39,18 +43,20 @@ Acts::Layer::Layer(std::unique_ptr<SurfaceArray> surfaceArray, double thickness,
   }
 }
 
-const Acts::ApproachDescriptor* Acts::Layer::approachDescriptor() const {
+Layer::~Layer() noexcept = default;
+
+const ApproachDescriptor* Layer::approachDescriptor() const {
   return m_approachDescriptor.get();
 }
 
-Acts::ApproachDescriptor* Acts::Layer::approachDescriptor() {
+ApproachDescriptor* Layer::approachDescriptor() {
   return const_cast<ApproachDescriptor*>(m_approachDescriptor.get());
 }
 
-void Acts::Layer::closeGeometry(const IMaterialDecorator* materialDecorator,
-                                const GeometryIdentifier& layerID,
-                                const GeometryIdentifierHook& hook,
-                                const Logger& logger) {
+void Layer::closeGeometry(const IMaterialDecorator* materialDecorator,
+                          const GeometryIdentifier& layerID,
+                          const GeometryIdentifierHook& hook,
+                          const Logger& logger) {
   // set the volumeID of this
   assignGeometryId(layerID);
   // assign to the representing surface
@@ -73,7 +79,7 @@ void Acts::Layer::closeGeometry(const IMaterialDecorator* materialDecorator,
     // loop through the approachSurfaces and assign unique GeomeryID
     GeometryIdentifier::Value iasurface = 0;
     for (auto& aSurface : m_approachDescriptor->containedSurfaces()) {
-      auto asurfaceID = GeometryIdentifier(layerID).setApproach(++iasurface);
+      auto asurfaceID = GeometryIdentifier(layerID).withApproach(++iasurface);
       auto mutableASurface = const_cast<Surface*>(aSurface);
       mutableASurface->assignGeometryId(asurfaceID);
       if (materialDecorator != nullptr) {
@@ -92,7 +98,7 @@ void Acts::Layer::closeGeometry(const IMaterialDecorator* materialDecorator,
     // loop sensitive surfaces and assign unique GeometryIdentifier
     GeometryIdentifier::Value issurface = 0;
     for (auto& sSurface : m_surfaceArray->surfaces()) {
-      auto ssurfaceID = GeometryIdentifier(layerID).setSensitive(++issurface);
+      auto ssurfaceID = GeometryIdentifier(layerID).withSensitive(++issurface);
       ssurfaceID = hook.decorateIdentifier(ssurfaceID, *sSurface);
       auto mutableSSurface = const_cast<Surface*>(sSurface);
       mutableSSurface->assignGeometryId(ssurfaceID);
@@ -107,48 +113,27 @@ void Acts::Layer::closeGeometry(const IMaterialDecorator* materialDecorator,
   }
 }
 
-boost::container::small_vector<Acts::SurfaceIntersection, 10>
-Acts::Layer::compatibleSurfaces(
+boost::container::small_vector<NavigationTarget, 10> Layer::compatibleSurfaces(
     const GeometryContext& gctx, const Vector3& position,
     const Vector3& direction, const NavigationOptions<Surface>& options) const {
   // the list of valid intersection
-  boost::container::small_vector<SurfaceIntersection, 10> sIntersections;
+  boost::container::small_vector<NavigationTarget, 10> surfaceIntersections;
 
   // fast exit - there is nothing to
   if (!m_surfaceArray || !m_approachDescriptor) {
-    return sIntersections;
+    return surfaceIntersections;
   }
 
-  // (0) End surface check
-  // @todo: - we might be able to skip this by use of options.pathLimit
-  // check if you have to stop at the endSurface
   double nearLimit = options.nearLimit;
   double farLimit = options.farLimit;
-  if (options.endObject != nullptr) {
-    // intersect the end surface
-    // - it is the final one don't use the boundary check at all
-    SurfaceIntersection endInter =
-        options.endObject
-            ->intersect(gctx, position, direction, BoundaryCheck(true))
-            .closest();
-    // non-valid intersection with the end surface provided at this layer
-    // indicates wrong direction or faulty setup
-    // -> do not return compatible surfaces since they may lead you on a wrong
-    // navigation path
-    if (endInter) {
-      farLimit = endInter.pathLength();
-    } else {
-      return sIntersections;
-    }
-  } else {
-    // compatibleSurfaces() should only be called when on the layer,
-    // i.e. the maximum path limit is given by the layer thickness times
-    // path correction, we take a safety factor of 1.5
-    // -> this avoids punch through for cylinders
-    double pCorrection =
-        surfaceRepresentation().pathCorrection(gctx, position, direction);
-    farLimit = 1.5 * thickness() * pCorrection;
-  }
+
+  auto isUnique = [&](const NavigationTarget& b) {
+    return std::ranges::none_of(
+        surfaceIntersections, [&b](const NavigationTarget& a) {
+          return &a.surface() == &b.surface() &&
+                 a.intersectionIndex() == b.intersectionIndex();
+        });
+  };
 
   // lemma 0 : accept the surface
   auto acceptSurface = [&options](const Surface& sf,
@@ -157,7 +142,7 @@ Acts::Layer::compatibleSurfaces(
     if (sensitive && options.resolveSensitive) {
       return true;
     }
-    // next option: it's a material surface and you want to have it
+    // next option: it's a material surface, and you want to have it
     if (options.resolveMaterial && sf.surfaceMaterial() != nullptr) {
       return true;
     }
@@ -166,31 +151,30 @@ Acts::Layer::compatibleSurfaces(
   };
 
   // lemma 1 : check and fill the surface
-  // [&sIntersections, &options, &parameters
-  auto processSurface = [&](const Surface& sf, bool sensitive = false) {
-    // veto if it's start or end surface
-    if (options.startObject == &sf || options.endObject == &sf) {
+  auto processSurface = [&](const Surface& surface, bool sensitive = false) {
+    // veto if it's start surface
+    if (options.startObject == &surface) {
       return;
     }
     // veto if it doesn't fit the prescription
-    if (!acceptSurface(sf, sensitive)) {
+    if (!acceptSurface(surface, sensitive)) {
       return;
     }
-    bool boundaryCheck = options.boundaryCheck.isEnabled();
-    if (std::find(options.externalSurfaces.begin(),
-                  options.externalSurfaces.end(),
-                  sf.geometryId()) != options.externalSurfaces.end()) {
-      boundaryCheck = false;
+    BoundaryTolerance boundaryTolerance = options.boundaryTolerance;
+    if (rangeContainsValue(options.externalSurfaces, surface.geometryId())) {
+      boundaryTolerance = BoundaryTolerance::Infinite();
     }
     // the surface intersection
-    SurfaceMultiIntersection sfmi =
-        sf.intersect(gctx, position, direction, BoundaryCheck(boundaryCheck));
-    for (const auto& sfi : sfmi.split()) {
-      // check if intersection is valid and pathLimit has not been exceeded
-      if (sfi &&
-          detail::checkIntersection(sfi.intersection(), nearLimit, farLimit)) {
-        sIntersections.push_back(sfi);
-      }
+    auto [intersection, intersectionIndex] =
+        surface.intersect(gctx, position, direction, boundaryTolerance)
+            .closestWithIndex();
+    NavigationTarget surfaceIntersection(intersection, intersectionIndex,
+                                         surface, boundaryTolerance);
+    if (intersection.isValid() &&
+        detail::checkPathLength(intersection.pathLength(), nearLimit,
+                                farLimit) &&
+        isUnique(surfaceIntersection)) {
+      surfaceIntersections.push_back(surfaceIntersection);
     }
   };
 
@@ -219,7 +203,7 @@ Acts::Layer::compatibleSurfaces(
                          options.resolveSensitive)) {
     // get the candidates
     const std::vector<const Surface*>& sensitiveSurfaces =
-        m_surfaceArray->neighbors(position);
+        m_surfaceArray->neighbors(position, direction);
     // loop through and veto
     // - if the approach surface is the parameter surface
     // - if the surface is not compatible with the type(s) that are collected
@@ -234,30 +218,10 @@ Acts::Layer::compatibleSurfaces(
   const Surface* layerSurface = &surfaceRepresentation();
   processSurface(*layerSurface);
 
-  // Sort by object address
-  std::sort(
-      sIntersections.begin(), sIntersections.end(),
-      [](const auto& a, const auto& b) { return a.object() < b.object(); });
-  // Now look for duplicates. As we just sorted by path length, duplicates
-  // should be subsequent
-  auto it = std::unique(
-      sIntersections.begin(), sIntersections.end(),
-      [](const SurfaceIntersection& a, const SurfaceIntersection& b) -> bool {
-        return a.object() == b.object();
-      });
-
-  // resize to remove all items that are past the unique range
-  sIntersections.resize(std::distance(sIntersections.begin(), it),
-                        SurfaceIntersection::invalid());
-
-  // sort according to the path length
-  std::sort(sIntersections.begin(), sIntersections.end(),
-            SurfaceIntersection::pathLengthOrder);
-
-  return sIntersections;
+  return surfaceIntersections;
 }
 
-Acts::SurfaceIntersection Acts::Layer::surfaceOnApproach(
+NavigationTarget Layer::surfaceOnApproach(
     const GeometryContext& gctx, const Vector3& position,
     const Vector3& direction, const NavigationOptions<Layer>& options) const {
   // resolve directive based by options
@@ -265,39 +229,38 @@ Acts::SurfaceIntersection Acts::Layer::surfaceOnApproach(
   // - options.resolveSensitive is on -> always
   // - options.resolveMaterial is on
   //   && either sensitive or approach surfaces have material
-  bool resolvePS = options.resolveSensitive || options.resolvePassive;
-  bool resolveMS = options.resolveMaterial &&
-                   (m_ssSensitiveSurfaces > 1 || m_ssApproachSurfaces > 1 ||
-                    (surfaceRepresentation().surfaceMaterial() != nullptr));
+  const bool resolvePS = options.resolveSensitive || options.resolvePassive;
+  const bool resolveMS =
+      options.resolveMaterial &&
+      (m_ssSensitiveSurfaces > 1 || m_ssApproachSurfaces > 1 ||
+       (surfaceRepresentation().surfaceMaterial() != nullptr));
 
-  // The Limits: current path & overstepping
-  double nearLimit = options.nearLimit;
-  double farLimit = options.farLimit;
-
-  // Helper function to find valid intersection
-  auto findValidIntersection =
-      [&](const SurfaceMultiIntersection& sfmi) -> SurfaceIntersection {
-    for (const auto& sfi : sfmi.split()) {
-      if (sfi &&
-          detail::checkIntersection(sfi.intersection(), nearLimit, farLimit)) {
-        return sfi;
-      }
-    }
-
-    // Return an invalid one
-    return SurfaceIntersection::invalid();
-  };
+  // The Limits
+  const double nearLimit = options.nearLimit;
+  const double farLimit = options.farLimit;
 
   // Approach descriptor present and resolving is necessary
   if (m_approachDescriptor && (resolvePS || resolveMS)) {
-    SurfaceIntersection aSurface = m_approachDescriptor->approachSurface(
-        gctx, position, direction, options.boundaryCheck, nearLimit, farLimit);
+    NavigationTarget aSurface = m_approachDescriptor->approachSurface(
+        gctx, position, direction, options.boundaryTolerance, nearLimit,
+        farLimit);
     return aSurface;
   }
 
   // Intersect and check the representing surface
-  const Surface& rSurface = surfaceRepresentation();
-  auto sIntersection =
-      rSurface.intersect(gctx, position, direction, options.boundaryCheck);
-  return findValidIntersection(sIntersection);
+  const Surface& layerSurface = surfaceRepresentation();
+  const MultiIntersection3D multiIntersection = layerSurface.intersect(
+      gctx, position, direction, options.boundaryTolerance);
+  for (auto [intersectionIndex, intersection] :
+       Acts::enumerate(multiIntersection)) {
+    if (intersection.isValid() &&
+        detail::checkPathLength(intersection.pathLength(), nearLimit,
+                                farLimit)) {
+      return NavigationTarget(intersection, intersectionIndex, *this,
+                              layerSurface, options.boundaryTolerance);
+    }
+  }
+  return NavigationTarget::None();
 }
+
+}  // namespace Acts

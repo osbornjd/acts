@@ -1,34 +1,32 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/DD4hep/DD4hepDetectorSurfaceFactory.hpp"
+#include "ActsPlugins/DD4hep/DD4hepDetectorSurfaceFactory.hpp"
 
-#include "Acts/Definitions/Units.hpp"
-#include "Acts/Detector/detail/ProtoMaterialHelper.hpp"
 #include "Acts/Material/HomogeneousSurfaceMaterial.hpp"
-#include "Acts/Plugins/DD4hep/DD4hepBinningHelpers.hpp"
-#include "Acts/Plugins/DD4hep/DD4hepConversionHelpers.hpp"
-#include "Acts/Plugins/DD4hep/DD4hepDetectorElement.hpp"
-#include "Acts/Plugins/TGeo/TGeoMaterialConverter.hpp"
-#include "Acts/Plugins/TGeo/TGeoPrimitivesHelper.hpp"
-#include "Acts/Plugins/TGeo/TGeoSurfaceConverter.hpp"
+#include "ActsPlugins/DD4hep/DD4hepBinningHelpers.hpp"
+#include "ActsPlugins/DD4hep/DD4hepConversionHelpers.hpp"
+#include "ActsPlugins/DD4hep/DD4hepDetectorElement.hpp"
+#include "ActsPlugins/Root/TGeoMaterialConverter.hpp"
+#include "ActsPlugins/Root/TGeoSurfaceConverter.hpp"
 
 #include "DD4hep/DetElement.h"
 
+using namespace Acts;
 using namespace Acts::detail;
 
-Acts::DD4hepDetectorSurfaceFactory::DD4hepDetectorSurfaceFactory(
-    std::unique_ptr<const Logger> mlogger)
-    : m_logger(std::move(mlogger)) {
-  ACTS_DEBUG("UnitLength conversion factor (DD4hep -> Acts): " << unitLength);
-}
+namespace ActsPlugins {
 
-void Acts::DD4hepDetectorSurfaceFactory::construct(
+DD4hepDetectorSurfaceFactory::DD4hepDetectorSurfaceFactory(
+    const Config& config, std::unique_ptr<const Logger> mlogger)
+    : m_config(config), m_logger(std::move(mlogger)) {}
+
+void DD4hepDetectorSurfaceFactory::construct(
     Cache& cache, const GeometryContext& gctx,
     const dd4hep::DetElement& dd4hepElement, const Options& options) {
   ACTS_DEBUG("Configured to convert "
@@ -51,7 +49,7 @@ void Acts::DD4hepDetectorSurfaceFactory::construct(
   }
 }
 
-void Acts::DD4hepDetectorSurfaceFactory::recursiveConstruct(
+void DD4hepDetectorSurfaceFactory::recursiveConstruct(
     Cache& cache, const GeometryContext& gctx,
     const dd4hep::DetElement& dd4hepElement, const Options& options,
     int level) {
@@ -92,36 +90,36 @@ void Acts::DD4hepDetectorSurfaceFactory::recursiveConstruct(
   }
 }
 
-Acts::DD4hepDetectorSurfaceFactory::DD4hepSensitiveSurface
-Acts::DD4hepDetectorSurfaceFactory::constructSensitiveComponents(
+DD4hepDetectorSurfaceFactory::DD4hepSensitiveSurface
+DD4hepDetectorSurfaceFactory::constructSensitiveComponents(
     Cache& cache, const GeometryContext& gctx,
     const dd4hep::DetElement& dd4hepElement, const Options& options) const {
   // Extract the axis definition
   std::string detAxis =
       getParamOr<std::string>("axis_definitions", dd4hepElement, "XYZ");
-  std::shared_ptr<const Acts::ISurfaceMaterial> surfaceMaterial = nullptr;
+  std::shared_ptr<const ISurfaceMaterial> surfaceMaterial = nullptr;
 
   // Create the corresponding detector element
-  auto dd4hepDetElement = std::make_shared<Acts::DD4hepDetectorElement>(
+  auto dd4hepDetElement = m_config.detectorElementFactory(
       dd4hepElement, detAxis, unitLength, false, nullptr);
   auto sSurface = dd4hepDetElement->surface().getSharedPtr();
   // Measure if configured to do so
   if (cache.sExtent.has_value()) {
     auto sExtent =
-        sSurface->polyhedronRepresentation(gctx, cache.nExtentSegments)
+        sSurface->polyhedronRepresentation(gctx, cache.nExtentQSegments)
             .extent();
     cache.sExtent.value().extend(sExtent, cache.extentConstraints);
   }
 
   // Attach surface material if present
-  attachSurfaceMaterial(gctx, "acts_surface_", dd4hepElement, *sSurface.get(),
+  attachSurfaceMaterial(gctx, "acts_surface_", dd4hepElement, *sSurface,
                         dd4hepDetElement->thickness(), options);
   // return the surface
   return {dd4hepDetElement, sSurface};
 }
 
-Acts::DD4hepDetectorSurfaceFactory::DD4hepPassiveSurface
-Acts::DD4hepDetectorSurfaceFactory::constructPassiveComponents(
+DD4hepDetectorSurfaceFactory::DD4hepPassiveSurface
+DD4hepDetectorSurfaceFactory::constructPassiveComponents(
     Cache& cache, const GeometryContext& gctx,
     const dd4hep::DetElement& dd4hepElement, const Options& options) const {
   // Underlying TGeo node, shape & transform
@@ -137,7 +135,7 @@ Acts::DD4hepDetectorSurfaceFactory::constructPassiveComponents(
   // Measure if configured to do so
   if (cache.pExtent.has_value()) {
     auto sExtent =
-        pSurface->polyhedronRepresentation(gctx, cache.nExtentSegments)
+        pSurface->polyhedronRepresentation(gctx, cache.nExtentQSegments)
             .extent();
     cache.pExtent.value().extend(sExtent, cache.extentConstraints);
   }
@@ -147,22 +145,21 @@ Acts::DD4hepDetectorSurfaceFactory::constructPassiveComponents(
   return {pSurface, assignToAll};
 }
 
-void Acts::DD4hepDetectorSurfaceFactory::attachSurfaceMaterial(
-    const GeometryContext& gctx, const std::string& prefix,
-    const dd4hep::DetElement& dd4hepElement, Acts::Surface& surface,
-    ActsScalar thickness, const Options& options) const {
+void DD4hepDetectorSurfaceFactory::attachSurfaceMaterial(
+    const GeometryContext& /*gctx*/, const std::string& prefix,
+    const dd4hep::DetElement& dd4hepElement, Surface& surface, double thickness,
+    const Options& options) const {
   // Bool proto material overrules converted material
   bool protoMaterial =
       getParamOr<bool>(prefix + "_proto_material", dd4hepElement, false);
   if (protoMaterial) {
     ACTS_VERBOSE(" - proto material binning for passive surface found.");
-    Experimental::BinningDescription pmBinning{
-        DD4hepBinningHelpers::convertBinning(
-            dd4hepElement, prefix + "_proto_material_binning")};
-    ACTS_VERBOSE(" - converted binning is " << pmBinning.toString());
-    Experimental::detail::ProtoMaterialHelper::attachProtoMaterial(
-        gctx, surface, pmBinning);
-
+    auto materialBinning = DD4hepBinningHelpers::convertBinning(
+        dd4hepElement, prefix + "_proto_material_binning");
+    std::vector<DirectedProtoAxis> pmBinning = {};
+    for (const auto& [dpAxis, bins] : materialBinning) {
+      pmBinning.emplace_back(dpAxis);
+    }
   } else if (options.convertMaterial) {
     ACTS_VERBOSE(" - direct conversion of DD4hep material triggered.");
     // Extract the material
@@ -180,3 +177,5 @@ void Acts::DD4hepDetectorSurfaceFactory::attachSurfaceMaterial(
     surface.assignSurfaceMaterial(std::move(surfaceMaterial));
   }
 }
+
+}  // namespace ActsPlugins

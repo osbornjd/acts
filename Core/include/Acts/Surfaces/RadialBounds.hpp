@@ -1,24 +1,20 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Definitions/TrackParametrization.hpp"
-#include "Acts/Surfaces/BoundaryCheck.hpp"
 #include "Acts/Surfaces/DiscBounds.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
-#include "Acts/Utilities/detail/periodic.hpp"
 
 #include <array>
-#include <cmath>
 #include <iosfwd>
-#include <stdexcept>
+#include <numbers>
 #include <vector>
 
 namespace Acts {
@@ -31,6 +27,8 @@ namespace Acts {
 ///
 class RadialBounds : public DiscBounds {
  public:
+  /// @enum BoundValues
+  /// Enumeration for the bound values
   enum BoundValues {
     eMinR = 0,
     eMaxR = 1,
@@ -39,16 +37,15 @@ class RadialBounds : public DiscBounds {
     eSize = 4
   };
 
-  RadialBounds() = delete;
-
   /// Constructor for full disc of symmetric disc around phi=0
   ///
   /// @param minR The inner radius (0 for full disc)
   /// @param maxR The outer radius
   /// @param halfPhi The half opening angle (Pi for full angular coverage)
   /// @param avgPhi The average phi for the disc/ring sector
-  RadialBounds(double minR, double maxR, double halfPhi = M_PI,
-               double avgPhi = 0.) noexcept(false)
+  explicit RadialBounds(double minR, double maxR,
+                        double halfPhi = std::numbers::pi,
+                        double avgPhi = 0.) noexcept(false)
       : m_values({minR, maxR, halfPhi, avgPhi}) {
     checkConsistency();
   }
@@ -56,56 +53,81 @@ class RadialBounds : public DiscBounds {
   /// Constructor from array values
   ///
   /// @param values The bound values
-  RadialBounds(const std::array<double, eSize>& values) noexcept(false)
+  explicit RadialBounds(const std::array<double, eSize>& values) noexcept(false)
       : m_values(values) {
     checkConsistency();
   }
 
-  ~RadialBounds() override = default;
+  /// @copydoc SurfaceBounds::type
+  BoundsType type() const final { return eDisc; }
 
-  SurfaceBounds::BoundsType type() const final;
+  /// @copydoc SurfaceBounds::isCartesian
+  bool isCartesian() const final { return false; }
+
+  /// @copydoc SurfaceBounds::boundToCartesianJacobian
+  SquareMatrix2 boundToCartesianJacobian(const Vector2& lposition) const final;
+
+  /// @copydoc SurfaceBounds::boundToCartesianMetric
+  SquareMatrix2 boundToCartesianMetric(const Vector2& lposition) const final;
 
   /// Return the bound values as dynamically sized vector
-  ///
   /// @return this returns a copy of the internal values
   std::vector<double> values() const final;
 
-  /// For disc surfaces the local position in (r,phi) is checked
-  ///
-  /// @param lposition local position to be checked
-  /// @param bcheck boundary check directive
-  ///
-  /// @return is a boolean indicating the operation success
-  bool inside(const Vector2& lposition,
-              const BoundaryCheck& bcheck) const final;
+  /// @copydoc SurfaceBounds::inside
+  bool inside(const Vector2& lposition) const final;
+
+  /// @copydoc SurfaceBounds::closestPoint
+  Vector2 closestPoint(const Vector2& lposition,
+                       const SquareMatrix2& metric) const final;
+
+  using SurfaceBounds::inside;
+
+  /// @copydoc SurfaceBounds::center
+  /// @note For RadialBounds: returns ((rMin + rMax)/2, averagePhi) in polar coordinates
+  Vector2 center() const final;
 
   /// Outstream operator
   ///
   /// @param sl is the ostream to be dumped into
+  /// @return Reference to the output stream for chaining
   std::ostream& toStream(std::ostream& sl) const final;
 
   /// Return method for inner Radius
-  double rMin() const final;
+  /// @return Minimum radius value of the bounds
+  double rMin() const final { return get(eMinR); }
 
   /// Return method for outer Radius
-  double rMax() const final;
+  /// @return Maximum radius value of the bounds
+  double rMax() const final { return get(eMaxR); }
 
   /// Access to the bound values
   /// @param bValue the class nested enum for the array access
+  /// @return The boundary value corresponding to the requested parameter
   double get(BoundValues bValue) const { return m_values[bValue]; }
 
   /// Returns true for full phi coverage
-  bool coversFullAzimuth() const final;
+  /// @return True if bounds cover full azimuthal range (2π), false otherwise
+  bool coversFullAzimuth() const final {
+    return (get(eHalfPhiSector) == std::numbers::pi);
+  }
 
   /// Checks if this is inside the radial coverage
   /// given the a tolerance
-  bool insideRadialBounds(double R, double tolerance = 0.) const final;
+  /// @param R Radius value to check
+  /// @param tolerance Tolerance for the boundary check
+  /// @return True if radius is within radial bounds considering tolerance
+  bool insideRadialBounds(double R, double tolerance = 0.) const final {
+    return (R + tolerance > get(eMinR) && R - tolerance < get(eMaxR));
+  }
 
   /// Return a reference radius for binning
-  double binningValueR() const final;
+  /// @return Average radius value used as binning reference
+  double binningValueR() const final { return 0.5 * (get(eMinR) + get(eMaxR)); }
 
-  /// Return a reference radius for binning
-  double binningValuePhi() const final;
+  /// Return a reference phi value for binning
+  /// @return Average phi value used as binning reference
+  double binningValuePhi() const final { return get(eAveragePhi); }
 
  private:
   std::array<double, eSize> m_values;
@@ -132,47 +154,5 @@ class RadialBounds : public DiscBounds {
   /// @return vector for vertices in 2D
   std::vector<Vector2> vertices(unsigned int lseg) const final;
 };
-
-inline double RadialBounds::rMin() const {
-  return get(eMinR);
-}
-
-inline double RadialBounds::rMax() const {
-  return get(eMaxR);
-}
-
-inline bool RadialBounds::coversFullAzimuth() const {
-  return (get(eHalfPhiSector) == M_PI);
-}
-
-inline bool RadialBounds::insideRadialBounds(double R, double tolerance) const {
-  return (R + tolerance > get(eMinR) && R - tolerance < get(eMaxR));
-}
-
-inline double RadialBounds::binningValueR() const {
-  return 0.5 * (get(eMinR) + get(eMaxR));
-}
-
-inline double RadialBounds::binningValuePhi() const {
-  return get(eAveragePhi);
-}
-
-inline std::vector<double> RadialBounds::values() const {
-  std::vector<double> valvector;
-  valvector.insert(valvector.begin(), m_values.begin(), m_values.end());
-  return valvector;
-}
-
-inline void RadialBounds::checkConsistency() noexcept(false) {
-  if (get(eMinR) < 0. || get(eMaxR) <= 0. || get(eMinR) > get(eMaxR)) {
-    throw std::invalid_argument("RadialBounds: invalid radial setup");
-  }
-  if (get(eHalfPhiSector) < 0. || get(eHalfPhiSector) > M_PI) {
-    throw std::invalid_argument("RadialBounds: invalid phi sector setup.");
-  }
-  if (get(eAveragePhi) != detail::radian_sym(get(eAveragePhi))) {
-    throw std::invalid_argument("RadialBounds: invalid phi positioning.");
-  }
-}
 
 }  // namespace Acts

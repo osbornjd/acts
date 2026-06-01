@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -46,19 +46,19 @@ template <std::size_t kDims, typename scalar_t = double,
           std::size_t kLeafSize = 4>
 class DBScan {
  public:
-  // The type of coordinates for points.
+  /// Type alias for coordinates of points in N-dimensional space
   using Point = std::array<scalar_t, kDims>;
 
-  // The type of a vector of coordinate.
+  /// Type alias for vector of coordinate points
   using VectorPoints = std::vector<Point>;
 
-  // The type to pair the points with an ID.
+  /// Type alias for pair of point coordinates with unique identifier
   using Pair = std::pair<Point, std::size_t>;
 
-  // The type of a vector of coordinate-ID pairs.
+  /// Type alias for vector of coordinate-ID pairs
   using VectorPairs = std::vector<Pair>;
 
-  // KDTree used before the DBScan algorithm to find the neighbours.
+  /// Type alias for KDTree used for neighbor search during clustering
   using Tree = KDTree<kDims, std::size_t, scalar_t, std::array, kLeafSize>;
 
   // Remove the default constructor.
@@ -70,8 +70,8 @@ class DBScan {
   /// @param minPoints The minimum number of points to form a cluster.
   /// @param onePointCluster If true, all the noise points are considered as
   /// individual one point clusters.
-  DBScan(scalar_t epsilon = 1.0, std::size_t minPoints = 1,
-         bool onePointCluster = false)
+  explicit DBScan(scalar_t epsilon = 1.0, std::size_t minPoints = 1,
+                  bool onePointCluster = false)
       : m_eps(epsilon),
         m_minPoints(minPoints),
         m_onePointCluster(onePointCluster) {}

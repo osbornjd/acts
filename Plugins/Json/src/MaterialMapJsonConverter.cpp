@@ -1,12 +1,12 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/Json/MaterialMapJsonConverter.hpp"
+#include "ActsPlugins/Json/MaterialMapJsonConverter.hpp"
 
 #include "Acts/Definitions/Tolerance.hpp"
 #include "Acts/Geometry/ApproachDescriptor.hpp"
@@ -24,17 +24,17 @@
 #include "Acts/Material/IVolumeMaterial.hpp"
 #include "Acts/Material/ProtoSurfaceMaterial.hpp"
 #include "Acts/Material/ProtoVolumeMaterial.hpp"
-#include "Acts/Plugins/Json/ITrackingGeometryJsonDecorator.hpp"
-#include "Acts/Plugins/Json/IVolumeMaterialJsonDecorator.hpp"
-#include "Acts/Plugins/Json/MaterialJsonConverter.hpp"
-#include "Acts/Plugins/Json/SurfaceJsonConverter.hpp"
-#include "Acts/Plugins/Json/VolumeJsonConverter.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/SurfaceArray.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinnedArray.hpp"
 #include "Acts/Utilities/BinningType.hpp"
+#include "ActsPlugins/Json/ITrackingGeometryJsonDecorator.hpp"
+#include "ActsPlugins/Json/IVolumeMaterialJsonDecorator.hpp"
+#include "ActsPlugins/Json/MaterialJsonConverter.hpp"
+#include "ActsPlugins/Json/SurfaceJsonConverter.hpp"
+#include "ActsPlugins/Json/VolumeJsonConverter.hpp"
 #include <Acts/Surfaces/AnnulusBounds.hpp>
 #include <Acts/Surfaces/CylinderBounds.hpp>
 #include <Acts/Surfaces/RadialBounds.hpp>
@@ -45,6 +45,7 @@
 #include <cmath>
 #include <cstddef>
 #include <map>
+#include <numbers>
 #include <stdexcept>
 
 namespace Acts {
@@ -114,13 +115,13 @@ Acts::SurfaceAndMaterialWithContext defaultSurfaceMaterial(
             radialBounds->get(Acts::RadialBounds::eHalfPhiSector),
         radialBounds->get(Acts::RadialBounds::eAveragePhi) +
             radialBounds->get(Acts::RadialBounds::eHalfPhiSector),
-        (radialBounds->get(Acts::RadialBounds::eHalfPhiSector) - M_PI) <
-                Acts::s_epsilon
+        (radialBounds->get(Acts::RadialBounds::eHalfPhiSector) -
+         std::numbers::pi) < Acts::s_epsilon
             ? Acts::closed
             : Acts::open,
-        Acts::binPhi);
+        Acts::AxisDirection::AxisPhi);
     bUtility += Acts::BinUtility(1, radialBounds->rMin(), radialBounds->rMax(),
-                                 Acts::open, Acts::binR);
+                                 Acts::open, Acts::AxisDirection::AxisR);
   }
   if (cylinderBounds != nullptr) {
     bUtility += Acts::BinUtility(
@@ -129,44 +130,45 @@ Acts::SurfaceAndMaterialWithContext defaultSurfaceMaterial(
             cylinderBounds->get(Acts::CylinderBounds::eHalfPhiSector),
         cylinderBounds->get(Acts::CylinderBounds::eAveragePhi) +
             cylinderBounds->get(Acts::CylinderBounds::eHalfPhiSector),
-        (cylinderBounds->get(Acts::CylinderBounds::eHalfPhiSector) - M_PI) <
-                Acts::s_epsilon
+        (cylinderBounds->get(Acts::CylinderBounds::eHalfPhiSector) -
+         std::numbers::pi) < Acts::s_epsilon
             ? Acts::closed
             : Acts::open,
-        Acts::binPhi);
+        Acts::AxisDirection::AxisPhi);
     bUtility += Acts::BinUtility(
         1, -1 * cylinderBounds->get(Acts::CylinderBounds::eHalfLengthZ),
         cylinderBounds->get(Acts::CylinderBounds::eHalfLengthZ), Acts::open,
-        Acts::binZ);
+        Acts::AxisDirection::AxisZ);
   }
   if (annulusBounds != nullptr) {
     bUtility +=
         Acts::BinUtility(1, annulusBounds->get(Acts::AnnulusBounds::eMinPhiRel),
                          annulusBounds->get(Acts::AnnulusBounds::eMaxPhiRel),
-                         Acts::open, Acts::binPhi);
-    bUtility += Acts::BinUtility(1, annulusBounds->rMin(),
-                                 annulusBounds->rMax(), Acts::open, Acts::binR);
+                         Acts::open, Acts::AxisDirection::AxisPhi);
+    bUtility += Acts::BinUtility(1, static_cast<float>(annulusBounds->rMin()),
+                                 static_cast<float>(annulusBounds->rMax()),
+                                 Acts::open, Acts::AxisDirection::AxisR);
   }
   if (rectangleBounds != nullptr) {
     bUtility +=
         Acts::BinUtility(1, rectangleBounds->get(Acts::RectangleBounds::eMinX),
                          rectangleBounds->get(Acts::RectangleBounds::eMaxX),
-                         Acts::open, Acts::binX);
+                         Acts::open, Acts::AxisDirection::AxisX);
     bUtility +=
         Acts::BinUtility(1, rectangleBounds->get(Acts::RectangleBounds::eMinY),
                          rectangleBounds->get(Acts::RectangleBounds::eMaxY),
-                         Acts::open, Acts::binY);
+                         Acts::open, Acts::AxisDirection::AxisY);
   }
   if (trapezoidBounds != nullptr) {
     double halfLengthX =
         std::max(trapezoidBounds->get(Acts::TrapezoidBounds::eHalfLengthXnegY),
                  trapezoidBounds->get(Acts::TrapezoidBounds::eHalfLengthXposY));
     bUtility += Acts::BinUtility(1, -1 * halfLengthX, halfLengthX, Acts::open,
-                                 Acts::binX);
+                                 Acts::AxisDirection::AxisX);
     bUtility += Acts::BinUtility(
         1, -1 * trapezoidBounds->get(Acts::TrapezoidBounds::eHalfLengthY),
         trapezoidBounds->get(Acts::TrapezoidBounds::eHalfLengthY), Acts::open,
-        Acts::binY);
+        Acts::AxisDirection::AxisY);
   }
   return {surface, std::make_shared<Acts::ProtoSurfaceMaterial>(bUtility),
           context};
@@ -175,8 +177,8 @@ Acts::SurfaceAndMaterialWithContext defaultSurfaceMaterial(
 Acts::TrackingVolumeAndMaterial defaultVolumeMaterial(
     const Acts::TrackingVolume* volume) {
   Acts::BinUtility bUtility;
-  if (volume->volumeMaterialSharedPtr() != nullptr) {
-    return {volume, volume->volumeMaterialSharedPtr()};
+  if (volume->volumeMaterialPtr() != nullptr) {
+    return {volume, volume->volumeMaterialPtr()};
   }
   // Check which type of bound is associated to the volume
   auto cyBounds = dynamic_cast<const Acts::CylinderVolumeBounds*>(
@@ -190,43 +192,45 @@ Acts::TrackingVolumeAndMaterial defaultVolumeMaterial(
     bUtility +=
         Acts::BinUtility(1, cyBounds->get(Acts::CylinderVolumeBounds::eMinR),
                          cyBounds->get(Acts::CylinderVolumeBounds::eMaxR),
-                         Acts::open, Acts::binR);
+                         Acts::open, Acts::AxisDirection::AxisR);
     bUtility += Acts::BinUtility(
         1, -cyBounds->get(Acts::CylinderVolumeBounds::eHalfPhiSector),
         cyBounds->get(Acts::CylinderVolumeBounds::eHalfPhiSector),
-        (cyBounds->get(Acts::CylinderVolumeBounds::eHalfPhiSector) - M_PI) <
-                Acts::s_epsilon
+        (cyBounds->get(Acts::CylinderVolumeBounds::eHalfPhiSector) -
+         std::numbers::pi) < Acts::s_epsilon
             ? Acts::closed
             : Acts::open,
-        Acts::binPhi);
+        Acts::AxisDirection::AxisPhi);
     bUtility += Acts::BinUtility(
         1, -cyBounds->get(Acts::CylinderVolumeBounds::eHalfLengthZ),
         cyBounds->get(Acts::CylinderVolumeBounds::eHalfLengthZ), Acts::open,
-        Acts::binZ);
+        Acts::AxisDirection::AxisZ);
   }
   if (cutcylBounds != nullptr) {
     bUtility += Acts::BinUtility(
         1, cutcylBounds->get(Acts::CutoutCylinderVolumeBounds::eMinR),
         cutcylBounds->get(Acts::CutoutCylinderVolumeBounds::eMaxR), Acts::open,
-        Acts::binR);
-    bUtility += Acts::BinUtility(1, -M_PI, M_PI, Acts::closed, Acts::binPhi);
+        Acts::AxisDirection::AxisR);
+    bUtility += Acts::BinUtility(1, -std::numbers::pi_v<float>,
+                                 std::numbers::pi_v<float>, Acts::closed,
+                                 Acts::AxisDirection::AxisPhi);
     bUtility += Acts::BinUtility(
         1, -cutcylBounds->get(Acts::CutoutCylinderVolumeBounds::eHalfLengthZ),
         cutcylBounds->get(Acts::CutoutCylinderVolumeBounds::eHalfLengthZ),
-        Acts::open, Acts::binZ);
+        Acts::open, Acts::AxisDirection::AxisZ);
   } else if (cuBounds != nullptr) {
     bUtility += Acts::BinUtility(
         1, -cuBounds->get(Acts::CuboidVolumeBounds::eHalfLengthX),
         cuBounds->get(Acts::CuboidVolumeBounds::eHalfLengthX), Acts::open,
-        Acts::binX);
+        Acts::AxisDirection::AxisX);
     bUtility += Acts::BinUtility(
         1, -cuBounds->get(Acts::CuboidVolumeBounds::eHalfLengthY),
         cuBounds->get(Acts::CuboidVolumeBounds::eHalfLengthY), Acts::open,
-        Acts::binY);
+        Acts::AxisDirection::AxisY);
     bUtility += Acts::BinUtility(
         1, -cuBounds->get(Acts::CuboidVolumeBounds::eHalfLengthZ),
         cuBounds->get(Acts::CuboidVolumeBounds::eHalfLengthZ), Acts::open,
-        Acts::binZ);
+        Acts::AxisDirection::AxisZ);
   }
   return {volume, std::make_shared<Acts::ProtoVolumeMaterial>(bUtility)};
 }
@@ -245,23 +249,23 @@ Acts::MaterialMapJsonConverter::MaterialMapJsonConverter(
 /// Convert method
 ///
 nlohmann::json Acts::MaterialMapJsonConverter::materialMapsToJson(
-    const DetectorMaterialMaps& maps,
+    const TrackingGeometryMaterial& maps,
     const IVolumeMaterialJsonDecorator* decorator) {
-  VolumeMaterialMap volumeMap = maps.second;
+  VolumeMaterialMaps volumeMap = maps.second;
   std::vector<std::pair<GeometryIdentifier, const IVolumeMaterial*>>
       mapVolumeInit;
-  for (auto it = volumeMap.begin(); it != volumeMap.end(); it++) {
-    mapVolumeInit.push_back({it->first, it->second.get()});
+  for (const auto& [key, value] : volumeMap) {
+    mapVolumeInit.push_back({key, value.get()});
   }
   GeometryHierarchyMap<const IVolumeMaterial*> hierarchyVolumeMap(
       mapVolumeInit);
   nlohmann::json materialVolume =
       m_volumeMaterialConverter.toJson(hierarchyVolumeMap, decorator);
-  SurfaceMaterialMap surfaceMap = maps.first;
+  SurfaceMaterialMaps surfaceMap = maps.first;
   std::vector<std::pair<GeometryIdentifier, const ISurfaceMaterial*>>
       mapSurfaceInit;
-  for (auto it = surfaceMap.begin(); it != surfaceMap.end(); it++) {
-    mapSurfaceInit.push_back({it->first, it->second.get()});
+  for (const auto& [key, value] : surfaceMap) {
+    mapSurfaceInit.push_back({key, value.get()});
   }
   GeometryHierarchyMap<const ISurfaceMaterial*> hierarchySurfaceMap(
       mapSurfaceInit);
@@ -273,13 +277,13 @@ nlohmann::json Acts::MaterialMapJsonConverter::materialMapsToJson(
   return materialMap;
 }
 
-Acts::MaterialMapJsonConverter::DetectorMaterialMaps
+Acts::TrackingGeometryMaterial
 Acts::MaterialMapJsonConverter::jsonToMaterialMaps(
     const nlohmann::json& materialmap) {
   nlohmann::json materialVolume = materialmap["Volumes"];
   GeometryHierarchyMap<const IVolumeMaterial*> hierarchyVolumeMap =
       m_volumeMaterialConverter.fromJson(materialVolume);
-  VolumeMaterialMap volumeMap;
+  VolumeMaterialMaps volumeMap;
   for (std::size_t i = 0; i < hierarchyVolumeMap.size(); i++) {
     std::shared_ptr<const IVolumeMaterial> volumePointer(
         hierarchyVolumeMap.valueAt(i));
@@ -288,15 +292,14 @@ Acts::MaterialMapJsonConverter::jsonToMaterialMaps(
   nlohmann::json materialSurface = materialmap["Surfaces"];
   GeometryHierarchyMap<const ISurfaceMaterial*> hierarchySurfaceMap =
       m_surfaceMaterialConverter.fromJson(materialSurface);
-  SurfaceMaterialMap surfaceMap;
+  SurfaceMaterialMaps surfaceMap;
   for (std::size_t i = 0; i < hierarchySurfaceMap.size(); i++) {
     std::shared_ptr<const ISurfaceMaterial> surfacePointer(
         hierarchySurfaceMap.valueAt(i));
     surfaceMap.insert({hierarchySurfaceMap.idAt(i), std::move(surfacePointer)});
   }
 
-  Acts::MaterialMapJsonConverter::DetectorMaterialMaps maps = {surfaceMap,
-                                                               volumeMap};
+  Acts::TrackingGeometryMaterial maps = {surfaceMap, volumeMap};
 
   // Return the filled maps
   return maps;
@@ -333,12 +336,10 @@ void Acts::MaterialMapJsonConverter::convertToHierarchy(
         std::pair<GeometryIdentifier, Acts::SurfaceAndMaterialWithContext>>&
         surfaceHierarchy,
     const Acts::TrackingVolume* tVolume) {
-  auto sameId =
-      [tVolume](
-          const std::pair<GeometryIdentifier, Acts::TrackingVolumeAndMaterial>&
-              pair) { return (tVolume->geometryId() == pair.first); };
-  if (std::find_if(volumeHierarchy.begin(), volumeHierarchy.end(), sameId) !=
-      volumeHierarchy.end()) {
+  auto sameId = [tVolume](const auto& pair) {
+    return (tVolume->geometryId() == pair.first);
+  };
+  if (std::ranges::any_of(volumeHierarchy, sameId)) {
     // this volume was already visited
     return;
   }

@@ -1,24 +1,22 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
+#include "Acts/Definitions/Common.hpp"
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/Detector/GeometryCompatibilityConcept.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/Material/MaterialInteraction.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
-#include "Acts/Propagator/Propagator.hpp"
+#include "Acts/Propagator/PropagatorState.hpp"
 #include "Acts/Propagator/detail/PointwiseMaterialInteraction.hpp"
 #include "Acts/Propagator/detail/VolumeMaterialInteraction.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-
-#include <sstream>
 
 namespace Acts {
 
@@ -35,6 +33,7 @@ struct MaterialInteractor {
   /// Whether to add or remove noise.
   NoiseUpdateMode noiseUpdateMode = NoiseUpdateMode::addNoise;
 
+  /// Type alias for material interaction result
   using result_type = RecordedMaterial;
 
   /// @brief Interaction with detector material for the ActionList
@@ -56,22 +55,17 @@ struct MaterialInteractor {
   /// @param logger a logger instance
   template <typename propagator_state_t, typename stepper_t,
             typename navigator_t>
-  void operator()(propagator_state_t& state, const stepper_t& stepper,
-                  const navigator_t& navigator, result_type& result,
-                  const Logger& logger) const {
+  Result<void> act(propagator_state_t& state, const stepper_t& stepper,
+                   const navigator_t& navigator, result_type& result,
+                   const Logger& logger) const {
     if (state.stage == PropagatorStage::postPropagation) {
-      return;
+      return Result<void>::success();
     }
 
     // Do nothing if nothing is what is requested.
     if (!(multipleScattering || energyLoss || recordInteractions)) {
-      return;
+      return Result<void>::success();
     }
-
-    static_assert(
-        Acts::Concepts::NavigationCompatibilityConcept<propagator_state_t,
-                                                       navigator_t>,
-        "Navigation does not fulfill geometry compatibility concept");
 
     // Handle surface material
 
@@ -81,15 +75,16 @@ struct MaterialInteractor {
 
     // We only have material interactions if there is potential material
     if (surface && surface->surfaceMaterial()) {
-      ACTS_VERBOSE("MaterialInteractor | "
-                   << "Found material on surface " << surface->geometryId());
+      ACTS_VERBOSE("MaterialInteractor | " << "Found material on surface "
+                                           << surface->geometryId());
 
       // Prepare relevant input particle properties
-      detail::PointwiseMaterialInteraction interaction(surface, state, stepper);
+      detail::PointwiseMaterialInteraction interaction(state, stepper,
+                                                       navigator);
 
       // Determine the effective traversed material and its properties
       // Material exists but it's not real, i.e. vacuum; there is nothing to do
-      if (interaction.evaluateMaterialSlab(state, navigator)) {
+      if (interaction.evaluateMaterialSlab(MaterialUpdateMode::FullUpdate)) {
         // Evaluate the material effects
         interaction.evaluatePointwiseMaterialInteraction(multipleScattering,
                                                          energyLoss);
@@ -129,8 +124,8 @@ struct MaterialInteractor {
 
     // We only have material interactions if there is potential material
     if (volume && volume->volumeMaterial()) {
-      ACTS_VERBOSE("MaterialInteractor | "
-                   << "Found material in volume " << volume->geometryId());
+      ACTS_VERBOSE("MaterialInteractor | " << "Found material in volume "
+                                           << volume->geometryId());
 
       // Prepare relevant input particle properties
       detail::VolumeMaterialInteraction interaction(volume, state, stepper);
@@ -141,6 +136,7 @@ struct MaterialInteractor {
         recordResult(interaction, result);
       }
     }
+    return Result<void>::success();
   }
 
  private:

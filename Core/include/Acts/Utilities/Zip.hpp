@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -21,6 +21,8 @@ namespace Acts {
 /// @tparam R The ranges type pack
 /// @param r The ranges parameter pack
 /// @note the behaviour is undefined if the ranges do not have equal range
+///
+/// @return Zip object providing iteration over multiple ranges simultaneously
 template <typename... R>
 auto zip(R &&...r) {
   struct It {

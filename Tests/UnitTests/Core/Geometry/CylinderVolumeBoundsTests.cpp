@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
@@ -16,25 +16,29 @@
 #include "Acts/Geometry/VolumeBounds.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/BoundingBox.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <stdexcept>
 #include <vector>
 
 namespace bdata = boost::unit_test::data;
 
-namespace Acts {
-namespace Test {
-BOOST_AUTO_TEST_SUITE(Geometry)
+using namespace Acts;
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsConstruction) {
-  double rmin{10.}, rmax{20.}, halfz{30.}, halfphi{M_PI / 4}, avgphi{0.};
+  double rmin{10.}, rmax{20.}, halfz{30.}, halfphi{std::numbers::pi / 4.},
+      avgphi{0.};
 
   // Test different construction modes: solid
   CylinderVolumeBounds solidCylinder(0., rmax, halfz);
@@ -76,7 +80,8 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsConstruction) {
 }
 
 BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsRecreation) {
-  double rmin{10.}, rmax{20.}, halfz{30.}, halfphi{M_PI / 4}, avgphi{0.};
+  double rmin{10.}, rmax{20.}, halfz{30.}, halfphi{std::numbers::pi / 4.},
+      avgphi{0.};
 
   CylinderVolumeBounds original(rmin, rmax, halfz, halfphi, avgphi);
   std::array<double, CylinderVolumeBounds::eSize> values{};
@@ -87,7 +92,8 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsRecreation) {
 }
 
 BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsExceptions) {
-  double rmin{10.}, rmax{20.}, halfz{30.}, halfphi{M_PI / 4}, avgphi{0.};
+  double rmin{10.}, rmax{20.}, halfz{30.}, halfphi{std::numbers::pi / 4.},
+      avgphi{0.};
 
   // Negative inner radius
   BOOST_CHECK_THROW(CylinderVolumeBounds(-rmin, rmax, halfz, halfphi, avgphi),
@@ -133,7 +139,8 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsExceptions) {
 }
 
 BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsAccess) {
-  double rmin{10.}, rmax{20.}, halfz{30.}, halfphi{M_PI / 4}, avgphi{0.};
+  double rmin{10.}, rmax{20.}, halfz{30.}, halfphi{std::numbers::pi / 4.},
+      avgphi{0.};
   CylinderVolumeBounds cvBounds(rmin, rmax, halfz, halfphi, avgphi);
 
   // Test the accessors
@@ -149,16 +156,16 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsAccess) {
 BOOST_DATA_TEST_CASE(
     CylinderVolumeBoundsOrientedSurfaces,
     bdata::random((bdata::engine = std::mt19937(), bdata::seed = 1,
-                   bdata::distribution =
-                       std::uniform_real_distribution<double>(-M_PI, M_PI))) ^
-        bdata::random((bdata::engine = std::mt19937(), bdata::seed = 2,
-                       bdata::distribution =
-                           std::uniform_real_distribution<double>(-M_PI,
-                                                                  M_PI))) ^
-        bdata::random((bdata::engine = std::mt19937(), bdata::seed = 3,
-                       bdata::distribution =
-                           std::uniform_real_distribution<double>(-M_PI,
-                                                                  M_PI))) ^
+                   bdata::distribution = std::uniform_real_distribution<double>(
+                       -std::numbers::pi, std::numbers::pi))) ^
+        bdata::random(
+            (bdata::engine = std::mt19937(), bdata::seed = 2,
+             bdata::distribution = std::uniform_real_distribution<double>(
+                 -std::numbers::pi, std::numbers::pi))) ^
+        bdata::random(
+            (bdata::engine = std::mt19937(), bdata::seed = 3,
+             bdata::distribution = std::uniform_real_distribution<double>(
+                 -std::numbers::pi, std::numbers::pi))) ^
         bdata::random((bdata::engine = std::mt19937(), bdata::seed = 4,
                        bdata::distribution =
                            std::uniform_real_distribution<double>(-10., 10.))) ^
@@ -170,10 +177,10 @@ BOOST_DATA_TEST_CASE(
                            std::uniform_real_distribution<double>(-10., 10.))) ^
         bdata::xrange(100),
     alpha, beta, gamma, posX, posY, posZ, index) {
-  (void)index;
+  static_cast<void>(index);
 
   // Create a test context
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
   // position of volume
   const Vector3 pos(posX, posY, posZ);
@@ -228,14 +235,14 @@ BOOST_DATA_TEST_CASE(
   // positive disc durface should point in positive direction in the frame of
   // the volume
   CHECK_CLOSE_REL(
-      transform.rotation().col(2).dot(boundarySurfaces.at(1).surface->normal(
-          tgContext, Acts::Vector2(0., 0.))),
+      transform.rotation().col(2).dot(
+          boundarySurfaces.at(1).surface->normal(tgContext, Vector2(0., 0.))),
       1., 1e-12);
   // negative disc durface should point in positive direction in the frame of
   // the volume
   CHECK_CLOSE_REL(
-      transform.rotation().col(2).dot(boundarySurfaces.at(0).surface->normal(
-          tgContext, Acts::Vector2(0., 0.))),
+      transform.rotation().col(2).dot(
+          boundarySurfaces.at(0).surface->normal(tgContext, Vector2(0., 0.))),
       1., 1e-12);
   // test in r
   CHECK_CLOSE_REL(boundarySurfaces.at(3).surface->center(tgContext), pos,
@@ -245,7 +252,7 @@ BOOST_DATA_TEST_CASE(
 }
 
 BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsBoundingBox) {
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
   float tol = 1e-4;
 
@@ -253,7 +260,7 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsBoundingBox) {
   auto bb = cvb.boundingBox();
 
   Transform3 rot;
-  rot = AngleAxis3(M_PI / 2., Vector3::UnitX());
+  rot = AngleAxis3(std::numbers::pi / 2., Vector3::UnitX());
 
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
   BOOST_CHECK_EQUAL(bb.max(), Vector3(5, 5, 10));
@@ -270,7 +277,7 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsBoundingBox) {
   BOOST_CHECK_EQUAL(bb.max(), Vector3(8, 8, 12));
   BOOST_CHECK_EQUAL(bb.min(), Vector3(-8, -8, -12));
 
-  double angle = M_PI / 8.;
+  double angle = std::numbers::pi / 8.;
   cvb = CylinderVolumeBounds(5, 8, 13, angle);
   bb = cvb.boundingBox();
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
@@ -278,14 +285,14 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsBoundingBox) {
   CHECK_CLOSE_ABS(bb.min(),
                   Vector3(5 * std::cos(angle), -8 * std::sin(angle), -13), tol);
 
-  rot = AngleAxis3(M_PI / 2., Vector3::UnitZ());
+  rot = AngleAxis3(std::numbers::pi / 2., Vector3::UnitZ());
   bb = cvb.boundingBox(&rot);
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
   CHECK_CLOSE_ABS(bb.max(), Vector3(8 * std::sin(angle), 8, 13), tol);
   CHECK_CLOSE_ABS(bb.min(),
                   Vector3(-8 * std::sin(angle), 5 * std::cos(angle), -13), tol);
 
-  rot = AngleAxis3(M_PI / 2., Vector3(-2, 4, 5).normalized());
+  rot = AngleAxis3(std::numbers::pi / 2., Vector3(-2, 4, 5).normalized());
   bb = cvb.boundingBox(&rot);
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
   CHECK_CLOSE_ABS(bb.max(), Vector3(8.40007, 15.2828, 3.88911), tol);
@@ -293,20 +300,21 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsBoundingBox) {
 }
 
 BOOST_AUTO_TEST_CASE(CylinderVolumeOrientedBoundaries) {
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
   CylinderVolumeBounds cvb(5, 10, 20);
 
   auto cvbOrientedSurfaces = cvb.orientedSurfaces(Transform3::Identity());
   BOOST_CHECK_EQUAL(cvbOrientedSurfaces.size(), 4);
 
-  auto geoCtx = GeometryContext();
+  auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
   Vector3 xaxis(1., 0., 0.);
   Vector3 yaxis(0., 1., 0.);
   Vector3 zaxis(0., 0., 1.);
 
   for (auto& os : cvbOrientedSurfaces) {
-    auto onSurface = os.surface->binningPosition(geoCtx, binR);
+    auto onSurface =
+        os.surface->referencePosition(geoCtx, AxisDirection::AxisR);
     auto locPos =
         os.surface->globalToLocal(geoCtx, onSurface, Vector3::Zero()).value();
     auto osNormal = os.surface->normal(geoCtx, locPos);
@@ -318,7 +326,7 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeOrientedBoundaries) {
     BOOST_CHECK(!cvb.inside(outsideCvb));
 
     // Test the orientation of the boundary surfaces
-    auto rot = os.surface->transform(geoCtx).rotation();
+    auto rot = os.surface->localToGlobalTransform(geoCtx).rotation();
     BOOST_CHECK(rot.col(0).isApprox(xaxis));
     BOOST_CHECK(rot.col(1).isApprox(yaxis));
     BOOST_CHECK(rot.col(2).isApprox(zaxis));
@@ -352,30 +360,37 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsSetValues) {
   cyl.set(CylinderVolumeBounds::eHalfLengthZ, 150);
   BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfLengthZ), 150);
 
-  BOOST_CHECK_THROW(cyl.set(CylinderVolumeBounds::eHalfPhiSector, -M_PI),
-                    std::invalid_argument);
-  BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfPhiSector), M_PI);
+  BOOST_CHECK_THROW(
+      cyl.set(CylinderVolumeBounds::eHalfPhiSector, -std::numbers::pi),
+      std::invalid_argument);
+  BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfPhiSector),
+                    std::numbers::pi);
 
-  BOOST_CHECK_THROW(cyl.set(CylinderVolumeBounds::eHalfPhiSector, 1.5 * M_PI),
-                    std::invalid_argument);
-  BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfPhiSector), M_PI);
+  BOOST_CHECK_THROW(
+      cyl.set(CylinderVolumeBounds::eHalfPhiSector, 1.5 * std::numbers::pi),
+      std::invalid_argument);
+  BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfPhiSector),
+                    std::numbers::pi);
 
-  cyl.set(CylinderVolumeBounds::eHalfPhiSector, M_PI / 2);
-  BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfPhiSector), M_PI / 2);
+  cyl.set(CylinderVolumeBounds::eHalfPhiSector, std::numbers::pi / 2.);
+  BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfPhiSector),
+                    std::numbers::pi / 2.);
 
   for (auto bValue :
        {CylinderVolumeBounds::eAveragePhi, CylinderVolumeBounds::eBevelMaxZ,
         CylinderVolumeBounds::eBevelMinZ}) {
-    BOOST_CHECK_THROW(cyl.set(bValue, -1.5 * M_PI), std::invalid_argument);
+    BOOST_CHECK_THROW(cyl.set(bValue, -1.5 * std::numbers::pi),
+                      std::invalid_argument);
     BOOST_CHECK_EQUAL(cyl.get(bValue), 0);
 
-    BOOST_CHECK_THROW(cyl.set(bValue, 1.5 * M_PI), std::invalid_argument);
+    BOOST_CHECK_THROW(cyl.set(bValue, 1.5 * std::numbers::pi),
+                      std::invalid_argument);
     BOOST_CHECK_EQUAL(cyl.get(bValue), 0);
 
-    cyl.set(bValue, 0.5 * M_PI);
-    BOOST_CHECK_EQUAL(cyl.get(bValue), 0.5 * M_PI);
-    cyl.set(bValue, -0.5 * M_PI);
-    BOOST_CHECK_EQUAL(cyl.get(bValue), -0.5 * M_PI);
+    cyl.set(bValue, std::numbers::pi / 2.);
+    BOOST_CHECK_EQUAL(cyl.get(bValue), std::numbers::pi / 2.);
+    cyl.set(bValue, -std::numbers::pi / 2.);
+    BOOST_CHECK_EQUAL(cyl.get(bValue), -std::numbers::pi / 2.);
   }
 
   cyl = CylinderVolumeBounds(100, 300, 200);
@@ -400,12 +415,13 @@ BOOST_AUTO_TEST_CASE(CylinderVolumeBoundsSetValues) {
   BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eMinR), 50);
   BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eMaxR), 200);
   BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfLengthZ), 150);
-  BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfPhiSector), M_PI);
+  BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eHalfPhiSector),
+                    std::numbers::pi);
   BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eAveragePhi), 0);
   BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eBevelMinZ), 0);
   BOOST_CHECK_EQUAL(cyl.get(CylinderVolumeBounds::eBevelMaxZ), 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Test
-}  // namespace Acts
+
+}  // namespace ActsTests

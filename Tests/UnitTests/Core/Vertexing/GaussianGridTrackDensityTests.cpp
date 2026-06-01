@@ -1,13 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -27,15 +25,17 @@
 #include <optional>
 #include <utility>
 
-namespace bdata = boost::unit_test::data;
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 
-namespace Acts::Test {
+namespace ActsTests {
 
 using Covariance = BoundSquareMatrix;
 
 // Create a test context
-GeometryContext geoContext = GeometryContext();
+GeometryContext geoContext = GeometryContext::dangerouslyDefaultConstruct();
+
+BOOST_AUTO_TEST_SUITE(VertexingSuite)
 
 BOOST_AUTO_TEST_CASE(gaussian_grid_density_test) {
   // Define the size of the grids
@@ -139,15 +139,16 @@ BOOST_AUTO_TEST_CASE(gaussian_grid_density_test) {
   binAndTrackGrid = grid.addTrack(params4, mainGrid);
 
   // Check upper boundary
-  BOOST_CHECK_EQUAL(mainGrid(mainGridSize - int((trkGridSize - 1) / 2) - 2),
-                    0.);
-  BOOST_CHECK_GT(mainGrid(mainGridSize - int((trkGridSize - 1) / 2) - 1), 0.);
+  BOOST_CHECK_EQUAL(
+      mainGrid(mainGridSize - static_cast<int>((trkGridSize - 1) / 2) - 2), 0.);
+  BOOST_CHECK_GT(
+      mainGrid(mainGridSize - static_cast<int>((trkGridSize - 1) / 2) - 1), 0.);
   BOOST_CHECK_GT(mainGrid(mainGridSize - 1), 0.);
 
   binAndTrackGrid = grid.addTrack(params5, mainGrid);
   // Check lower boundary
-  BOOST_CHECK_EQUAL(mainGrid(int((trkGridSize - 1) / 2) + 1), 0.);
-  BOOST_CHECK_GT(mainGrid(int((trkGridSize - 1) / 2)), 0.);
+  BOOST_CHECK_EQUAL(mainGrid(static_cast<int>((trkGridSize - 1) / 2) + 1), 0.);
+  BOOST_CHECK_GT(mainGrid(static_cast<int>((trkGridSize - 1) / 2)), 0.);
   BOOST_CHECK_GT(mainGrid(0), 0.);
 
   // Check if position of maximum is correct
@@ -308,4 +309,6 @@ BOOST_AUTO_TEST_CASE(gaussian_grid_seed_width_test) {
   BOOST_CHECK_NE(width, 0.);
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

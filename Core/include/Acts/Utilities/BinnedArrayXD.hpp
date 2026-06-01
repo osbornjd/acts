@@ -1,18 +1,20 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 ///////////////////////////////////////////////////////////////////
 // BinnedArrayXD.h, Acts project
 ///////////////////////////////////////////////////////////////////
 
 #pragma once
+
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinnedArray.hpp"
+#include "Acts/Utilities/Helpers.hpp"
 
 #include <array>
 #include <iostream>
@@ -37,9 +39,8 @@ class BinnedArrayXD : public BinnedArray<T> {
 
  public:
   /// Constructor for single object
-  ///
-  /// @tparam object is the single object
-  BinnedArrayXD(T object)
+  /// @param object The single object to store
+  explicit BinnedArrayXD(T object)
       : BinnedArray<T>(),
         m_objectGrid(
             1, std::vector<std::vector<T>>(1, std::vector<T>(1, nullptr))),
@@ -74,8 +75,7 @@ class BinnedArrayXD : public BinnedArray<T> {
         /// fill the data
         m_objectGrid[bins[2]][bins[1]][bins[0]] = tap.first;
         /// fill the unique m_arrayObjects
-        if (std::find(m_arrayObjects.begin(), m_arrayObjects.end(),
-                      tap.first) == m_arrayObjects.end()) {
+        if (!rangeContainsValue(m_arrayObjects, tap.first)) {
           m_arrayObjects.push_back(tap.first);
         }
       }
@@ -101,12 +101,9 @@ class BinnedArrayXD : public BinnedArray<T> {
     for (auto& o2 : m_objectGrid) {
       for (auto& o1 : o2) {
         for (auto& o0 : o1) {
-          if (o0) {
-            /// fill the unique m_arrayObjects
-            if (std::find(m_arrayObjects.begin(), m_arrayObjects.end(), o0) ==
-                m_arrayObjects.end()) {
-              m_arrayObjects.push_back(o0);
-            }
+          /// fill the unique m_arrayObjects
+          if (o0 && !rangeContainsValue(m_arrayObjects, o0)) {
+            m_arrayObjects.push_back(o0);
           }
         }
       }

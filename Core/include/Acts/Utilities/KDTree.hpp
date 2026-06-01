@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -15,7 +15,6 @@
 #include <cmath>
 #include <functional>
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace Acts {
@@ -63,6 +62,7 @@ class KDTree {
   /// @brief The type of iterators in our vectors.
   using iterator_t = typename vector_t::iterator;
 
+  /// Type alias for const iterator over coordinate-value pairs
   using const_iterator_t = typename vector_t::const_iterator;
 
   // We do not need an empty constructor - this is never useful.
@@ -75,7 +75,7 @@ class KDTree {
   ///
   /// @param d The vector of position-value pairs to construct the k-d tree
   /// from.
-  KDTree(vector_t &&d) : m_elems(d) {
+  explicit KDTree(vector_t &&d) : m_elems(d) {
     // To start out, we need to check whether we need to construct a leaf node
     // or an internal node. We create a leaf only if we have at most as many
     // elements as the number of elements that can fit into a leaf node.
@@ -180,9 +180,8 @@ class KDTree {
   /// @param i The iterator to write the output to.
   template <typename OutputIt>
   void rangeSearchInserterWithKey(const range_t &r, OutputIt i) const {
-    rangeSearchMapDiscard(r, [i](const coordinate_t &c, const Type &v) mutable {
-      i = {c, v};
-    });
+    rangeSearchMapDiscard(
+        r, [i](const coordinate_t &c, const Type &v) mutable { i = {c, v}; });
   }
 
   /// @brief Perform an orthogonal range search within the k-d tree, applying
@@ -262,8 +261,12 @@ class KDTree {
   /// @return The number of elements in the k-d tree.
   std::size_t size(void) const { return m_root->size(); }
 
+  /// Get iterator to first element
+  /// @return Const iterator to the beginning of the tree elements
   const_iterator_t begin(void) const { return m_elems.begin(); }
 
+  /// Get iterator to one past the last element
+  /// @return Const iterator to the end of the tree elements
   const_iterator_t end(void) const { return m_elems.end(); }
 
  private:

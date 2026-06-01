@@ -1,16 +1,19 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Utilities/ArrayHelpers.hpp"
+#include "Acts/Utilities/MathHelpers.hpp"
 
 #include <bitset>
+#include <cassert>
 #include <optional>
 
 #include "Eigen/Dense"
@@ -178,7 +181,7 @@ inline ActsMatrix<A::RowsAtCompileTime, B::ColsAtCompileTime> blockedMult(
 /// Calculate the inverse of an Eigen matrix after checking if it can be
 /// numerically inverted. This allows to catch potential FPEs before they occur.
 /// For matrices up to 4x4, the inverse is computed directly. For larger
-/// matrices, the FullPivLU is used.
+/// matrices, and dynamic matrices the FullPivLU is used.
 ///
 /// @tparam Derived Eigen derived concrete type
 /// @tparam Result Eigen result type defaulted to input type
@@ -192,12 +195,11 @@ std::optional<ResultType> safeInverse(const MatrixType& m) noexcept {
   constexpr int cols = MatrixType::ColsAtCompileTime;
 
   static_assert(rows == cols);
-  static_assert(rows != -1);
 
   ResultType result;
   bool invertible = false;
 
-  if constexpr (rows > 4) {
+  if constexpr (rows > 4 || rows == -1) {
     Eigen::FullPivLU<MatrixType> mFullPivLU(m);
     if (mFullPivLU.isInvertible()) {
       invertible = true;
@@ -247,6 +249,43 @@ constexpr T safeExp(T val) noexcept {
   }
 
   return std::exp(val);
+}
+
+/// @brief Map the indices of the lower triangular part of a symmetric N x N matrix
+///        to an unrolled vector index.
+/// @param i The row index of the symmetric matrix
+/// @param k The column index of the symmetric matrix
+/// @return The corresponding vector index in the unrolled storage
+template <std::size_t N>
+constexpr std::size_t vecIdxFromSymMat(const std::size_t i, const std::size_t k)
+  requires(N > 0)
+{
+  assert(i < N);
+  assert(k < N);
+  if (k > i) {
+    return vecIdxFromSymMat<N>(k, i);
+  }
+  return sumUpToN(i) + k;
+}
+/// @brief Map an unrolled vector index to the indices of the lower triangular
+///        part of a symmetric N x N matrix. Inverse of `vecIdxFromSymMat`.
+/// @param k The unrolled vector index
+/// @return A pair of indices (i, j) such that the element at (i, j) in the
+///         symmetric matrix corresponds to the k-th element in the unrolled
+///         vector.
+template <std::size_t N>
+constexpr std::array<std::size_t, 2> symMatIndices(const std::size_t k)
+  requires(N > 1)
+{
+  assert(k < sumUpToN(N));
+  constexpr std::size_t bound = sumUpToN(N - 1);
+  if (k >= bound) {
+    return std::array<std::size_t, 2>{N - 1, k - bound};
+  }
+  if constexpr (N > 2) {
+    return symMatIndices<N - 1>(k);
+  }
+  return filledArray<std::size_t, 2>(0);
 }
 
 }  // namespace Acts

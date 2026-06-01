@@ -41,7 +41,7 @@ assert ret == 0, "gcovr not installed. Use 'pip install gcovr'."
 
 ret, gcovr_version_text = check_output(["gcovr", "--version"])
 gcovr_version = tuple(
-    map(int, re.match("gcovr (\d+\.\d+)", gcovr_version_text).group(1).split("."))
+    map(int, re.match(r"gcovr (\d+\.\d+)", gcovr_version_text).group(1).split("."))
 )
 
 extra_flags = []
@@ -63,7 +63,7 @@ coverage_dir = os.path.abspath("coverage")
 if not os.path.exists(coverage_dir):
     os.makedirs(coverage_dir)
 
-excludes = ["-e", "../Tests/", "-e", ".*json\.hpp"]
+excludes = ["-e", "../Tests/", "-e", r".*json\.hpp", "-e", "../Python/"]
 
 # create the html report
 call(
@@ -71,9 +71,10 @@ call(
     + ["-r", source_dir]
     + ["--gcov-executable", args.gcov]
     + ["-j", str(mp.cpu_count())]
+    + ["--merge-mode-functions", "separate"]
     + excludes
     + extra_flags
-    + ["--xml", "-o", "coverage/cov.xml"]
+    + ["--sonarqube", "coverage/cov.xml"]
 )
 
 call(
@@ -81,6 +82,7 @@ call(
     + ["-r", source_dir]
     + ["-j", str(mp.cpu_count())]
     + ["--gcov-executable", args.gcov]
+    + ["--merge-mode-functions", "separate"]
     + excludes
     + extra_flags
 )

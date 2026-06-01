@@ -1,13 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -23,13 +21,15 @@
 
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <utility>
 #include <vector>
 
-namespace Acts {
-namespace Test {
-namespace Layers {
-BOOST_AUTO_TEST_SUITE(Layers)
+using namespace Acts;
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 /// Unit test for creating compliant/non-compliant ConeLayer object
 BOOST_AUTO_TEST_CASE(ConeLayerConstruction) {
@@ -38,8 +38,8 @@ BOOST_AUTO_TEST_CASE(ConeLayerConstruction) {
   // ConeBounds) to construct
   Translation3 translation{0., 1., 2.};
   auto pTransform = Transform3(translation);
-  double alpha(M_PI / 8.0);
-  const bool symmetric(false);
+  const double alpha = std::numbers::pi / 8.;
+  const bool symmetric = false;
   auto pCone = std::make_shared<const ConeBounds>(alpha, symmetric);
   // for some reason, this one doesn't exist
   // auto         pConeLayer = ConeLayer::create(pTransform, pCone);
@@ -51,13 +51,13 @@ BOOST_AUTO_TEST_CASE(ConeLayerConstruction) {
   const std::vector<std::shared_ptr<const Surface>> aSurfaces{
       Surface::makeShared<PlaneSurface>(Transform3::Identity(), rBounds),
       Surface::makeShared<PlaneSurface>(Transform3::Identity(), rBounds)};
-  const double thickness(1.0);
+  const double thickness = 1.;
   auto pConeLayerFromSurfaces = ConeLayer::create(pTransform, pCone, nullptr);
   BOOST_CHECK_EQUAL(pConeLayerFromSurfaces->layerType(), LayerType::active);
   // construct with thickness:
   auto pConeLayerWithThickness =
       ConeLayer::create(pTransform, pCone, nullptr, thickness);
-  BOOST_CHECK_EQUAL(pConeLayerWithThickness->thickness(), thickness);
+  BOOST_CHECK_EQUAL(pConeLayerWithThickness->layerThickness(), thickness);
   // with an approach descriptor...
   std::unique_ptr<ApproachDescriptor> ad(
       new GenericApproachDescriptor(aSurfaces));
@@ -73,6 +73,5 @@ BOOST_AUTO_TEST_CASE(ConeLayerConstruction) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Layers
-}  // namespace Test
-}  // namespace Acts
+
+}  // namespace ActsTests

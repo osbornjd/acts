@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
@@ -15,22 +15,20 @@
 #include "Acts/Propagator/AtlasStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/RiddersPropagator.hpp"
-#include "Acts/Utilities/Logger.hpp"
-
-#include <limits>
 
 #include "PropagationDatasets.hpp"
 #include "PropagationTests.hpp"
 
-namespace {
-
 namespace ds = ActsTests::PropagationDatasets;
-using namespace Acts::UnitLiterals;
 
-using MagneticField = Acts::ConstantBField;
-using Stepper = Acts::AtlasStepper;
-using Propagator = Acts::Propagator<Stepper>;
-using RiddersPropagator = Acts::RiddersPropagator<Propagator>;
+using namespace Acts;
+using namespace UnitLiterals;
+using namespace ActsTests;
+
+using MagneticField = ConstantBField;
+using Stepper = AtlasStepper;
+using TestPropagator = Propagator<Stepper>;
+using TestRiddersPropagator = RiddersPropagator<TestPropagator>;
 
 // absolute parameter tolerances for position, direction, and absolute momentum
 constexpr auto epsPos = 1_um;
@@ -39,30 +37,26 @@ constexpr auto epsMom = 1_eV;
 // relative covariance tolerance
 constexpr auto epsCov = 0.025;
 
-const Acts::GeometryContext geoCtx;
-const Acts::MagneticFieldContext magCtx;
+const auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
+const MagneticFieldContext magCtx;
 
-inline Propagator makePropagator(double Bz) {
-  auto magField = std::make_shared<MagneticField>(Acts::Vector3(0.0, 0.0, Bz));
+inline TestPropagator makePropagator(double bz) {
+  auto magField = std::make_shared<MagneticField>(Vector3(0.0, 0.0, bz));
   Stepper stepper(std::move(magField));
-  return Propagator(std::move(stepper));
+  return TestPropagator(std::move(stepper));
 }
 
-inline RiddersPropagator makeRiddersPropagator(double Bz) {
-  auto magField = std::make_shared<MagneticField>(Acts::Vector3(0.0, 0.0, Bz));
-  Stepper stepper(std::move(magField));
-  return RiddersPropagator(std::move(stepper));
+inline TestRiddersPropagator makeRiddersPropagator(double bz) {
+  return TestRiddersPropagator(makePropagator(bz));
 }
-
-}  // namespace
 
 BOOST_AUTO_TEST_SUITE(PropagationAtlasConstant)
 
 // check that the propagation is reversible and self-consistent
 
 BOOST_DATA_TEST_CASE(ForwardBackward,
-                     ds::phi* ds::theta* ds::absMomentum* ds::chargeNonZero*
-                         ds::pathLength* ds::magneticField,
+                     ds::phi* ds::thetaWithoutBeam* ds::absMomentum*
+                         ds::chargeNonZero* ds::pathLength* ds::magneticField,
                      phi, theta, p, q, s, bz) {
   runForwardBackwardTest(makePropagator(bz), geoCtx, magCtx,
                          makeParametersCurvilinear(phi, theta, p, q), s, epsPos,
@@ -82,8 +76,8 @@ BOOST_DATA_TEST_CASE(ToCylinderAlongZ,
 }
 
 BOOST_DATA_TEST_CASE(ToDisc,
-                     ds::phi* ds::theta* ds::absMomentum* ds::chargeNonZero*
-                         ds::pathLength* ds::magneticField,
+                     ds::phi* ds::thetaWithoutBeam* ds::absMomentum*
+                         ds::chargeNonZero* ds::pathLength* ds::magneticField,
                      phi, theta, p, q, s, bz) {
   runToSurfaceTest(makePropagator(bz), geoCtx, magCtx,
                    makeParametersCurvilinear(phi, theta, p, q), s,
@@ -91,8 +85,8 @@ BOOST_DATA_TEST_CASE(ToDisc,
 }
 
 BOOST_DATA_TEST_CASE(ToPlane,
-                     ds::phi* ds::theta* ds::absMomentum* ds::chargeNonZero*
-                         ds::pathLength* ds::magneticField,
+                     ds::phi* ds::thetaWithoutBeam* ds::absMomentum*
+                         ds::chargeNonZero* ds::pathLength* ds::magneticField,
                      phi, theta, p, q, s, bz) {
   runToSurfaceTest(makePropagator(bz), geoCtx, magCtx,
                    makeParametersCurvilinear(phi, theta, p, q), s,
@@ -112,8 +106,8 @@ BOOST_DATA_TEST_CASE(ToStrawAlongZ,
 // check covariance transport using the ridders propagator for comparison
 
 BOOST_DATA_TEST_CASE(CovarianceCurvilinear,
-                     ds::phi* ds::theta* ds::absMomentum* ds::chargeNonZero*
-                         ds::pathLength* ds::magneticField,
+                     ds::phi* ds::thetaWithoutBeam* ds::absMomentum*
+                         ds::chargeNonZero* ds::pathLength* ds::magneticField,
                      phi, theta, p, q, s, bz) {
   runForwardComparisonTest(
       makePropagator(bz), makeRiddersPropagator(bz), geoCtx, magCtx,
@@ -143,8 +137,8 @@ BOOST_DATA_TEST_CASE(CovarianceToDisc,
 }
 
 BOOST_DATA_TEST_CASE(CovarianceToPlane,
-                     ds::phi* ds::theta* ds::absMomentum* ds::chargeNonZero*
-                         ds::pathLength* ds::magneticField,
+                     ds::phi* ds::thetaWithoutBeam* ds::absMomentum*
+                         ds::chargeNonZero* ds::pathLength* ds::magneticField,
                      phi, theta, p, q, s, bz) {
   runToSurfaceComparisonTest(
       makePropagator(bz), makeRiddersPropagator(bz), geoCtx, magCtx,

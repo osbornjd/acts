@@ -1,12 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -27,12 +26,11 @@
 #include "../Surfaces/SurfaceStub.hpp"
 #include "LayerStub.hpp"
 
-namespace Acts::Test {
+using namespace Acts;
 
-// Create a test context
-GeometryContext tgContext = GeometryContext();
+GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
-namespace Layers {
+namespace ActsTests {
 
 BOOST_AUTO_TEST_SUITE(Layers)
 
@@ -74,7 +72,7 @@ BOOST_AUTO_TEST_CASE(LayerProperties) {
   /// surfaceArray()
   BOOST_CHECK_EQUAL(layerStub.surfaceArray(), nullptr);
   /// thickness()
-  BOOST_CHECK_EQUAL(layerStub.thickness(), thickness);
+  BOOST_CHECK_EQUAL(layerStub.layerThickness(), thickness);
   // onLayer() is templated; can't find implementation!
   /// isOnLayer() (delegates to the Surface 'isOnSurface()')
   const Vector3 pos{0.0, 0.0, 0.0};
@@ -100,5 +98,5 @@ BOOST_AUTO_TEST_CASE(LayerProperties) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Layers
-}  // namespace Acts::Test
+
+}  // namespace ActsTests

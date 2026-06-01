@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -52,13 +52,11 @@ inline std::tuple<Acts::Vector2, Acts::Vector4, Acts::Vector3> averageSimHits(
     // check their validity again.
     const auto& simHit = *simHits.nth(simHitIdx);
 
-    // We use the thickness of the detector element as tolerance, because Geant4
+    // We use the thickness of the surface as tolerance, because Geant4
     // treats the Surfaces as volumes and thus it is not ensured, that each hit
     // lies exactly on the Acts::Surface
-    const auto tolerance =
-        surface.associatedDetectorElement() != nullptr
-            ? surface.associatedDetectorElement()->thickness()
-            : Acts::s_onSurfaceTolerance;
+    const double tolerance = surface.isSensitive() ? surface.thickness()
+                                                   : Acts::s_onSurfaceTolerance;
 
     // transforming first to local positions and average that ensures that the
     // averaged position is still on the surface. the averaged global position

@@ -1,12 +1,17 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#pragma GCC diagnostic push
+#if __GNUC__ == 15
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include <boost/test/data/test_case.hpp>
+#pragma GCC diagnostic pop
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Geometry/CylinderVolumeBuilder.hpp"
@@ -15,14 +20,16 @@
 
 namespace bdata = boost::unit_test::data;
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTests {
 
 /// Unit test for testing the wraps() function of the CylinderVolumeBuilder
 BOOST_DATA_TEST_CASE(
     CylinderVolumeBuilder_wraps,
     bdata::random((bdata::engine = std::mt19937(), bdata::seed = 1,
                    bdata::distribution =
-                       std::uniform_real_distribution<double>(-11., -15.))) ^
+                       std::uniform_real_distribution<double>(-15., -11.))) ^
         bdata::random((bdata::engine = std::mt19937(), bdata::seed = 2,
                        bdata::distribution =
                            std::uniform_real_distribution<double>(11., 15.))) ^
@@ -40,7 +47,7 @@ BOOST_DATA_TEST_CASE(
                            std::uniform_real_distribution<double>(10., 15.))) ^
         bdata::xrange(100),
     left, right, central, inner, outer, length, index) {
-  (void)index;
+  static_cast<void>(index);
   // inner volume
   VolumeConfig innerConfig;
   innerConfig.rMin = 0.;
@@ -114,7 +121,7 @@ BOOST_DATA_TEST_CASE(
     CylinderVolumeBuilder_containes,
     bdata::random((bdata::engine = std::mt19937(), bdata::seed = 1,
                    bdata::distribution =
-                       std::uniform_real_distribution<double>(-11., -15.))) ^
+                       std::uniform_real_distribution<double>(-15., -11.))) ^
         bdata::random((bdata::engine = std::mt19937(), bdata::seed = 2,
                        bdata::distribution =
                            std::uniform_real_distribution<double>(11., 15.))) ^
@@ -132,7 +139,7 @@ BOOST_DATA_TEST_CASE(
                            std::uniform_real_distribution<double>(10., 15.))) ^
         bdata::xrange(100),
     left, right, central, inner, outer, length, index) {
-  (void)index;
+  static_cast<void>(index);
   // inner volume
   VolumeConfig innerConfig;
   innerConfig.rMin = 0.;
@@ -223,7 +230,7 @@ BOOST_DATA_TEST_CASE(
                            std::uniform_real_distribution<double>(11., 15.))) ^
         bdata::xrange(100),
     inner, outer, index) {
-  (void)index;
+  static_cast<void>(index);
   // reference volume
   VolumeConfig Config0;
   Config0.rMin = 5.;
@@ -285,7 +292,7 @@ BOOST_DATA_TEST_CASE(
     CylinderVolumeBuilder_overlapsInZ,
     bdata::random((bdata::engine = std::mt19937(), bdata::seed = 1,
                    bdata::distribution =
-                       std::uniform_real_distribution<double>(-11., -15.))) ^
+                       std::uniform_real_distribution<double>(-15., -11.))) ^
         bdata::random((bdata::engine = std::mt19937(), bdata::seed = 2,
                        bdata::distribution =
                            std::uniform_real_distribution<double>(11., 15.))) ^
@@ -294,7 +301,7 @@ BOOST_DATA_TEST_CASE(
                            std::uniform_real_distribution<double>(0., 4.))) ^
         bdata::xrange(100),
     left, right, inner, index) {
-  (void)index;
+  static_cast<void>(index);
   // inner volume
   VolumeConfig Config0;
   Config0.rMin = 0.;
@@ -366,4 +373,4 @@ BOOST_DATA_TEST_CASE(
   BOOST_CHECK(Config0.overlapsInZ(Config7));
 }
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

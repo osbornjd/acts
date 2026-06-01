@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -23,26 +23,28 @@
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/SurfaceArray.hpp"
-#include "Acts/Tests/CommonHelpers/DetectorElementStub.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
+#include "ActsTests/CommonHelpers/DetectorElementStub.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
+#include "ActsTests/CommonHelpers/PredefinedMaterials.hpp"
 
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <vector>
 
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 
-namespace Acts::Test {
+namespace ActsTests {
 
 BOOST_AUTO_TEST_CASE(CuboidVolumeBuilderTest) {
   // Construct builder
   CuboidVolumeBuilder cvb;
 
   // Create a test context
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
   // Create configurations for surfaces
   std::vector<CuboidVolumeBuilder::SurfaceConfig> surfaceConfig;
@@ -52,10 +54,10 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBuilderTest) {
     cfg.position = {i * UnitConstants::m, 0., 0.};
 
     // Rotation of the surfaces
-    double rotationAngle = M_PI * 0.5;
-    Vector3 xPos(cos(rotationAngle), 0., sin(rotationAngle));
+    double rotationAngle = std::numbers::pi / 2.;
+    Vector3 xPos(std::cos(rotationAngle), 0., std::sin(rotationAngle));
     Vector3 yPos(0., 1., 0.);
-    Vector3 zPos(-sin(rotationAngle), 0., cos(rotationAngle));
+    Vector3 zPos(-std::sin(rotationAngle), 0., std::cos(rotationAngle));
     cfg.rotation.col(0) = xPos;
     cfg.rotation.col(1) = yPos;
     cfg.rotation.col(2) = zPos;
@@ -89,7 +91,7 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBuilderTest) {
     BOOST_REQUIRE_NE(pSur, nullptr);
     CHECK_CLOSE_ABS(pSur->center(tgContext), cfg.position, 1e-9);
     BOOST_CHECK_NE(pSur->surfaceMaterial(), nullptr);
-    BOOST_CHECK_NE(pSur->associatedDetectorElement(), nullptr);
+    BOOST_CHECK_EQUAL(pSur->isSensitive(), true);
   }
 
   ////////////////////////////////////////////////////////////////////
@@ -177,10 +179,10 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBuilderTest) {
     cfg.position = {-i * UnitConstants::m, 0., 0.};
 
     // Rotation of the surfaces
-    double rotationAngle = M_PI * 0.5;
-    Vector3 xPos(cos(rotationAngle), 0., sin(rotationAngle));
+    double rotationAngle = std::numbers::pi / 2.;
+    Vector3 xPos(std::cos(rotationAngle), 0., std::sin(rotationAngle));
     Vector3 yPos(0., 1., 0.);
-    Vector3 zPos(-sin(rotationAngle), 0., cos(rotationAngle));
+    Vector3 zPos(-std::sin(rotationAngle), 0., std::cos(rotationAngle));
     cfg.rotation.col(0) = xPos;
     cfg.rotation.col(1) = yPos;
     cfg.rotation.col(2) = zPos;
@@ -226,13 +228,16 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBuilderTest) {
   std::unique_ptr<const TrackingGeometry> detector =
       tgb.trackingGeometry(tgContext);
   BOOST_CHECK_EQUAL(
-      detector->lowestTrackingVolume(tgContext, Vector3(1., 0., 0.))
+      detector->lowestTrackingVolume(tgContext, Vector3(1_mm, 0_mm, 0_mm))
           ->volumeName(),
       volumeConfig.name);
   BOOST_CHECK_EQUAL(
-      detector->lowestTrackingVolume(tgContext, Vector3(-1., 0., 0.))
+      detector->lowestTrackingVolume(tgContext, Vector3(-1_mm, 0_mm, 0_mm))
           ->volumeName(),
       volumeConfig2.name);
+  BOOST_CHECK_EQUAL(
+      detector->lowestTrackingVolume(tgContext, Vector3(1000_m, 0_m, 0_m)),
+      nullptr);
 }
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

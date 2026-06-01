@@ -1,15 +1,14 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Detector/DetectorVolume.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
@@ -19,41 +18,35 @@ namespace Acts {
 class Surface;
 
 /// @brief The Material interaction volume struct
-/// It acts as a switch between detctor and tracking volume
+///
+/// @ingroup material
+///
+/// It acts as a switch between detector and tracking volume
 /// as long as those co-exist alongside
 struct InteractionVolume {
   /// The tracking volume
   const TrackingVolume* trackingVolume = nullptr;
-  /// The detector volume
-  const Experimental::DetectorVolume* detectorVolume = nullptr;
 
   /// Empty constructor
   InteractionVolume() = default;
 
   /// Constructor from tracking volume
   /// @param tv The tracking volume
-  InteractionVolume(const TrackingVolume* tv) : trackingVolume(tv) {}
-
-  /// Constructor from detector volume
-  /// @param dv The detector volume
-  InteractionVolume(const Experimental::DetectorVolume* dv)
-      : detectorVolume(dv) {}
+  explicit InteractionVolume(const TrackingVolume* tv) : trackingVolume(tv) {}
 
   /// Forward the geometry identifier
+  /// @return The geometry identifier from the contained volume, or invalid ID if empty
   GeometryIdentifier geometryId() const {
     if (trackingVolume != nullptr) {
       return trackingVolume->geometryId();
-    } else if (detectorVolume != nullptr) {
-      return detectorVolume->geometryId();
     } else {
       return GeometryIdentifier();
     }
   }
 
   /// Check if the volume is valid
-  bool empty() const {
-    return trackingVolume == nullptr && detectorVolume == nullptr;
-  }
+  /// @return True if both tracking volume and detector volume pointers are null
+  bool empty() const { return trackingVolume == nullptr; }
 };
 
 /// @brief The Material interaction struct
@@ -87,14 +80,14 @@ struct MaterialInteraction {
   /// The path correction factor due to non-zero incidence on the surface.
   double pathCorrection = 1.;
   /// The effective, passed material properties including the path correction.
-  MaterialSlab materialSlab;
+  MaterialSlab materialSlab = MaterialSlab::Nothing();
 };
 
 /// Simple result struct to be returned
 /// It mainly acts as an internal state which is
 /// created for every propagation/extrapolation step
 struct RecordedMaterial {
-  // The accumulated materialInX0
+  /// The accumulated material in units of X0 (radiation length)
   double materialInX0 = 0.;
   /// The accumulated materialInL0
   double materialInL0 = 0.;

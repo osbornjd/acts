@@ -1,12 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -14,35 +13,37 @@
 #include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/detail/CorrectedTransformationFreeToBound.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Surfaces/BoundaryCheck.hpp"
+#include "Acts/Surfaces/BoundaryTolerance.hpp"
+#include "Acts/Surfaces/CurvilinearSurface.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
-#include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 #include "Acts/Utilities/UnitVectors.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <optional>
-#include <ostream>
-#include <string>
 #include <tuple>
 
 using namespace Acts;
 using namespace Acts::UnitLiterals;
 
 namespace {
-constexpr ActsScalar eps = 0.01;
+constexpr double eps = 0.01;
 }
 
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(EventDataSuite)
+
 BOOST_AUTO_TEST_CASE(CorrectedFreeToBoundTrackParameters) {
-  GeometryContext geoCtx;
+  auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
 
   const auto loc0 = 0.0;
   const auto loc1 = 0.0;
   const auto phi = 0.0;
-  const auto theta = M_PI / 4;
+  const auto theta = std::numbers::pi / 4.;
   const auto qOverP = 1 / 1_GeV;
   const auto t = 1_ns;
 
@@ -54,9 +55,10 @@ BOOST_AUTO_TEST_CASE(CorrectedFreeToBoundTrackParameters) {
   const auto resTime = 0.01_ns;
 
   // construct two parallel plane surfaces with normal in x direction
-  ActsScalar distance = 10_mm;
-  auto eSurface = Surface::makeShared<PlaneSurface>(Vector3(distance, 0, 0),
-                                                    Vector3::UnitX());
+  double distance = 10_mm;
+  std::shared_ptr<PlaneSurface> eSurface =
+      CurvilinearSurface(Vector3(distance, 0, 0), Vector3::UnitX())
+          .planeSurface();
 
   // the bound parameters at the starting plane
   BoundVector sBoundParams = BoundVector::Zero();
@@ -74,13 +76,14 @@ BOOST_AUTO_TEST_CASE(CorrectedFreeToBoundTrackParameters) {
   Vector3 dir = makeDirectionFromPhiTheta(phi, theta);
 
   // the intersection of the track with the end surface
-  SurfaceIntersection intersection =
-      eSurface->intersect(geoCtx, Vector3(0, 0, 0), dir, BoundaryCheck(true))
+  Intersection3D intersection =
+      eSurface
+          ->intersect(geoCtx, Vector3(0, 0, 0), dir, BoundaryTolerance::None())
           .closest();
   Vector3 tpos = intersection.position();
-  auto s = intersection.pathLength();
+  double s = intersection.pathLength();
 
-  BOOST_CHECK_EQUAL(s, distance * std::sqrt(2));
+  BOOST_CHECK_EQUAL(s, distance * std::numbers::sqrt2);
 
   // construct the free parameters vector
   FreeVector eFreeParams = FreeVector::Zero();
@@ -136,5 +139,10 @@ BOOST_AUTO_TEST_CASE(CorrectedFreeToBoundTrackParameters) {
   // loc0 at end position = distance * tan(theta) * sin(phi),
   // dloc0/dphi = distance * tan(theta) * cos(phi) = distance,
   // resolution of loc0 at end position = dloc0/dphi * resLoc0 = 2.5
-  CHECK_CLOSE_REL(eCorrectedBoundCov(eBoundLoc0, eBoundLoc0), pow(2.5, 2), eps);
+  CHECK_CLOSE_REL(eCorrectedBoundCov(eBoundLoc0, eBoundLoc0), std::pow(2.5, 2),
+                  eps);
 }
+
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

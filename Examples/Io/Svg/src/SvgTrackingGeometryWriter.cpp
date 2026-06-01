@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/Io/Svg/SvgTrackingGeometryWriter.hpp"
 
@@ -12,7 +12,7 @@
 #include <Acts/Geometry/Layer.hpp>
 #include <Acts/Geometry/TrackingGeometry.hpp>
 #include <Acts/Geometry/TrackingVolume.hpp>
-#include <Acts/Plugins/ActSVG/LayerSvgConverter.hpp>
+#include <ActsPlugins/ActSVG/LayerSvgConverter.hpp>
 
 #include <iostream>
 #include <string>
@@ -32,12 +32,13 @@ ActsExamples::ProcessCode ActsExamples::SvgTrackingGeometryWriter::write(
 
   m_writeMutex.lock();
 
-  auto geometrySheets = Acts::Svg::TrackingGeometryConverter::convert(
+  auto geometrySheets = ActsPlugins::Svg::TrackingGeometryConverter::convert(
       context.geoContext, tGeometry, m_cfg.converterOptions);
 
   // Write them out
   for (const auto& sheet : geometrySheets) {
-    Acts::Svg::toFile({sheet}, joinPaths(m_cfg.outputDir, sheet._id + ".svg"));
+    ActsPlugins::Svg::toFile({sheet},
+                             joinPaths(m_cfg.outputDir, sheet._id + ".svg"));
   }
   // Successfully done
   return ActsExamples::ProcessCode::SUCCESS;

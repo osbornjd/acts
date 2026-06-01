@@ -1,20 +1,22 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Utilities/Result.hpp"
 
 #pragma once
 
+/// @ingroup errors
 enum class HoughError {
-  Failure = 1,
-  SomethingElse,
+  /// A layer ID could not be determined for the given radius
+  LayerIdNotFoundForRadius = 1,
 };
-std::error_code make_error_code(HoughError e) {
+
+inline std::error_code make_error_code(HoughError e) {
   return {static_cast<int>(e), std::generic_category()};
 }
 
@@ -59,8 +61,7 @@ ResultUnsigned findLayerIDDefault(double r) {
   } else if (r < 1100) {
     return ResultUnsigned::success(9);
   }
-  return ResultUnsigned::failure(
-      HoughError::Failure);  /// shouldn't be here, this won't be used
+  return ResultUnsigned::failure(HoughError::LayerIdNotFoundForRadius);
 }
 
 // default with two slices, one for negative and one for positive z, counting

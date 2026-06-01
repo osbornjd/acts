@@ -1,22 +1,22 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Visualization/EventDataView3D.hpp"
 #include "Acts/Visualization/GeometryView3D.hpp"
 #include "Acts/Visualization/IVisualization3D.hpp"
 #include "Acts/Visualization/ObjVisualization3D.hpp"
 #include "Acts/Visualization/PlyVisualization3D.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -30,7 +30,7 @@ auto rectangle = std::make_shared<RectangleBounds>(10., 10.);
 auto plane = Surface::makeShared<PlaneSurface>(identity, rectangle);
 
 // Test context
-GeometryContext gctx = GeometryContext();
+GeometryContext gctx = GeometryContext::dangerouslyDefaultConstruct();
 
 /// Helper method to visualize all types of surfaces
 ///
@@ -40,7 +40,7 @@ GeometryContext gctx = GeometryContext();
 static inline std::string run(IVisualization3D& helper) {
   std::stringstream ss;
 
-  ViewConfig lineView({0, 0, 255});
+  ViewConfig lineView{.color = {0, 0, 255}};
   lineView.lineThickness = 0.1;
 
   // Line visualization ------------------------------------------------
@@ -71,7 +71,7 @@ static inline std::string run(IVisualization3D& helper) {
   // Error visualization: local ---------------------------------------------
   Acts::GeometryView3D::drawSurface(helper, *plane, gctx);
 
-  ViewConfig errorVis({250, 0, 0});
+  ViewConfig errorVis{.color = {250, 0, 0}};
   errorVis.lineThickness = 0.025;
 
   SquareMatrix2 cov = SquareMatrix2::Identity();
@@ -82,7 +82,8 @@ static inline std::string run(IVisualization3D& helper) {
 
   Vector2 lcentered{0., 0.};
   Acts::EventDataView3D::drawCovarianceCartesian(
-      helper, lcentered, cov, plane->transform(gctx), 1.0, errorVis);
+      helper, lcentered, cov, plane->localToGlobalTransform(gctx), 1.0,
+      errorVis);
 
   helper.write("Primitives_CartesianError");
   helper.write(ss);

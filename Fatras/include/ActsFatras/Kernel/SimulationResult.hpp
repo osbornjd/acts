@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -35,17 +35,20 @@ struct SimulationResult {
   // called for the first time, i.e. when the result struct is
   // default-initialized.
 
-  // Whether the particle is still alive and the simulation should continue
+  /// Flag indicating whether the particle is still alive and simulation should
+  /// continue
   bool isAlive = true;
-  // Proper time limit before decay.
-  Particle::Scalar properTimeLimit =
-      std::numeric_limits<Particle::Scalar>::quiet_NaN();
-  // Accumulated radiation/interaction length limit before next interaction.
-  Particle::Scalar x0Limit = std::numeric_limits<Particle::Scalar>::quiet_NaN();
-  Particle::Scalar l0Limit = std::numeric_limits<Particle::Scalar>::quiet_NaN();
-  // Process selection for the next interaction.
-  std::size_t x0Process = SIZE_MAX;
-  std::size_t l0Process = SIZE_MAX;
+  /// Proper time limit before particle decay occurs
+  double properTimeLimit = std::numeric_limits<double>::quiet_NaN();
+  /// Accumulated radiation length limit before next electromagnetic interaction
+  double x0Limit = std::numeric_limits<double>::quiet_NaN();
+  /// Accumulated nuclear interaction length limit before next hadronic
+  /// interaction
+  double l0Limit = std::numeric_limits<double>::quiet_NaN();
+  /// Process index selection for the next electromagnetic interaction
+  std::size_t x0Process = std::numeric_limits<std::size_t>::max();
+  /// Process index selection for the next hadronic interaction
+  std::size_t l0Process = std::numeric_limits<std::size_t>::max();
 };
 
 }  // namespace ActsFatras

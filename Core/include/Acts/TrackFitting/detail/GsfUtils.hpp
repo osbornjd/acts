@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -13,6 +13,7 @@
 #include "Acts/EventData/MultiComponentTrackParameters.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
+#include "Acts/EventData/Types.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
 #include <array>
@@ -150,22 +151,19 @@ class ScopedGsfInfoPrinterAndChecker {
   }
 };
 
-ActsScalar calculateDeterminant(
+double calculateDeterminant(
     const double *fullCalibratedCovariance,
-    TrackStateTraits<MultiTrajectoryTraits::MeasurementSizeMax,
-                     true>::Covariance predictedCovariance,
-    TrackStateTraits<MultiTrajectoryTraits::MeasurementSizeMax, true>::Projector
-        projector,
-    unsigned int calibratedSize);
+    TrackStateTraits<kMeasurementSizeMax, true>::Covariance predictedCovariance,
+    BoundSubspaceIndices projector, unsigned int calibratedSize);
 
 /// Reweight the components according to `R. Frühwirth, "Track fitting
 /// with non-Gaussian noise"`. See also the implementation in Athena at
 /// PosteriorWeightsCalculator.cxx
 /// @note The weights are not renormalized!
 template <typename traj_t>
-void computePosteriorWeights(
-    const traj_t &mt, const std::vector<MultiTrajectoryTraits::IndexType> &tips,
-    std::map<MultiTrajectoryTraits::IndexType, double> &weights) {
+void computePosteriorWeights(const traj_t &mt,
+                             const std::vector<TrackIndexType> &tips,
+                             std::map<TrackIndexType, double> &weights) {
   // Helper Function to compute detR
 
   // Find minChi2, this can be used to factor some things later in the
@@ -183,21 +181,23 @@ void computePosteriorWeights(
     const auto state = mt.getTrackState(tip);
     const double chi2 = state.chi2() - minChi2;
     const double detR = calculateDeterminant(
-        // This abuses an incorrectly sized vector / matrix to access the
-        // data pointer! This works (don't use the matrix as is!), but be
-        // careful!
-        state
-            .template calibratedCovariance<
-                MultiTrajectoryTraits::MeasurementSizeMax>()
-            .data(),
-        state.predictedCovariance(), state.projector(), state.calibratedSize());
+        state.effectiveCalibratedCovariance().data(),
+        state.predictedCovariance(), state.projectorSubspaceIndices(),
+        state.calibratedSize());
+
+    if (detR <= 0) {
+      // If the determinant is not positive, just leave the weight as it is
+      continue;
+    }
 
     const auto factor = std::sqrt(1. / detR) * safeExp(-0.5 * chi2);
 
-    // If something is not finite here, just leave the weight as it is
-    if (std::isfinite(factor)) {
-      weights.at(tip) *= factor;
+    if (!std::isfinite(factor)) {
+      // If something is not finite here, just leave the weight as it is
+      continue;
     }
+
+    weights.at(tip) *= factor;
   }
 }
 
@@ -217,9 +217,9 @@ inline std::ostream &operator<<(std::ostream &os, StatesType type) {
 template <StatesType type, typename traj_t>
 struct MultiTrajectoryProjector {
   const traj_t &mt;
-  const std::map<MultiTrajectoryTraits::IndexType, double> &weights;
+  const std::map<TrackIndexType, double> &weights;
 
-  auto operator()(MultiTrajectoryTraits::IndexType idx) const {
+  auto operator()(TrackIndexType idx) const {
     const auto proxy = mt.getTrackState(idx);
     switch (type) {
       case StatesType::ePredicted:

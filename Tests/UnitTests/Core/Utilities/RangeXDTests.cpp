@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -12,14 +12,16 @@
 
 #include <limits>
 
-namespace Acts {
-namespace Test {
-BOOST_AUTO_TEST_SUITE(Utilities)
+using namespace Acts;
 
-BOOST_AUTO_TEST_SUITE(RangeXD)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
+
+BOOST_AUTO_TEST_SUITE(RangeXDSuite)
 
 BOOST_AUTO_TEST_CASE(default_constructor_double) {
-  Acts::RangeXD<3, double> r;
+  RangeXD<3, double> r;
 
   BOOST_CHECK_EQUAL(r[0].min(), std::numeric_limits<double>::lowest());
   BOOST_CHECK_EQUAL(r[0].max(), std::numeric_limits<double>::max());
@@ -30,7 +32,7 @@ BOOST_AUTO_TEST_CASE(default_constructor_double) {
 }
 
 BOOST_AUTO_TEST_CASE(mutate_ranges_double) {
-  Acts::RangeXD<3, double> r;
+  RangeXD<3, double> r;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -45,7 +47,7 @@ BOOST_AUTO_TEST_CASE(mutate_ranges_double) {
 }
 
 BOOST_AUTO_TEST_CASE(degenerate_double) {
-  Acts::RangeXD<3, double> r;
+  RangeXD<3, double> r;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -55,7 +57,7 @@ BOOST_AUTO_TEST_CASE(degenerate_double) {
 }
 
 BOOST_AUTO_TEST_CASE(degenerate_false_double) {
-  Acts::RangeXD<3, double> r;
+  RangeXD<3, double> r;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -65,7 +67,7 @@ BOOST_AUTO_TEST_CASE(degenerate_false_double) {
 }
 
 BOOST_AUTO_TEST_CASE(contains_double) {
-  Acts::RangeXD<3, double> r;
+  RangeXD<3, double> r;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -84,7 +86,7 @@ BOOST_AUTO_TEST_CASE(contains_double) {
 }
 
 BOOST_AUTO_TEST_CASE(equality_int) {
-  Acts::RangeXD<3, int> r, q;
+  RangeXD<3, int> r, q;
 
   r[0].shrink(-10, 10);
   r[1].shrink(0, 50);
@@ -98,7 +100,7 @@ BOOST_AUTO_TEST_CASE(equality_int) {
 }
 
 BOOST_AUTO_TEST_CASE(subset1_double) {
-  Acts::RangeXD<3, double> r, q;
+  RangeXD<3, double> r, q;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -113,7 +115,7 @@ BOOST_AUTO_TEST_CASE(subset1_double) {
 }
 
 BOOST_AUTO_TEST_CASE(subset2_double) {
-  Acts::RangeXD<3, double> r, q;
+  RangeXD<3, double> r, q;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -128,7 +130,7 @@ BOOST_AUTO_TEST_CASE(subset2_double) {
 }
 
 BOOST_AUTO_TEST_CASE(superset2_double) {
-  Acts::RangeXD<3, double> r, q;
+  RangeXD<3, double> r, q;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -143,7 +145,7 @@ BOOST_AUTO_TEST_CASE(superset2_double) {
 }
 
 BOOST_AUTO_TEST_CASE(intersection_double) {
-  Acts::RangeXD<3, double> r, q;
+  RangeXD<3, double> r, q;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -158,7 +160,7 @@ BOOST_AUTO_TEST_CASE(intersection_double) {
 }
 
 BOOST_AUTO_TEST_CASE(intersection_false_double) {
-  Acts::RangeXD<3, double> r, q;
+  RangeXD<3, double> r, q;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -173,7 +175,7 @@ BOOST_AUTO_TEST_CASE(intersection_false_double) {
 }
 
 BOOST_AUTO_TEST_CASE(intersection_false2_double) {
-  Acts::RangeXD<3, double> r, q;
+  RangeXD<3, double> r, q;
 
   r[0].shrink(-10.0, 10.0);
   r[1].shrink(0.0, 50.0);
@@ -190,5 +192,5 @@ BOOST_AUTO_TEST_CASE(intersection_false2_double) {
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Test
-}  // namespace Acts
+
+}  // namespace ActsTests

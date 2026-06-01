@@ -1,9 +1,16 @@
 target_sources(
-  ActsCore
-  PRIVATE
-    AnnealingUtility.cpp
-    BinUtility.cpp
-    Logger.cpp
-    SpacePointUtility.cpp
-    TrackHelpers.cpp
+    ActsCore
+    PRIVATE
+        AnnealingUtility.cpp
+        AxisDefinitions.cpp
+        Logger.cpp
+        SpacePointUtility.cpp
+        TrackHelpers.cpp
+        Intersection.cpp
+        IAxis.cpp
+        GraphViz.cpp
+        ProtoAxis.cpp
+        ScopedTimer.cpp
+        TransformComparator.cpp
+        Histogram.cpp
 )

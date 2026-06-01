@@ -1,111 +1,128 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Direction.hpp"
+#include "Acts/Propagator/NavigationTarget.hpp"
+#include "Acts/Propagator/NavigatorOptions.hpp"
+#include "Acts/Propagator/NavigatorStatistics.hpp"
+#include "Acts/Utilities/Result.hpp"
+
 namespace Acts {
 
+class TrackingVolume;
+class IVolumeMaterial;
 class Surface;
 
-/// @brief The void navigator struct as a default navigator
+/// @brief A navigator that does nothing
 ///
-/// It does not provide any navigation action, the compiler
-/// should eventually optimise that the function call is not done
+/// It does not provide any navigation action
 ///
-struct VoidNavigator {
-  /// @brief Nested State struct, minimal requirement
-  struct State {
-    /// Navigation state - external state: the start surface
-    const Surface* startSurface = nullptr;
+class VoidNavigator {
+ public:
+  /// @brief Nested Config struct
+  struct Config {};
 
-    /// Navigation state - external state: the current surface
-    const Surface* currentSurface = nullptr;
+  /// @brief Nested Options struct
+  struct Options : public NavigatorPlainOptions {
+    /// @brief Constructor for void navigator options
+    /// @param gctx Geometry context (required but unused by void navigator)
+    explicit Options(const GeometryContext& gctx)
+        : NavigatorPlainOptions(gctx) {}
 
-    /// Navigation state - external state: the target surface
-    const Surface* targetSurface = nullptr;
-
-    /// Indicator if the target is reached
-    bool targetReached = false;
-
-    /// Navigation state : a break has been detected
-    bool navigationBreak = false;
+    /// @brief Sets the plain navigator options
+    /// @param options The plain navigator options to copy (unused by void navigator)
+    void setPlainOptions(const NavigatorPlainOptions& options) {
+      static_cast<NavigatorPlainOptions&>(*this) = options;
+    }
   };
 
-  /// Unique typedef to publish to the Propagator
-  using state_type = State;
+  /// @brief Nested State struct
+  struct State {
+    /// @brief Constructor for void navigator state
+    /// @param options_ The navigator options to store in state
+    explicit State(const Options& options_) : options(options_) {}
 
-  State makeState(const Surface* startSurface,
-                  const Surface* targetSurface) const {
-    State result;
-    result.startSurface = startSurface;
-    result.targetSurface = targetSurface;
-    return result;
+    /// Configuration options for the navigator
+    Options options;
+
+    /// Navigation statistics
+    NavigatorStatistics statistics;
+  };
+
+  /// @brief Creates a new navigator state for void navigation
+  /// @param options The navigator options
+  /// @return Initialized void navigator state
+  State makeState(const Options& options) const {
+    State state(options);
+    return state;
   }
 
-  const Surface* currentSurface(const State& state) const {
-    return state.currentSurface;
+  /// @brief Returns the current surface (always nullptr for void navigator)
+  /// @return Always nullptr since void navigator has no surfaces
+  const Surface* currentSurface(const State& /*state*/) const {
+    return nullptr;
   }
 
-  const Surface* startSurface(const State& state) const {
-    return state.startSurface;
+  /// @brief Returns the current tracking volume (always nullptr for void navigator)
+  /// @return Always nullptr since void navigator has no volumes
+  const TrackingVolume* currentVolume(const State& /*state*/) const {
+    return nullptr;
   }
 
-  const Surface* targetSurface(const State& state) const {
-    return state.targetSurface;
+  /// @brief Returns the current volume material (always nullptr for void navigator)
+  /// @return Always nullptr since void navigator has no material
+  const IVolumeMaterial* currentVolumeMaterial(const State& /*state*/) const {
+    return nullptr;
   }
 
-  bool targetReached(const State& state) const { return state.targetReached; }
+  /// @brief Returns the start surface (always nullptr for void navigator)
+  /// @return Always nullptr since void navigator has no surfaces
+  const Surface* startSurface(const State& /*state*/) const { return nullptr; }
 
-  bool navigationBreak(const State& state) const {
-    return state.navigationBreak;
+  /// @brief Returns the target surface (always nullptr for void navigator)
+  /// @return Always nullptr since void navigator has no surfaces
+  const Surface* targetSurface(const State& /*state*/) const { return nullptr; }
+
+  /// @brief Checks if navigation should break (always true for void navigator)
+  /// @return Always true to immediately stop navigation
+  bool navigationBreak(const State& /*state*/) const { return true; }
+
+  /// @brief Initializes the void navigator (always succeeds and does nothing)
+  /// @return Always successful result since no initialization is needed
+  [[nodiscard]] Result<void> initialize(
+      State& /*state*/, const Vector3& /*position*/,
+      const Vector3& /*direction*/, Direction /*propagationDirection*/) const {
+    return Result<void>::success();
   }
 
-  void currentSurface(State& state, const Surface* surface) const {
-    state.currentSurface = surface;
+  /// @brief Returns the next navigation target (always None for void navigator)
+  /// @return NavigationTarget::None() since there are no targets in void space
+  NavigationTarget nextTarget(State& /*state*/, const Vector3& /*position*/,
+                              const Vector3& /*direction*/) const {
+    return NavigationTarget::None();
   }
 
-  void targetReached(State& state, bool targetReached) const {
-    state.targetReached = targetReached;
+  /// @brief Checks if the current target is valid (always true for void navigator)
+  /// @return Always true since there are no targets to invalidate
+  bool checkTargetValid(const State& /*state*/, const Vector3& /*position*/,
+                        const Vector3& /*direction*/) const {
+    return true;
   }
 
-  void navigationBreak(State& state, bool navigationBreak) const {
-    state.navigationBreak = navigationBreak;
+  /// @brief Handles reaching a surface (does nothing for void navigator)
+  void handleSurfaceReached(State& /*state*/, const Vector3& /*position*/,
+                            const Vector3& /*direction*/,
+                            const Surface& /*surface*/) const {
+    return;
   }
-
-  /// Navigation call - void
-  ///
-  /// @tparam propagator_state_t is the type of Propagatgor state
-  /// @tparam stepper_t Type of the Stepper
-  ///
-  /// Empty call, compiler should optimise that
-  template <typename propagator_state_t, typename stepper_t>
-  void initialize(propagator_state_t& /*state*/,
-                  const stepper_t& /*stepper*/) const {}
-
-  /// Navigation call - void
-  ///
-  /// @tparam propagator_state_t is the type of Propagatgor state
-  /// @tparam stepper_t Type of the Stepper
-  ///
-  /// Empty call, compiler should optimise that
-  template <typename propagator_state_t, typename stepper_t>
-  void preStep(propagator_state_t& /*state*/,
-               const stepper_t& /*stepper*/) const {}
-
-  /// Navigation call - void
-  ///
-  /// @tparam propagator_state_t is the type of Propagatgor state
-  /// @tparam stepper_t Type of the Stepper
-  ///
-  /// Empty call, compiler should optimise that
-  template <typename propagator_state_t, typename stepper_t>
-  void postStep(propagator_state_t& /*state*/,
-                const stepper_t& /*stepper*/) const {}
 };
 
 }  // namespace Acts

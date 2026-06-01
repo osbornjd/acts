@@ -1,19 +1,19 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Surfaces/ConeSurface.hpp"
 
 #include "Acts/Geometry/GeometryObject.hpp"
+#include "Acts/Surfaces/BoundaryTolerance.hpp"
 #include "Acts/Surfaces/SurfaceError.hpp"
 #include "Acts/Surfaces/detail/AlignmentHelper.hpp"
 #include "Acts/Surfaces/detail/FacesHelper.hpp"
 #include "Acts/Surfaces/detail/VerticesHelper.hpp"
-#include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 #include "Acts/Utilities/ThrowAssert.hpp"
 #include "Acts/Utilities/detail/RealQuadraticEquation.hpp"
@@ -21,63 +21,61 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
-using Acts::VectorHelpers::perp;
-using Acts::VectorHelpers::phi;
+namespace Acts {
 
-Acts::ConeSurface::ConeSurface(const ConeSurface& other)
-    : GeometryObject(), RegularSurface(other), m_bounds(other.m_bounds) {}
+using VectorHelpers::perp;
+using VectorHelpers::phi;
 
-Acts::ConeSurface::ConeSurface(const GeometryContext& gctx,
-                               const ConeSurface& other,
-                               const Transform3& shift)
-    : GeometryObject(),
-      RegularSurface(gctx, other, shift),
-      m_bounds(other.m_bounds) {}
+ConeSurface::ConeSurface(const ConeSurface& other)
+    : GeometryObject{}, RegularSurface(other), m_bounds(other.m_bounds) {}
 
-Acts::ConeSurface::ConeSurface(const Transform3& transform, double alpha,
-                               bool symmetric)
-    : GeometryObject(),
-      RegularSurface(transform),
+ConeSurface::ConeSurface(const GeometryContext& gctx, const ConeSurface& other,
+                         const Transform3& shift)
+    : RegularSurface(gctx, other, shift), m_bounds(other.m_bounds) {}
+
+ConeSurface::ConeSurface(const Transform3& transform, double alpha,
+                         bool symmetric)
+    : RegularSurface(transform),
       m_bounds(std::make_shared<const ConeBounds>(alpha, symmetric)) {}
 
-Acts::ConeSurface::ConeSurface(const Transform3& transform, double alpha,
-                               double zmin, double zmax, double halfPhi)
-    : GeometryObject(),
-      RegularSurface(transform),
+ConeSurface::ConeSurface(const Transform3& transform, double alpha, double zmin,
+                         double zmax, double halfPhi)
+    : RegularSurface(transform),
       m_bounds(std::make_shared<const ConeBounds>(alpha, zmin, zmax, halfPhi)) {
 }
 
-Acts::ConeSurface::ConeSurface(const Transform3& transform,
-                               std::shared_ptr<const ConeBounds> cbounds)
-    : GeometryObject(),
-      RegularSurface(transform),
-      m_bounds(std::move(cbounds)) {
+ConeSurface::ConeSurface(const Transform3& transform,
+                         std::shared_ptr<const ConeBounds> cbounds)
+    : RegularSurface(transform), m_bounds(std::move(cbounds)) {
   throw_assert(m_bounds, "ConeBounds must not be nullptr");
 }
 
-Acts::Vector3 Acts::ConeSurface::binningPosition(
-    const GeometryContext& gctx, Acts::BinningValue bValue) const {
+Vector3 ConeSurface::referencePosition(const GeometryContext& gctx,
+                                       AxisDirection aDir) const {
   const Vector3& sfCenter = center(gctx);
 
   // special binning type for R-type methods
-  if (bValue == Acts::binR || bValue == Acts::binRPhi) {
+  if (aDir == AxisDirection::AxisR || aDir == AxisDirection::AxisRPhi) {
     return Vector3(sfCenter.x() + bounds().r(sfCenter.z()), sfCenter.y(),
                    sfCenter.z());
   }
   // give the center as default for all of these binning types
-  // binX, binY, binZ, binR, binPhi, binRPhi, binH, binEta
+  // AxisDirection::AxisX, AxisDirection::AxisY, AxisDirection::AxisZ,
+  // AxisDirection::AxisR, AxisDirection::AxisPhi, AxisDirection::AxisRPhi,
+  // AxisDirection::AxisTheta, AxisDirection::AxisEta
   return sfCenter;
 }
 
-Acts::Surface::SurfaceType Acts::ConeSurface::type() const {
+Surface::SurfaceType ConeSurface::type() const {
   return Surface::Cone;
 }
 
-Acts::ConeSurface& Acts::ConeSurface::operator=(const ConeSurface& other) {
+ConeSurface& ConeSurface::operator=(const ConeSurface& other) {
   if (this != &other) {
     Surface::operator=(other);
     m_bounds = other.m_bounds;
@@ -85,12 +83,11 @@ Acts::ConeSurface& Acts::ConeSurface::operator=(const ConeSurface& other) {
   return *this;
 }
 
-Acts::Vector3 Acts::ConeSurface::rotSymmetryAxis(
-    const GeometryContext& gctx) const {
-  return transform(gctx).matrix().block<3, 1>(0, 2);
+Vector3 ConeSurface::rotSymmetryAxis(const GeometryContext& gctx) const {
+  return localToGlobalTransform(gctx).matrix().block<3, 1>(0, 2);
 }
 
-Acts::RotationMatrix3 Acts::ConeSurface::referenceFrame(
+RotationMatrix3 ConeSurface::referenceFrame(
     const GeometryContext& gctx, const Vector3& position,
     const Vector3& /*direction*/) const {
   RotationMatrix3 mFrame;
@@ -100,7 +97,7 @@ Acts::RotationMatrix3 Acts::ConeSurface::referenceFrame(
   // measured z is the position transverse normalized
   Vector3 measDepth = Vector3(position.x(), position.y(), 0.).normalized();
   // measured X is what comoes out of it
-  Acts::Vector3 measX(measY.cross(measDepth).normalized());
+  Vector3 measX(measY.cross(measDepth).normalized());
   // the columnes
   mFrame.col(0) = measX;
   mFrame.col(1) = measY;
@@ -111,90 +108,90 @@ Acts::RotationMatrix3 Acts::ConeSurface::referenceFrame(
   return mFrame;
 }
 
-Acts::Vector3 Acts::ConeSurface::localToGlobal(const GeometryContext& gctx,
-                                               const Vector2& lposition) const {
+Vector3 ConeSurface::localToGlobal(const GeometryContext& gctx,
+                                   const Vector2& lposition) const {
   // create the position in the local 3d frame
-  double r = lposition[Acts::eBoundLoc1] * bounds().tanAlpha();
-  double phi = lposition[Acts::eBoundLoc0] / r;
-  Vector3 loc3Dframe(r * cos(phi), r * sin(phi), lposition[Acts::eBoundLoc1]);
-  return transform(gctx) * loc3Dframe;
+  double r = lposition[1] * bounds().tanAlpha();
+  double phi = lposition[0] / r;
+  Vector3 loc3Dframe(r * std::cos(phi), r * std::sin(phi), lposition[1]);
+  return localToGlobalTransform(gctx) * loc3Dframe;
 }
 
-Acts::Result<Acts::Vector2> Acts::ConeSurface::globalToLocal(
-    const GeometryContext& gctx, const Vector3& position,
-    double tolerance) const {
-  Vector3 loc3Dframe = transform(gctx).inverse() * position;
+Result<Vector2> ConeSurface::globalToLocal(const GeometryContext& gctx,
+                                           const Vector3& position,
+                                           double tolerance) const {
+  Vector3 loc3Dframe = localToGlobalTransform(gctx).inverse() * position;
   double r = loc3Dframe.z() * bounds().tanAlpha();
   if (std::abs(perp(loc3Dframe) - r) > tolerance) {
     return Result<Vector2>::failure(SurfaceError::GlobalPositionNotOnSurface);
   }
-  return Result<Acts::Vector2>::success(
-      Vector2(r * atan2(loc3Dframe.y(), loc3Dframe.x()), loc3Dframe.z()));
+  return Result<Vector2>::success(
+      Vector2(r * std::atan2(loc3Dframe.y(), loc3Dframe.x()), loc3Dframe.z()));
 }
 
-double Acts::ConeSurface::pathCorrection(const GeometryContext& gctx,
-                                         const Vector3& position,
-                                         const Vector3& direction) const {
+double ConeSurface::pathCorrection(const GeometryContext& gctx,
+                                   const Vector3& position,
+                                   const Vector3& direction) const {
   // (cos phi cos alpha, sin phi cos alpha, sgn z sin alpha)
-  Vector3 posLocal = transform(gctx).inverse() * position;
+  Vector3 posLocal = localToGlobalTransform(gctx).inverse() * position;
   double phi = VectorHelpers::phi(posLocal);
-  double sgn = posLocal.z() > 0. ? -1. : +1.;
+  double sgn = -std::copysign(1., posLocal.z());
   double cosAlpha = std::cos(bounds().get(ConeBounds::eAlpha));
   double sinAlpha = std::sin(bounds().get(ConeBounds::eAlpha));
-  Vector3 normalC(cos(phi) * cosAlpha, sin(phi) * cosAlpha, sgn * sinAlpha);
-  normalC = transform(gctx) * normalC;
+  Vector3 normalC(std::cos(phi) * cosAlpha, std::sin(phi) * cosAlpha,
+                  sgn * sinAlpha);
+  normalC = localToGlobalTransform(gctx).linear() * normalC;
   // Back to the global frame
   double cAlpha = normalC.dot(direction);
   return std::abs(1. / cAlpha);
 }
 
-std::string Acts::ConeSurface::name() const {
+std::string ConeSurface::name() const {
   return "Acts::ConeSurface";
 }
 
-Acts::Vector3 Acts::ConeSurface::normal(const GeometryContext& gctx,
-                                        const Acts::Vector2& lposition) const {
+Vector3 ConeSurface::normal(const GeometryContext& gctx,
+                            const Vector2& lposition) const {
   // (cos phi cos alpha, sin phi cos alpha, sgn z sin alpha)
-  double phi = lposition[Acts::eBoundLoc0] /
-               (bounds().r(lposition[Acts::eBoundLoc1])),
-         sgn = lposition[Acts::eBoundLoc1] > 0 ? -1. : +1.;
+  double phi = lposition[0] / (bounds().r(lposition[1])),
+         sgn = -std::copysign(1., lposition[1]);
   double cosAlpha = std::cos(bounds().get(ConeBounds::eAlpha));
   double sinAlpha = std::sin(bounds().get(ConeBounds::eAlpha));
-  Vector3 localNormal(cos(phi) * cosAlpha, sin(phi) * cosAlpha, sgn * sinAlpha);
-  return Vector3(transform(gctx).linear() * localNormal);
+  Vector3 localNormal(std::cos(phi) * cosAlpha, std::sin(phi) * cosAlpha,
+                      sgn * sinAlpha);
+  return Vector3(localToGlobalTransform(gctx).linear() * localNormal);
 }
 
-Acts::Vector3 Acts::ConeSurface::normal(const GeometryContext& gctx,
-                                        const Acts::Vector3& position) const {
+Vector3 ConeSurface::normal(const GeometryContext& gctx,
+                            const Vector3& position) const {
   // get it into the cylinder frame if needed
   // @todo respect opening angle
-  Vector3 pos3D = transform(gctx).inverse() * position;
+  Vector3 pos3D = localToGlobalTransform(gctx).inverse() * position;
   pos3D.z() = 0;
   return pos3D.normalized();
 }
 
-const Acts::ConeBounds& Acts::ConeSurface::bounds() const {
+const ConeBounds& ConeSurface::bounds() const {
   // is safe because no constructor w/o bounds exists
-  return (*m_bounds.get());
+  return *m_bounds;
 }
 
-Acts::Polyhedron Acts::ConeSurface::polyhedronRepresentation(
-    const GeometryContext& gctx, std::size_t lseg) const {
+Polyhedron ConeSurface::polyhedronRepresentation(
+    const GeometryContext& gctx, unsigned int quarterSegments) const {
   // Prepare vertices and faces
   std::vector<Vector3> vertices;
   std::vector<Polyhedron::FaceType> faces;
   std::vector<Polyhedron::FaceType> triangularMesh;
-
   double minZ = bounds().get(ConeBounds::eMinZ);
   double maxZ = bounds().get(ConeBounds::eMaxZ);
 
   if (minZ == -std::numeric_limits<double>::infinity() ||
       maxZ == std::numeric_limits<double>::infinity()) {
     throw std::domain_error(
-        "Polyhedron repr of boundless surface not possible");
+        "Polyhedron representation of boundless surface is not possible");
   }
 
-  auto ctransform = transform(gctx);
+  auto ctransform = localToGlobalTransform(gctx);
 
   // The tip - created only once and only, if it is not a cut-off cone
   bool tipExists = false;
@@ -206,15 +203,12 @@ Acts::Polyhedron Acts::ConeSurface::polyhedronRepresentation(
   // Cone parameters
   double hPhiSec = bounds().get(ConeBounds::eHalfPhiSector);
   double avgPhi = bounds().get(ConeBounds::eAveragePhi);
-  bool fullCone = (hPhiSec == M_PI);
+  std::vector<double> refPhi = {};
+  if (bool fullCone = (hPhiSec == std::numbers::pi); !fullCone) {
+    refPhi = {avgPhi};
+  }
 
-  // Get the phi segments from the helper
-  auto phiSegs = fullCone ? detail::VerticesHelper::phiSegments()
-                          : detail::VerticesHelper::phiSegments(
-                                avgPhi - hPhiSec, avgPhi + hPhiSec,
-                                {static_cast<ActsScalar>(avgPhi)});
-
-  // Negative cone if exists
+  // Add the cone sizes
   std::vector<double> coneSides;
   if (std::abs(minZ) > s_onSurfaceTolerance) {
     coneSides.push_back(minZ);
@@ -222,54 +216,46 @@ Acts::Polyhedron Acts::ConeSurface::polyhedronRepresentation(
   if (std::abs(maxZ) > s_onSurfaceTolerance) {
     coneSides.push_back(maxZ);
   }
+
   for (auto& z : coneSides) {
-    // Remember the first vertex
     std::size_t firstIv = vertices.size();
     // Radius and z offset
     double r = std::abs(z) * bounds().tanAlpha();
     Vector3 zoffset(0., 0., z);
-    for (unsigned int iseg = 0; iseg < phiSegs.size() - 1; ++iseg) {
-      int addon = (iseg == phiSegs.size() - 2 && !fullCone) ? 1 : 0;
-      detail::VerticesHelper::createSegment(vertices, {r, r}, phiSegs[iseg],
-                                            phiSegs[iseg + 1], lseg, addon,
-                                            zoffset, ctransform);
-    }
-    // Create the faces
+    auto svertices = detail::VerticesHelper::segmentVertices(
+        {r, r}, avgPhi - hPhiSec, avgPhi + hPhiSec, refPhi, quarterSegments,
+        zoffset, ctransform);
+    vertices.insert(vertices.end(), svertices.begin(), svertices.end());
+    // If the tip exists, the faces need to be triangular
     if (tipExists) {
-      for (std::size_t iv = firstIv + 2; iv < vertices.size() + 1; ++iv) {
-        std::size_t one = 0, two = iv - 1, three = iv - 2;
+      for (std::size_t iv = firstIv + 1; iv < svertices.size() + firstIv;
+           ++iv) {
+        std::size_t one = 0, two = iv, three = iv - 1;
         if (z < 0.) {
           std::swap(two, three);
         }
         faces.push_back({one, two, three});
       }
-      // Complete cone if necessary
-      if (fullCone) {
-        if (z > 0.) {
-          faces.push_back({0, firstIv, vertices.size() - 1});
-        } else {
-          faces.push_back({0, vertices.size() - 1, firstIv});
-        }
-      }
     }
   }
+
   // if no tip exists, connect the two bows
   if (tipExists) {
     triangularMesh = faces;
   } else {
-    auto facesMesh =
-        detail::FacesHelper::cylindricalFaceMesh(vertices, fullCone);
+    auto facesMesh = detail::FacesHelper::cylindricalFaceMesh(vertices);
     faces = facesMesh.first;
     triangularMesh = facesMesh.second;
   }
+
   return Polyhedron(vertices, faces, triangularMesh, false);
 }
 
-Acts::detail::RealQuadraticEquation Acts::ConeSurface::intersectionSolver(
+detail::RealQuadraticEquation ConeSurface::intersectionSolver(
     const GeometryContext& gctx, const Vector3& position,
     const Vector3& direction) const {
   // Transform into the local frame
-  Transform3 invTrans = transform(gctx).inverse();
+  Transform3 invTrans = localToGlobalTransform(gctx).inverse();
   Vector3 point1 = invTrans * position;
   Vector3 dir1 = invTrans.linear() * direction;
 
@@ -288,57 +274,60 @@ Acts::detail::RealQuadraticEquation Acts::ConeSurface::intersectionSolver(
   return detail::RealQuadraticEquation(A, B, C);
 }
 
-Acts::SurfaceMultiIntersection Acts::ConeSurface::intersect(
+MultiIntersection3D ConeSurface::intersect(
     const GeometryContext& gctx, const Vector3& position,
-    const Vector3& direction, const BoundaryCheck& bcheck,
-    ActsScalar tolerance) const {
+    const Vector3& direction, const BoundaryTolerance& boundaryTolerance,
+    double tolerance) const {
   // Solve the quadratic equation
   auto qe = intersectionSolver(gctx, position, direction);
 
   // If no valid solution return a non-valid surfaceIntersection
   if (qe.solutions == 0) {
-    return {{Intersection3D::invalid(), Intersection3D::invalid()}, this};
+    return MultiIntersection3D(Intersection3D::Invalid(),
+                               Intersection3D::Invalid());
   }
 
   // Check the validity of the first solution
   Vector3 solution1 = position + qe.first * direction;
-  Intersection3D::Status status1 = std::abs(qe.first) < std::abs(tolerance)
-                                       ? Intersection3D::Status::onSurface
-                                       : Intersection3D::Status::reachable;
+  IntersectionStatus status1 = std::abs(qe.first) < std::abs(tolerance)
+                                   ? IntersectionStatus::onSurface
+                                   : IntersectionStatus::reachable;
 
-  if (bcheck.isEnabled() && !isOnSurface(gctx, solution1, direction, bcheck)) {
-    status1 = Intersection3D::Status::missed;
+  if (!boundaryTolerance.isInfinite() &&
+      !isOnSurface(gctx, solution1, direction, boundaryTolerance)) {
+    status1 = IntersectionStatus::unreachable;
   }
 
   // Check the validity of the second solution
   Vector3 solution2 = position + qe.first * direction;
-  Intersection3D::Status status2 = std::abs(qe.second) < std::abs(tolerance)
-                                       ? Intersection3D::Status::onSurface
-                                       : Intersection3D::Status::reachable;
-  if (bcheck.isEnabled() && !isOnSurface(gctx, solution2, direction, bcheck)) {
-    status2 = Intersection3D::Status::missed;
+  IntersectionStatus status2 = std::abs(qe.second) < std::abs(tolerance)
+                                   ? IntersectionStatus::onSurface
+                                   : IntersectionStatus::reachable;
+  if (!boundaryTolerance.isInfinite() &&
+      !isOnSurface(gctx, solution2, direction, boundaryTolerance)) {
+    status2 = IntersectionStatus::unreachable;
   }
 
-  const auto& tf = transform(gctx);
+  const auto& tf = localToGlobalTransform(gctx);
   // Set the intersection
   Intersection3D first(tf * solution1, qe.first, status1);
   Intersection3D second(tf * solution2, qe.second, status2);
   // Order based on path length
   if (first.pathLength() <= second.pathLength()) {
-    return {{first, second}, this};
+    return MultiIntersection3D(first, second);
   }
-  return {{second, first}, this};
+  return MultiIntersection3D(second, first);
 }
 
-Acts::AlignmentToPathMatrix Acts::ConeSurface::alignmentToPathDerivative(
+AlignmentToPathMatrix ConeSurface::alignmentToPathDerivative(
     const GeometryContext& gctx, const Vector3& position,
     const Vector3& direction) const {
-  assert(isOnSurface(gctx, position, direction, BoundaryCheck(false)));
+  assert(isOnSurface(gctx, position, direction, BoundaryTolerance::Infinite()));
 
   // The vector between position and center
   const auto pcRowVec = (position - center(gctx)).transpose().eval();
   // The rotation
-  const auto& rotation = transform(gctx).rotation();
+  const auto& rotation = localToGlobalTransform(gctx).rotation();
   // The local frame x/y/z axis
   const auto& localXAxis = rotation.col(0);
   const auto& localYAxis = rotation.col(1);
@@ -382,12 +371,12 @@ Acts::AlignmentToPathMatrix Acts::ConeSurface::alignmentToPathDerivative(
   return alignToPath;
 }
 
-Acts::ActsMatrix<2, 3> Acts::ConeSurface::localCartesianToBoundLocalDerivative(
+ActsMatrix<2, 3> ConeSurface::localCartesianToBoundLocalDerivative(
     const GeometryContext& gctx, const Vector3& position) const {
   using VectorHelpers::perp;
   using VectorHelpers::phi;
   // The local frame transform
-  const auto& sTransform = transform(gctx);
+  const auto& sTransform = localToGlobalTransform(gctx);
   // calculate the transformation to local coordinates
   const Vector3 localPos = sTransform.inverse() * position;
   const double lr = perp(localPos);
@@ -402,3 +391,11 @@ Acts::ActsMatrix<2, 3> Acts::ConeSurface::localCartesianToBoundLocalDerivative(
 
   return loc3DToLocBound;
 }
+const std::shared_ptr<const ConeBounds>& ConeSurface::boundsPtr() const {
+  return m_bounds;
+}
+void ConeSurface::assignSurfaceBounds(
+    std::shared_ptr<const ConeBounds> newBounds) {
+  m_bounds = std::move(newBounds);
+}
+}  // namespace Acts

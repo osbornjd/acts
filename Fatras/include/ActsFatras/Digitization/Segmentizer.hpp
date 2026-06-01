@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -56,6 +56,7 @@ struct Segmentizer {
     /// Smaller operator for sorting the ChannelStep objects.
     ///
     /// @param cstep The other ChannelStep to be compared
+    /// @return true if this ChannelStep has smaller path distance than cstep
     ///
     /// The ChannelStep objects can be compared with its path distance
     /// from the start (surface segment origin)
@@ -67,14 +68,14 @@ struct Segmentizer {
     /// The bin of this segment
     Bin2D bin = {0, 0};
     /// The segment start, end points
-    Segment2D path2D;
+    Segment2D path2D = {Acts::Vector2::Zero(), Acts::Vector2::Zero()};
     /// The (clipped) value (uncorrected: path length)
-    double activation = 0.;
+    double activation = 0;
 
     /// Constructor with arguments
     ///
     /// @param bin_ The bin corresponding to this step
-    /// @param path2D_ The start/end 2D position of the segement
+    /// @param path2D_ The start/end 2D position of the segment
     /// @param activation_ The segment activation (clean: length) for this bin
     ChannelSegment(Bin2D bin_, Segment2D path2D_, double activation_)
         : bin(bin_), path2D(std::move(path2D_)), activation(activation_) {}

@@ -1,18 +1,18 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "ActsExamples/Framework/AlgorithmContext.hpp"
 #include "ActsExamples/Framework/ProcessCode.hpp"
 #include "ActsExamples/Io/Svg/SvgDefaults.hpp"
-#include <Acts/Plugins/ActSVG/TrackingGeometrySvgConverter.hpp>
 #include <Acts/Utilities/Logger.hpp>
+#include <ActsPlugins/ActSVG/TrackingGeometrySvgConverter.hpp>
 
 #include <fstream>
 #include <iostream>
@@ -36,7 +36,7 @@ class SvgTrackingGeometryWriter {
   /// The nested config class for this writer
   class Config {
    public:
-    Acts::Svg::TrackingGeometryConverter::Options converterOptions =
+    ActsPlugins::Svg::TrackingGeometryConverter::Options converterOptions =
         s_trackingGeometryOptions;
 
     std::string outputDir = "";

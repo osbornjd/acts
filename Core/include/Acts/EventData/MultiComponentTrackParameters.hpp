@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -12,8 +12,8 @@
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
+#include "Acts/Utilities/Intersection.hpp"
 
-#include <cmath>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -32,10 +32,13 @@ namespace Acts {
 /// TODO Add constructor from range and projector maybe?
 class MultiComponentBoundTrackParameters {
  public:
+  /// Type alias for bound track parameters
   using Parameters = BoundTrackParameters;
+  /// Type alias for particle hypothesis
   using ParticleHypothesis = Parameters::ParticleHypothesis;
-  using Scalar = typename Parameters::Scalar;
+  /// Type alias for bound parameters vector
   using ParametersVector = typename Parameters::ParametersVector;
+  /// Type alias for covariance matrix
   using CovarianceMatrix = typename Parameters::CovarianceMatrix;
 
  private:
@@ -68,11 +71,64 @@ class MultiComponentBoundTrackParameters {
   }
 
  public:
+  /// Type alias for construction tuple containing weight, position, direction,
+  /// q/p, and covariance
+  using ConstructionTuple = std::tuple<double, Acts::Vector4, Acts::Vector3,
+                                       double, CovarianceMatrix>;
+
+  /// We need this helper function in order to construct the base class properly
+  /// @param geoCtx Geometry context for construction
+  /// @param curvi Vector of construction tuples containing component data
+  /// @param particleHypothesis Particle hypothesis for the parameters
+  /// @return Multi-component bound track parameters in curvilinear representation
+  static MultiComponentBoundTrackParameters createCurvilinear(
+      const GeometryContext& geoCtx,
+      const std::vector<ConstructionTuple>& curvi,
+      ParticleHypothesis particleHypothesis) {
+    // Construct and average surface
+    Acts::Vector3 avgPos = Acts::Vector3::Zero();
+    Acts::Vector3 avgDir = Acts::Vector3::Zero();
+    for (const auto& [w, pos4, dir, qop, cov] : curvi) {
+      avgPos += w * pos4.template segment<3>(0);
+      avgDir += w * dir;
+    }
+
+    std::shared_ptr<PlaneSurface> s =
+        CurvilinearSurface(avgPos, avgDir).planeSurface();
+
+    std::vector<std::tuple<double, ParametersVector, CovarianceMatrix>> bound;
+    bound.reserve(curvi.size());
+
+    // Project the position onto the surface, keep everything else as is
+    for (const auto& [w, pos4, dir, qop, cov] : curvi) {
+      Intersection3D closestIntersection =
+          s->intersect(geoCtx, pos4.template segment<3>(eFreePos0), dir,
+                       BoundaryTolerance::Infinite())
+              .closest();
+      const Vector3& newPos = closestIntersection.position();
+
+      ParametersVector bv =
+          transformFreeToCurvilinearParameters(pos4[eTime], dir, qop);
+
+      // Because of the projection this should never fail
+      bv.template segment<2>(eBoundLoc0) =
+          *(s->globalToLocal(geoCtx, newPos, dir));
+
+      bound.emplace_back(w, bv, cov);
+    }
+
+    return MultiComponentBoundTrackParameters(s, bound, particleHypothesis);
+  }
+
   /// Construct from multiple components
+  /// @param surface Surface on which the parameters are bound
+  /// @param cmps Vector of weight, parameters vector, and covariance components
+  /// @param particleHypothesis Particle hypothesis for the parameters
   template <typename covariance_t>
   MultiComponentBoundTrackParameters(
       std::shared_ptr<const Surface> surface,
-      const std::vector<std::tuple<double, BoundVector, covariance_t>>& cmps,
+      const std::vector<std::tuple<double, ParametersVector, covariance_t>>&
+          cmps,
       ParticleHypothesis particleHypothesis)
       : m_surface(std::move(surface)),
         m_particleHypothesis(particleHypothesis) {
@@ -102,7 +158,7 @@ class MultiComponentBoundTrackParameters {
   /// only used in debug builds to check for consistency with the q/p
   /// parameter.
   MultiComponentBoundTrackParameters(std::shared_ptr<const Surface> surface,
-                                     const BoundVector& params,
+                                     const ParametersVector& params,
                                      std::optional<BoundSquareMatrix> cov,
                                      ParticleHypothesis particleHypothesis)
       : m_surface(std::move(surface)),
@@ -112,37 +168,53 @@ class MultiComponentBoundTrackParameters {
 
   /// Parameters are not default constructible due to the charge type.
   MultiComponentBoundTrackParameters() = delete;
+  /// Copy constructor
   MultiComponentBoundTrackParameters(
       const MultiComponentBoundTrackParameters&) = default;
+  /// Move constructor
   MultiComponentBoundTrackParameters(MultiComponentBoundTrackParameters&&) =
       default;
   ~MultiComponentBoundTrackParameters() = default;
+  /// Copy assignment operator
+  /// @return Reference to this object after copying
   MultiComponentBoundTrackParameters& operator=(
       const MultiComponentBoundTrackParameters&) = default;
+  /// Move assignment operator
+  /// @return Reference to this object after moving
   MultiComponentBoundTrackParameters& operator=(
       MultiComponentBoundTrackParameters&&) = default;
 
+  /// Comply with bound convertible, in this case return a copy
+  /// @return Copy of this multi-component track parameters
+  MultiComponentBoundTrackParameters toBound() const { return *this; }
+
   /// Access the parameters
+  /// @return Reference to the vector of parameter components
   const auto& components() const { return m_components; }
 
   /// Reference surface onto which the parameters are bound.
+  /// @return Reference to the bound reference surface
   const Surface& referenceSurface() const { return *m_surface; }
 
   /// Get the weight and a GenericBoundTrackParameters object for one component
+  /// @param i Index of the component to access
+  /// @return Pair of weight and bound track parameters for the component
   std::pair<double, Parameters> operator[](std::size_t i) const {
-    return std::make_pair(
+    return {
         std::get<double>(m_components[i]),
-        Parameters(m_surface, std::get<BoundVector>(m_components[i]),
-                   std::get<std::optional<BoundSquareMatrix>>(m_components[i]),
-                   m_particleHypothesis));
+        Parameters(m_surface, std::get<ParametersVector>(m_components[i]),
+                   std::get<std::optional<CovarianceMatrix>>(m_components[i]),
+                   m_particleHypothesis)};
   }
 
   /// Parameters vector.
+  /// @return Weighted average of parameters from all components
   ParametersVector parameters() const {
     return reduce([](const Parameters& p) { return p.parameters(); });
   }
 
   /// Optional covariance matrix.
+  /// @return Optional weighted average covariance matrix, nullopt if all components have zero covariance
   std::optional<CovarianceMatrix> covariance() const {
     const auto ret = reduce([](const Parameters& p) {
       return p.covariance() ? *p.covariance() : CovarianceMatrix::Zero();
@@ -158,8 +230,9 @@ class MultiComponentBoundTrackParameters {
   /// Access a single parameter value identified by its index.
   ///
   /// @tparam kIndex Track parameter index
+  /// @return Weighted average of the parameter at the specified index
   template <BoundIndices kIndex>
-  Scalar get() const {
+  double get() const {
     return reduce([&](const Parameters& p) { return p.get<kIndex>(); });
   }
 
@@ -167,6 +240,7 @@ class MultiComponentBoundTrackParameters {
   ///
   /// @param[in] geoCtx Geometry context for the local-to-global
   /// transformation
+  /// @return Weighted average four-dimensional position vector
   Vector4 fourPosition(const GeometryContext& geoCtx) const {
     return reduce([&](const Parameters& p) { return p.fourPosition(geoCtx); });
   }
@@ -175,129 +249,66 @@ class MultiComponentBoundTrackParameters {
   ///
   /// @param[in] geoCtx Geometry context for the local-to-global
   /// transformation
+  /// @return Weighted average three-dimensional position vector
   Vector3 position(const GeometryContext& geoCtx) const {
     return reduce([&](const Parameters& p) { return p.position(geoCtx); });
   }
 
   /// Time coordinate.
-  Scalar time() const {
+  /// @return Weighted average time coordinate
+  double time() const {
     return reduce([](const Parameters& p) { return p.time(); });
   }
 
   /// Unit direction three-vector, i.e. the normalized momentum
   /// three-vector.
+  /// @return Weighted average normalized direction vector
   Vector3 direction() const {
     return reduce([](const Parameters& p) { return p.direction(); })
         .normalized();
   }
 
   /// Phi direction.
-  Scalar phi() const { return VectorHelpers::phi(direction()); }
+  /// @return Azimuthal angle phi derived from average direction
+  double phi() const { return VectorHelpers::phi(direction()); }
 
   /// Theta direction.
-  Scalar theta() const { return VectorHelpers::theta(direction()); }
+  /// @return Polar angle theta derived from average direction
+  double theta() const { return VectorHelpers::theta(direction()); }
 
   /// Charge over momentum.
-  Scalar qOverP() const { return get<eBoundQOverP>(); }
+  /// @return Weighted average charge over momentum ratio
+  double qOverP() const { return get<eBoundQOverP>(); }
 
   /// Absolute momentum.
-  Scalar absoluteMomentum() const {
+  /// @return Weighted average absolute momentum magnitude
+  double absoluteMomentum() const {
     return reduce([](const Parameters& p) { return p.absoluteMomentum(); });
   }
 
   /// Transverse momentum.
-  Scalar transverseMomentum() const {
+  /// @return Weighted average transverse momentum magnitude
+  double transverseMomentum() const {
     return reduce([](const Parameters& p) { return p.transverseMomentum(); });
   }
 
   /// Momentum three-vector.
+  /// @return Weighted average three-dimensional momentum vector
   Vector3 momentum() const {
     return reduce([](const Parameters& p) { return p.momentum(); });
   }
 
   /// Particle electric charge.
-  Scalar charge() const {
+  /// @return Weighted average particle electric charge
+  double charge() const {
     return reduce([](const Parameters& p) { return p.charge(); });
   }
 
   /// Particle hypothesis.
+  /// @return Reference to the particle hypothesis
   const ParticleHypothesis& particleHypothesis() const {
     return m_particleHypothesis;
   }
-};
-
-/// This class mimics the behaviour of the curvilinear parameters for ordinary
-/// track parameters. To adopt this concept, a "common surface" is constructed,
-/// and all parameters are projected onto this surface. The use of this is
-/// questionable, and if the result is reasonable depends largely on the initial
-/// multi component state. However, the propagator infrastructure forces the
-/// existence of this type
-/// @tparam charge_t Helper type to interpret the particle charge/momentum
-class MultiComponentCurvilinearTrackParameters
-    : public MultiComponentBoundTrackParameters {
-  using covariance_t = BoundSquareMatrix;
-
- public:
-  using ConstructionTuple = std::tuple<double, Acts::Vector4, Acts::Vector3,
-                                       ActsScalar, covariance_t>;
-
- private:
-  using Base = MultiComponentBoundTrackParameters;
-
-  using BaseConstructionTuple =
-      std::tuple<std::shared_ptr<Acts::Surface>,
-                 std::vector<std::tuple<double, BoundVector, covariance_t>>>;
-
-  /// We need this helper function in order to construct the base class properly
-  static BaseConstructionTuple construct(
-      const std::vector<ConstructionTuple>& curvi) {
-    // TODO where to get a geometry context here
-    Acts::GeometryContext gctx{};
-
-    // Construct and average surface
-    Acts::Vector3 avgPos = Acts::Vector3::Zero();
-    Acts::Vector3 avgDir = Acts::Vector3::Zero();
-    for (const auto& [w, pos4, dir, qop, cov] : curvi) {
-      avgPos += w * pos4.template segment<3>(0);
-      avgDir += w * dir;
-    }
-
-    auto s = Surface::makeShared<PlaneSurface>(avgPos, avgDir);
-
-    std::vector<std::tuple<double, BoundVector, covariance_t>> bound;
-    bound.reserve(curvi.size());
-
-    // Project the position onto the surface, keep everything else as is
-    for (const auto& [w, pos4, dir, qop, cov] : curvi) {
-      Vector3 newPos = s->intersect(gctx, pos4.template segment<3>(eFreePos0),
-                                    dir, BoundaryCheck(false))
-                           .closest()
-                           .position();
-
-      BoundVector bv =
-          transformFreeToCurvilinearParameters(pos4[eTime], dir, qop);
-
-      // Because of the projection this should never fail
-      bv.template segment<2>(eBoundLoc0) =
-          *(s->globalToLocal(gctx, newPos, dir));
-
-      bound.emplace_back(w, bv, cov);
-    }
-
-    return {s, bound};
-  }
-
-  /// Private constructor from a tuple
-  MultiComponentCurvilinearTrackParameters(
-      const BaseConstructionTuple& t, ParticleHypothesis particleHypothesis)
-      : Base(std::get<0>(t), std::get<1>(t), particleHypothesis) {}
-
- public:
-  MultiComponentCurvilinearTrackParameters(
-      const std::vector<ConstructionTuple>& cmps,
-      ParticleHypothesis particleHypothesis)
-      : MultiComponentCurvilinearTrackParameters(construct(cmps),
-                                                 particleHypothesis) {}
 };
 
 }  // namespace Acts

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
@@ -12,25 +12,25 @@
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/MagneticField/BFieldMapUtils.hpp"
 #include "Acts/MagneticField/InterpolatedBFieldMap.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Utilities/VectorHelpers.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <array>
 #include <cstddef>
 #include <random>
-#include <utility>
 #include <vector>
 
 namespace bdata = boost::unit_test::data;
 
 using Acts::VectorHelpers::perp;
 
-namespace Acts {
+using namespace Acts;
+using namespace Acts::detail;
 
-using namespace detail;
+namespace ActsTests {
 
-namespace Test {
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
 BOOST_AUTO_TEST_CASE(bfield_creation) {
   // create grid values
@@ -258,7 +258,7 @@ BOOST_DATA_TEST_CASE(
                            std::uniform_real_distribution<double>(-20., 20.))) ^
         bdata::xrange(10),
     x, y, z, index) {
-  (void)index;
+  static_cast<void>(index);
 
   std::vector<double> rPos;
   std::vector<double> xPos;
@@ -368,5 +368,7 @@ BOOST_DATA_TEST_CASE(
   CHECK_CLOSE_REL(value0_xyz, value3_xyz, 1e-10);
   CHECK_CLOSE_REL(value0_xyz, value4_xyz, 1e-10);
 }
-}  // namespace Test
-}  // namespace Acts
+
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

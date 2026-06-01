@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -35,7 +35,7 @@ class RangeXD {
     Type* element;
 
     Type& operator[](std::size_t i) {
-      (void)i;
+      static_cast<void>(i);
       assert(i == 0);
 
       return *element;
@@ -60,15 +60,15 @@ class RangeXD {
   /// @note Only available for one-dimensional ranges
   /// @param minimum The minimum value of the range
   /// @param maximum The maximum value of the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
   RangeXD(Type minimum, Type maximum)
+    requires(Dims == 1)
       : m_minima({minimum}), m_maxima({maximum}) {}
 
   /// @brief Construct a range from a pair of minimum and maximum values
   /// @note Only available for one-dimensional ranges
   /// @param p The pair of minimum and maximum values
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  RangeXD(const std::pair<Type, Type>& p)
+  explicit RangeXD(const std::pair<Type, Type>& p)
+    requires(Dims == 1)
       : m_minima({p.first}), m_maxima({p.second}) {}
 
   /// @brief Determine whether this range is degenerate
@@ -406,18 +406,22 @@ class RangeXD {
 
   /// @brief Return the minimum value of the range @p i (inclusive)
   /// @param i The index of the dimension to access
+  /// @return Reference to the minimum value for modification
   Type& min(std::size_t i) { return m_minima[i]; }
 
   /// @brief Return the maximum value of the range @p i (inclusive)
   /// @param i The index of the dimension to access
+  /// @return Reference to the maximum value for modification
   Type& max(std::size_t i) { return m_maxima[i]; }
 
   /// @brief Return the minimum value of the range @p i (inclusive)
   /// @param i The index of the dimension to access
+  /// @return The minimum value of the specified dimension
   Type min(std::size_t i) const { return m_minima[i]; }
 
   /// @brief Return the maximum value of the range @p i (inclusive)
   /// @param i The index of the dimension to access
+  /// @return The maximum value of the specified dimension
   Type max(std::size_t i) const { return m_maxima[i]; }
 
   /// Methods for manipulating a range of dimension 1
@@ -430,8 +434,9 @@ class RangeXD {
   /// range would be smaller than the current range), this is a no-op.
   ///
   /// @param v The proposed new minimum for the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void expandMin(const Type& v) {
+  void expandMin(const Type& v)
+    requires(Dims == 1)
+  {
     min() = std::min(min(), v);
   }
 
@@ -442,8 +447,9 @@ class RangeXD {
   /// range would be smaller than the current range), this is a no-op.
   ///
   /// @param v The proposed new maximum for the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void expandMax(const Type& v) {
+  void expandMax(const Type& v)
+    requires(Dims == 1)
+  {
     max() = std::max(max(), v);
   }
 
@@ -459,8 +465,9 @@ class RangeXD {
   ///
   /// @param min The proposed new minimum for the range
   /// @param max The proposed new maximum for the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void expand(const Type& min, const Type& max) {
+  void expand(const Type& min, const Type& max)
+    requires(Dims == 1)
+  {
     expandMin(min);
     expandMax(max);
   }
@@ -472,8 +479,9 @@ class RangeXD {
   /// range would be larger than the current range), this is a no-op.
   ///
   /// @param v The proposed new minimum for the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void shrinkMin(const Type& v) {
+  void shrinkMin(const Type& v)
+    requires(Dims == 1)
+  {
     min() = std::max(min(), v);
   }
 
@@ -484,8 +492,9 @@ class RangeXD {
   /// range would be larger than the current range), this is a no-op.
   ///
   /// @param v The proposed new maximum for the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void shrinkMax(const Type& v) {
+  void shrinkMax(const Type& v)
+    requires(Dims == 1)
+  {
     max() = std::min(max(), v);
   }
 
@@ -501,8 +510,9 @@ class RangeXD {
   ///
   /// @param min The proposed new minimum for the range
   /// @param max The proposed new maximum for the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void shrink(const Type& min, const Type& max) {
+  void shrink(const Type& min, const Type& max)
+    requires(Dims == 1)
+  {
     shrinkMin(min);
     shrinkMax(max);
   }
@@ -516,8 +526,9 @@ class RangeXD {
   /// expand methods.
   ///
   /// @param v The value to use as the new minimum
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void setMin(const Type& v) {
+  void setMin(const Type& v)
+    requires(Dims == 1)
+  {
     min() = v;
   }
 
@@ -530,8 +541,9 @@ class RangeXD {
   /// expand methods.
   ///
   /// @param v The value to use as the new maximum
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void setMax(const Type& v) {
+  void setMax(const Type& v)
+    requires(Dims == 1)
+  {
     max() = v;
   }
 
@@ -548,33 +560,42 @@ class RangeXD {
   ///
   /// @param min The new minimum value of the range
   /// @param max The new maximum value of the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  void set(const Type& min, const Type& max) {
+  void set(const Type& min, const Type& max)
+    requires(Dims == 1)
+  {
     setMin(min);
     setMax(max);
   }
 
   /// @brief Return the minimum value of the range (inclusive)
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  Type min() const {
+  /// @return The minimum value of the one-dimensional range
+  Type min() const
+    requires(Dims == 1)
+  {
     return min(0);
   }
 
   /// @brief Return the minimum value of the range (inclusive)
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  Type& min() {
+  /// @return Reference to the minimum value for modification
+  Type& min()
+    requires(Dims == 1)
+  {
     return min(0);
   }
 
   /// @brief Return the maximum value of the range (inclusive)
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  Type max() const {
+  /// @return The maximum value of the one-dimensional range
+  Type max() const
+    requires(Dims == 1)
+  {
     return max(0);
   }
 
   /// @brief Return the maximum value of the range (inclusive)
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  Type& max() {
+  /// @return Reference to the maximum value for modification
+  Type& max()
+    requires(Dims == 1)
+  {
     return max(0);
   }
 
@@ -590,8 +611,9 @@ class RangeXD {
   /// this can be awkward when working with integers.
   ///
   /// @return The size of the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  Type size() const {
+  Type size() const
+    requires(Dims == 1)
+  {
     return std::max(static_cast<Type>(0), max() - min());
   }
 
@@ -604,8 +626,9 @@ class RangeXD {
   ///
   /// @return true The value is inside the range
   /// @return false The value is not inside the range
-  template <std::size_t I = Dims, typename = std::enable_if_t<I == 1>>
-  bool contains(const Type& v) const {
+  bool contains(const Type& v) const
+    requires(Dims == 1)
+  {
     return min() <= v && v < max();
   }
 
@@ -616,6 +639,10 @@ class RangeXD {
   Vector<Type, Dims> m_maxima{};
 };
 
+/// @brief Type alias for a one-dimensional range
+/// @details Specialization of RangeXD for one-dimensional ranges
+/// @tparam Type The value type of the range
+/// @tparam Vector The container type template used to store the range bounds
 template <typename Type,
           template <typename, std::size_t> typename Vector = std::array>
 using Range1D = RangeXD<1, Type, Vector>;

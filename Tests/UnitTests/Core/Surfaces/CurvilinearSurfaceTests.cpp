@@ -1,22 +1,26 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Surfaces/CurvilinearSurface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/VectorHelpers.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <cmath>
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(SurfacesSuite)
 
 BOOST_AUTO_TEST_CASE(jacobian_test) {
   // (1a) Standard test with curvilinear not glazingly close to z axis
@@ -24,12 +28,12 @@ BOOST_AUTO_TEST_CASE(jacobian_test) {
   CurvilinearSurface surface = CurvilinearSurface(direction);
   FreeToBoundMatrix f2cJacobian = surface.freeToBoundJacobian();
 
-  ActsScalar phi = VectorHelpers::phi(direction);
-  ActsScalar theta = VectorHelpers::theta(direction);
-  ActsScalar sinPhi = std::sin(phi);
-  ActsScalar cosPhi = std::cos(phi);
-  ActsScalar sinTheta = std::sin(theta);
-  ActsScalar cosTheta = std::cos(theta);
+  double phi = VectorHelpers::phi(direction);
+  double theta = VectorHelpers::theta(direction);
+  double sinPhi = std::sin(phi);
+  double cosPhi = std::cos(phi);
+  double sinTheta = std::sin(theta);
+  double cosTheta = std::cos(theta);
 
   CHECK_CLOSE_REL(f2cJacobian(eBoundLoc0, eFreePos0), -sinPhi, 1e-5);
   CHECK_CLOSE_REL(f2cJacobian(eBoundLoc0, eFreePos1), cosPhi, 1e-5);
@@ -72,4 +76,6 @@ BOOST_AUTO_TEST_CASE(jacobian_test) {
   CHECK_CLOSE_REL(c2fJacobian(eFreeQOverP, eBoundQOverP), 1, 1e-5);
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

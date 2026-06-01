@@ -1,17 +1,17 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Geometry/GeometryHierarchyMap.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
-#include "Acts/Plugins/Json/GeometryHierarchyMapJsonConverter.hpp"
-#include "Acts/Tests/CommonHelpers/DataDirectory.hpp"
+#include "ActsPlugins/Json/GeometryHierarchyMapJsonConverter.hpp"
+#include "ActsTests/CommonHelpers/DataDirectory.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -22,14 +22,15 @@
 
 #include <nlohmann/json.hpp>
 
-namespace {
+using namespace Acts;
 
-using Acts::GeometryIdentifier;
 using nlohmann::json;
+
+namespace {
 
 // helper function to create geometry ids.
 GeometryIdentifier makeId(int volume = 0, int layer = 0, int sensitive = 0) {
-  return GeometryIdentifier().setVolume(volume).setLayer(layer).setSensitive(
+  return GeometryIdentifier().withVolume(volume).withLayer(layer).withSensitive(
       sensitive);
 }
 
@@ -70,9 +71,8 @@ class ThingDecorator {
   }
 };
 
-using Container = Acts::GeometryHierarchyMap<Thing>;
-using Converter =
-    Acts::GeometryHierarchyMapJsonConverter<Thing, ThingDecorator>;
+using Container = GeometryHierarchyMap<Thing>;
+using Converter = GeometryHierarchyMapJsonConverter<Thing, ThingDecorator>;
 
 }  // namespace
 
@@ -87,7 +87,9 @@ void Acts::decorateJson<Thing>(const ThingDecorator* decorator,
 BOOST_TEST_DONT_PRINT_LOG_VALUE(json::iterator)
 BOOST_TEST_DONT_PRINT_LOG_VALUE(Container::Iterator)
 
-BOOST_AUTO_TEST_SUITE(GeometryHierarchyMapJsonConverter)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(JsonSuite)
 
 BOOST_AUTO_TEST_CASE(ToJson) {
   ThingDecorator decorator;
@@ -229,7 +231,7 @@ BOOST_AUTO_TEST_CASE(Roundtrip) {
 
 BOOST_AUTO_TEST_CASE(FromFile) {
   // read json data from file
-  auto path = Acts::Test::getDataPath("geometry-hierarchy-map.json");
+  auto path = ActsTests::getDataPath("geometry-hierarchy-map.json");
   auto file = std::ifstream(path, std::ifstream::in | std::ifstream::binary);
   BOOST_CHECK(file.good());
   json j;
@@ -247,3 +249,5 @@ BOOST_AUTO_TEST_CASE(FromFile) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

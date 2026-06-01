@@ -1,17 +1,16 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
+#include "Acts/EventData/AnyTrackStateProxy.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
-#include "Acts/EventData/detail/covariance_helper.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/TrackFitting/KalmanFitterError.hpp"
 #include "Acts/Utilities/Delegate.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
@@ -27,51 +26,25 @@ namespace Acts {
 /// This implements not a single smoothing step, but the full backwards
 /// smoothing procedure for a filtered, forward trajectory using the stored
 /// linearization.
+/// @ingroup track_fitting
 class GainMatrixSmoother {
  public:
+  /// Whether to check the covariance matrices if they are semi-positive and if
+  /// not attempt to correct them.
+  bool doCovCheckAndAttemptFix = false;
+
   /// Run the Kalman smoothing for one trajectory.
   ///
+  /// @param[in] gctx The geometry context to be used
   /// @param[in,out] trajectory The trajectory to be smoothed
   /// @param[in] entryIndex The index of state to start the smoothing
   /// @param[in] logger Where to write logging information to
+  /// @return Success or failure of the smoothing procedure
   template <typename traj_t>
-  Result<void> operator()(const GeometryContext& /*gctx*/, traj_t& trajectory,
+  Result<void> operator()(const GeometryContext& gctx, traj_t& trajectory,
                           std::size_t entryIndex,
                           const Logger& logger = getDummyLogger()) const {
-    using TrackStateProxy = typename traj_t::TrackStateProxy;
-
-    GetParameters filtered;
-    GetCovariance filteredCovariance;
-    GetParameters smoothed;
-    GetParameters predicted;
-    GetCovariance predictedCovariance;
-    GetCovariance smoothedCovariance;
-    GetCovariance jacobian;
-
-    filtered.connect([](const void*, void* ts) {
-      return static_cast<TrackStateProxy*>(ts)->filtered();
-    });
-    filteredCovariance.connect([](const void*, void* ts) {
-      return static_cast<TrackStateProxy*>(ts)->filteredCovariance();
-    });
-
-    smoothed.connect([](const void*, void* ts) {
-      return static_cast<TrackStateProxy*>(ts)->smoothed();
-    });
-    smoothedCovariance.connect([](const void*, void* ts) {
-      return static_cast<TrackStateProxy*>(ts)->smoothedCovariance();
-    });
-
-    predicted.connect([](const void*, void* ts) {
-      return static_cast<TrackStateProxy*>(ts)->predicted();
-    });
-    predictedCovariance.connect([](const void*, void* ts) {
-      return static_cast<TrackStateProxy*>(ts)->predictedCovariance();
-    });
-
-    jacobian.connect([](const void*, void* ts) {
-      return static_cast<TrackStateProxy*>(ts)->jacobian();
-    });
+    static_cast<void>(gctx);
 
     ACTS_VERBOSE("Invoked GainMatrixSmoother on entry index: " << entryIndex);
 
@@ -111,9 +84,8 @@ class GainMatrixSmoother {
       // ensure the track state has a smoothed component
       ts.addComponents(TrackStatePropMask::Smoothed);
 
-      if (auto res = calculate(&ts, &prev_ts, filtered, filteredCovariance,
-                               smoothed, predicted, predictedCovariance,
-                               smoothedCovariance, jacobian, logger);
+      if (auto res = calculate(AnyMutableTrackStateProxy{ts},
+                               AnyConstTrackStateProxy{prev_ts}, logger);
           !res.ok()) {
         error = res.error();
         return false;
@@ -126,20 +98,24 @@ class GainMatrixSmoother {
     return error ? Result<void>::failure(error) : Result<void>::success();
   }
 
+  /// Type alias for delegate to get track state parameters
   using GetParameters =
-      Acts::Delegate<TrackStateTraits<MultiTrajectoryTraits::MeasurementSizeMax,
-                                      false>::Parameters(void*)>;
+      Acts::Delegate<TrackStateTraits<kMeasurementSizeMax, false>::Parameters(
+          void*)>;
+  /// Type alias for delegate to get track state covariance matrix
   using GetCovariance =
-      Acts::Delegate<TrackStateTraits<MultiTrajectoryTraits::MeasurementSizeMax,
-                                      false>::Covariance(void*)>;
+      Acts::Delegate<TrackStateTraits<kMeasurementSizeMax, false>::Covariance(
+          void*)>;
 
-  Result<void> calculate(void* ts, void* prev_ts, const GetParameters& filtered,
-                         const GetCovariance& filteredCovariance,
-                         const GetParameters& smoothed,
-                         const GetParameters& predicted,
-                         const GetCovariance& predictedCovariance,
-                         const GetCovariance& smoothedCovariance,
-                         const GetCovariance& jacobian,
+  /// Calculate smoothed parameters for a single track state using gain matrix
+  /// formalism.
+  ///
+  /// @param ts Current track state to be smoothed
+  /// @param prev_ts Previous track state (in forward direction)
+  /// @param logger Logger for verbose output
+  /// @return Success or failure of the smoothing calculation
+  Result<void> calculate(AnyMutableTrackStateProxy ts,
+                         AnyConstTrackStateProxy prev_ts,
                          const Logger& logger) const;
 };
 

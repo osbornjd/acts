@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsFatras/Digitization/Segmentizer.hpp"
 
@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <span>
 
 std::vector<ActsFatras::Segmentizer::ChannelSegment>
 ActsFatras::Segmentizer::segments(const Acts::GeometryContext& geoCtx,
@@ -56,9 +57,9 @@ ActsFatras::Segmentizer::segments(const Acts::GeometryContext& geoCtx,
       double d = start.y() - k * start.x();
 
       const auto& xboundaries = segmentation.binningData()[0].boundaries();
-      std::vector<double> xbbounds = {
+      std::span<const float> xbbounds(
           xboundaries.begin() + std::min(bstart[0], bend[0]) + 1,
-          xboundaries.begin() + std::max(bstart[0], bend[0]) + 1};
+          xboundaries.begin() + std::max(bstart[0], bend[0]) + 1);
       for (const auto x : xbbounds) {
         cSteps.push_back(ChannelStep{
             {(bstart[0] < bend[0] ? 1 : -1), 0}, {x, k * x + d}, start});
@@ -69,9 +70,9 @@ ActsFatras::Segmentizer::segments(const Acts::GeometryContext& geoCtx,
       double k = segment2d.x() / segment2d.y();
       double d = start.x() - k * start.y();
       const auto& yboundaries = segmentation.binningData()[1].boundaries();
-      std::vector<double> ybbounds = {
+      std::span<const float> ybbounds(
           yboundaries.begin() + std::min(bstart[1], bend[1]) + 1,
-          yboundaries.begin() + std::max(bstart[1], bend[1]) + 1};
+          yboundaries.begin() + std::max(bstart[1], bend[1]) + 1);
       for (const auto y : ybbounds) {
         cSteps.push_back(ChannelStep{
             {0, (bstart[1] < bend[1] ? 1 : -1)}, {k * y + d, y}, start});
@@ -101,10 +102,10 @@ ActsFatras::Segmentizer::segments(const Acts::GeometryContext& geoCtx,
     // The radial boundaries
     if (bstart[0] != bend[0]) {
       const auto& rboundaries = segmentation.binningData()[0].boundaries();
-      std::vector<double> rbbounds = {
+      std::span<const float> rbbounds(
           rboundaries.begin() + std::min(bstart[0], bend[0]) + 1,
-          rboundaries.begin() + std::max(bstart[0], bend[0]) + 1};
-      for (const auto& r : rbbounds) {
+          rboundaries.begin() + std::max(bstart[0], bend[0]) + 1);
+      for (const auto r : rbbounds) {
         auto radIntersection =
             Acts::detail::IntersectionHelper2D::intersectCircleSegment(
                 r, std::min(phistart, phiend), std::max(phistart, phiend),
@@ -116,14 +117,15 @@ ActsFatras::Segmentizer::segments(const Acts::GeometryContext& geoCtx,
     }
     // The phi boundaries
     if (bstart[1] != bend[1]) {
-      double referenceR = surface.binningPositionValue(geoCtx, Acts::binR);
+      double referenceR =
+          surface.referencePositionValue(geoCtx, Acts::AxisDirection::AxisR);
       Acts::Vector2 origin = {0., 0.};
       const auto& phiboundaries = segmentation.binningData()[1].boundaries();
-      std::vector<double> phibbounds = {
+      std::span<const float> phibbounds(
           phiboundaries.begin() + std::min(bstart[1], bend[1]) + 1,
-          phiboundaries.begin() + std::max(bstart[1], bend[1]) + 1};
+          phiboundaries.begin() + std::max(bstart[1], bend[1]) + 1);
 
-      for (const auto& phi : phibbounds) {
+      for (const auto phi : phibbounds) {
         Acts::Vector2 philine(referenceR * std::cos(phi),
                               referenceR * std::sin(phi));
         auto phiIntersection =
@@ -139,7 +141,7 @@ ActsFatras::Segmentizer::segments(const Acts::GeometryContext& geoCtx,
   // Register the last step if successful
   if (!cSteps.empty()) {
     cSteps.push_back(ChannelStep({0, 0}, end, start));
-    std::sort(cSteps.begin(), cSteps.end());
+    std::ranges::sort(cSteps, std::less<ChannelStep>{});
   }
 
   std::vector<ChannelSegment> cSegments;

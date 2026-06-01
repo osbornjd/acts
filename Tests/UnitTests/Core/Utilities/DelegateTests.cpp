@@ -1,17 +1,16 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Delegate.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <memory>
 #include <string>
@@ -21,9 +20,9 @@
 
 using namespace Acts;
 
-namespace bd = boost::unit_test::data;
+namespace ActsTests {
 
-BOOST_AUTO_TEST_SUITE(DelegateTests)
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
 int sumImpl(int a, int b) {
   return a + b;
@@ -146,7 +145,7 @@ void modify(int& v, int a) {
 }
 
 void noModify(int v, int a) {
-  (void)v;
+  static_cast<void>(v);
   v = a;
 }
 
@@ -166,7 +165,7 @@ struct SignatureTest {
   void modify(int& v, int a) const { v = a; }
 
   void noModify(int v, int a) const {
-    (void)v;
+    static_cast<void>(v);
     v = a;
   }
 };
@@ -217,7 +216,7 @@ BOOST_AUTO_TEST_CASE(StatefullLambdas) {
 }
 
 struct CheckDestructor {
-  CheckDestructor(bool* _out) : destructorCalled{_out} {}
+  explicit CheckDestructor(bool* _out) : destructorCalled{_out} {}
 
   bool* destructorCalled;
 
@@ -238,7 +237,7 @@ BOOST_AUTO_TEST_CASE(OwningDelegateTest) {
   {
     auto s = std::make_unique<const SignatureTest>();
     Delegate<void(int&, int)> d;
-    (void)d;
+    static_cast<void>(d);
     // This should not compile, as it would be a memory leak
     // d.connect<&SignatureTest::modify>(std::move(s));
   }
@@ -452,11 +451,13 @@ BOOST_AUTO_TEST_CASE(NonVoidDelegateTest) {
     SeparateDelegate c;
     // Does not compile: cannot assign unrelated type
     // d.connect<&SeparateDelegate::func>(&c);
-    (void)d;
-    (void)c;
+    static_cast<void>(d);
+    static_cast<void>(c);
   }
 
   { OwningDelegate<std::string(), DelegateInterface> d; }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

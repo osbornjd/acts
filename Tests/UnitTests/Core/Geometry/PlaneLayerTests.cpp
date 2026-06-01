@@ -1,12 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -19,8 +18,6 @@
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Surfaces/SurfaceArray.hpp"
-#include "Acts/Utilities/BinningType.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -28,13 +25,13 @@
 #include <utility>
 #include <vector>
 
-namespace Acts::Test {
+using namespace Acts;
 
-// Create a test context
-GeometryContext tgContext = GeometryContext();
+GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
-namespace Layers {
-BOOST_AUTO_TEST_SUITE(Layers)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 /// Unit test for creating compliant/non-compliant PlaneLayer object
 BOOST_AUTO_TEST_CASE(PlaneLayerConstruction) {
@@ -58,17 +55,16 @@ BOOST_AUTO_TEST_CASE(PlaneLayerConstruction) {
   SurfaceArrayCreator sac;
   std::size_t binsX(2), binsY(4);
   auto pSurfaceArray = sac.surfaceArrayOnPlane(tgContext, aSurfaces, binsX,
-                                               binsY, BinningValue::binZ);
+                                               binsY, AxisDirection::AxisZ);
   auto pPlaneLayerFromSurfaces =
       PlaneLayer::create(pTransform, pRectangle, std::move(pSurfaceArray));
   BOOST_CHECK_EQUAL(pPlaneLayerFromSurfaces->layerType(), LayerType::active);
   // construct with thickness:
   auto pPlaneLayerWithThickness = PlaneLayer::create(
       pTransform, pRectangle, std::move(pSurfaceArray), thickness);
-  BOOST_CHECK_EQUAL(pPlaneLayerWithThickness->thickness(), thickness);
+  BOOST_CHECK_EQUAL(pPlaneLayerWithThickness->layerThickness(), thickness);
   // with an approach descriptor...
-  std::unique_ptr<ApproachDescriptor> ad(
-      new GenericApproachDescriptor(aSurfaces));
+  auto ad(std::make_unique<GenericApproachDescriptor>(aSurfaces));
   auto adPtr = ad.get();
   auto pPlaneLayerWithApproachDescriptor =
       PlaneLayer::create(pTransform, pRectangle, std::move(pSurfaceArray),
@@ -95,5 +91,5 @@ BOOST_AUTO_TEST_CASE(PlaneLayerProperties) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Layers
-}  // namespace Acts::Test
+
+}  // namespace ActsTests

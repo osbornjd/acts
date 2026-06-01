@@ -1,12 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Utilities/Any.hpp"
@@ -30,7 +29,9 @@ using namespace Acts;
   } while (0)
 #endif
 
-BOOST_AUTO_TEST_SUITE(AnyTests)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
 BOOST_AUTO_TEST_CASE(AnyConstructPrimitive) {
   {
@@ -46,7 +47,6 @@ BOOST_AUTO_TEST_CASE(AnyConstructPrimitive) {
     BOOST_CHECK_NE(a.as<int>(), v + 1);
 
     BOOST_CHECK_THROW(a.as<float>(), std::bad_any_cast);
-    BOOST_CHECK_THROW(a = Any{0.5f}, std::bad_any_cast);
   }
   CHECK_ANY_ALLOCATIONS();
 
@@ -63,7 +63,6 @@ BOOST_AUTO_TEST_CASE(AnyConstructPrimitive) {
                                   a.as<decltype(v)>().end(), v.begin(),
                                   v.end());
     BOOST_CHECK_THROW(a.as<float>(), std::bad_any_cast);
-    BOOST_CHECK_THROW(a = Any{0.5f}, std::bad_any_cast);
   }
   CHECK_ANY_ALLOCATIONS();
 
@@ -80,7 +79,6 @@ BOOST_AUTO_TEST_CASE(AnyConstructPrimitive) {
                                   a.as<decltype(v)>().end(), v.begin(),
                                   v.end());
     BOOST_CHECK_THROW(a.as<float>(), std::bad_any_cast);
-    BOOST_CHECK_THROW(a = Any{0.5f}, std::bad_any_cast);
   }
   CHECK_ANY_ALLOCATIONS();
 }
@@ -121,7 +119,7 @@ BOOST_AUTO_TEST_CASE(AnyConstructCustom) {
 BOOST_AUTO_TEST_CASE(AnyConstructCustomInPlace) {
   struct A {
     int value;
-    A(int v) { value = v; }
+    explicit A(int v) { value = v; }
   };
 
   Any a{std::in_place_type<A>, 42};
@@ -178,7 +176,7 @@ BOOST_AUTO_TEST_CASE(AnyCopy) {
 
 struct D {
   bool* destroyed;
-  D(bool* d) : destroyed{d} {}
+  explicit D(bool* d) : destroyed{d} {}
   ~D() { *destroyed = true; }
 };
 
@@ -186,10 +184,101 @@ struct D2 {
   bool* destroyed{nullptr};
   std::array<char, 512> blob{};
 
-  D2(bool* d) : destroyed{d} {}
+  explicit D2(bool* d) : destroyed{d} {}
 
   ~D2() { *destroyed = true; }
 };
+
+BOOST_AUTO_TEST_CASE(AnyEmplace) {
+  {
+    Any a;
+    auto& value = a.emplace<int>(42);
+    BOOST_CHECK_EQUAL(value, 42);
+    BOOST_CHECK_EQUAL(a.as<int>(), 42);
+    value = 84;
+    BOOST_CHECK_EQUAL(a.as<int>(), 84);
+  }
+  CHECK_ANY_ALLOCATIONS();
+
+  {
+    bool destroyed = false;
+    Any a{std::in_place_type<D>, &destroyed};
+    BOOST_CHECK(!destroyed);
+    a.emplace<int>(7);
+    BOOST_CHECK(destroyed);
+    BOOST_CHECK_EQUAL(a.as<int>(), 7);
+  }
+  CHECK_ANY_ALLOCATIONS();
+
+  {
+    bool destroyed = false;
+    Any a{std::in_place_type<D2>, &destroyed};
+    BOOST_CHECK(!destroyed);
+    bool destroyed2 = false;
+    auto& ref = a.emplace<D2>(&destroyed2);
+    BOOST_CHECK(destroyed);
+    BOOST_CHECK(!destroyed2);
+    BOOST_CHECK_EQUAL(ref.destroyed, &destroyed2);
+    BOOST_CHECK_EQUAL(a.as<D2>().destroyed, &destroyed2);
+  }
+  CHECK_ANY_ALLOCATIONS();
+}
+
+BOOST_AUTO_TEST_CASE(AnyMoveTypeChange) {
+  BOOST_TEST_CONTEXT("Small type") {
+    bool destroyed = false;
+    D d{&destroyed};
+    Any a{std::move(d)};
+    BOOST_CHECK(!destroyed);
+
+    int value = 5;
+    Any b{value};
+    a = std::move(b);
+    BOOST_CHECK(destroyed);
+    BOOST_CHECK_EQUAL(a.as<int>(), value);
+  }
+
+  bool destroyed = false;
+  BOOST_TEST_CONTEXT("Large type") {
+    D2 d{&destroyed};
+    Any a{std::move(d)};
+    BOOST_CHECK(!destroyed);
+
+    int value = 5;
+    Any b{value};
+    a = std::move(b);
+    BOOST_CHECK(destroyed);
+    BOOST_CHECK_EQUAL(a.as<int>(), value);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(AnyCopyTypeChange) {
+  BOOST_TEST_CONTEXT("Small type") {
+    bool destroyed = false;
+    D d{&destroyed};
+    Any a{std::move(d)};
+    BOOST_CHECK(!destroyed);
+
+    int value = 5;
+    Any b{value};
+    a = b;
+    BOOST_CHECK(destroyed);
+    BOOST_CHECK_EQUAL(a.as<int>(), value);
+  }
+
+  bool destroyed = false;
+  BOOST_TEST_CONTEXT("Large type") {
+    D2 d{&destroyed};
+    Any a{std::move(d)};
+    BOOST_CHECK(!destroyed);
+
+    int value = 5;
+    Any b{value};
+    a = b;
+    BOOST_CHECK(destroyed);
+    BOOST_CHECK_EQUAL(a.as<int>(), value);
+  }
+}
 
 BOOST_AUTO_TEST_CASE(AnyDestroy) {
   {  // small type
@@ -285,7 +374,7 @@ struct D3 {
   std::size_t* destroyed{nullptr};
   std::array<char, 512> blob{};
 
-  D3(std::size_t* d) : destroyed{d} {}
+  explicit D3(std::size_t* d) : destroyed{d} {}
 
   ~D3() { (*destroyed)++; }
 };
@@ -320,7 +409,7 @@ template <>
 struct Lifecycle<0> {
   LifecycleCounters* counters;
 
-  Lifecycle(LifecycleCounters* _counters) : counters{_counters} {}
+  explicit Lifecycle(LifecycleCounters* _counters) : counters{_counters} {}
 
   Lifecycle(Lifecycle&& o) {
     counters = o.counters;
@@ -351,7 +440,7 @@ template <std::size_t PADDING>
 struct Lifecycle : public Lifecycle<0> {
   std::array<char, PADDING> m_padding{};
 
-  Lifecycle(LifecycleCounters* _counters) : Lifecycle<0>(_counters) {}
+  explicit Lifecycle(LifecycleCounters* _counters) : Lifecycle<0>(_counters) {}
 };
 
 template <std::size_t PADDING>
@@ -496,3 +585,5 @@ BOOST_AUTO_TEST_CASE(LifeCycleHeap) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

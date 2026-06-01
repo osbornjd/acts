@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -57,15 +57,15 @@ class ImpactPointEstimator {
     ///
     /// @param bIn The magnetic field
     /// @param prop The propagator
-    Config(std::shared_ptr<const MagneticFieldProvider> bIn,
-           std::shared_ptr<const BasePropagator> prop)
+    explicit Config(std::shared_ptr<const MagneticFieldProvider> bIn,
+                    std::shared_ptr<const BasePropagator> prop)
         : bField(std::move(bIn)), propagator(std::move(prop)) {}
 
     /// @brief Config constructor without B field -> uses NullBField
     /// provided)
     ///
     /// @param prop The propagator
-    Config(std::shared_ptr<const BasePropagator> prop)
+    explicit Config(std::shared_ptr<const BasePropagator> prop)
         : bField{std::make_shared<NullBField>()}, propagator(std::move(prop)) {}
 
     /// Magnetic field
@@ -82,9 +82,10 @@ class ImpactPointEstimator {
   ///
   /// @param cfg Configuration object
   /// @param logger Logging instance
-  ImpactPointEstimator(const Config& cfg,
-                       std::unique_ptr<const Logger> logger = getDefaultLogger(
-                           "ImpactPointEstimator", Logging::INFO))
+  explicit ImpactPointEstimator(const Config& cfg,
+                                std::unique_ptr<const Logger> logger =
+                                    getDefaultLogger("ImpactPointEstimator",
+                                                     Logging::INFO))
       : m_cfg(cfg), m_logger(std::move(logger)) {}
 
   /// @brief Copy constructor to clone logger (class owns a unique pointer to it,
@@ -166,6 +167,7 @@ class ImpactPointEstimator {
   /// @param trkParams Track parameters
   /// @param vtxPos Vertex position
   /// @param state The state object
+  /// @return Pair containing the distance vector and momentum direction at PCA
   template <int nDim>
   Result<std::pair<Acts::ActsVector<nDim>, Acts::Vector3>>
   getDistanceAndMomentum(const GeometryContext& gctx,
@@ -191,6 +193,7 @@ class ImpactPointEstimator {
   /// @param gctx The geometry context
   /// @param mctx The magnetic field context
   /// @param calculateTimeIP If true, the difference in time is computed
+  /// @return Impact parameters and their uncertainties for the track-vertex pair
   Result<ImpactParametersAndSigma> getImpactParameters(
       const BoundTrackParameters& track, const Vertex& vtx,
       const GeometryContext& gctx, const MagneticFieldContext& mctx,

@@ -1,20 +1,17 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Definitions/Direction.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/EventData/GenericCurvilinearTrackParameters.hpp"
-#include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/SourceLink.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/EventData/detail/TestSourceLink.hpp"
@@ -26,19 +23,16 @@
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
-#include "Acts/Propagator/StraightLineStepper.hpp"
 #include "Acts/SpacePointFormation/SpacePointBuilder.hpp"
 #include "Acts/SpacePointFormation/SpacePointBuilderConfig.hpp"
 #include "Acts/SpacePointFormation/SpacePointBuilderOptions.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/CubicTrackingGeometry.hpp"
-#include "Acts/Tests/CommonHelpers/MeasurementsCreator.hpp"
-#include "Acts/Tests/CommonHelpers/TestSpacePoint.hpp"
+#include "ActsTests/CommonHelpers/CubicTrackingGeometry.hpp"
+#include "ActsTests/CommonHelpers/MeasurementsCreator.hpp"
+#include "ActsTests/CommonHelpers/TestSpacePoint.hpp"
 
-#include <algorithm>
 #include <iostream>
 #include <iterator>
-#include <map>
 #include <memory>
 #include <optional>
 #include <random>
@@ -47,17 +41,18 @@
 
 namespace bdata = boost::unit_test::data;
 
-namespace Acts::Test {
+using namespace Acts;
+using namespace Acts::UnitLiterals;
 
-using namespace UnitLiterals;
+namespace ActsTests {
 
-using StraightPropagator = Propagator<StraightLineStepper, Navigator>;
 using TestSourceLink = detail::Test::TestSourceLink;
 using ConstantFieldStepper = EigenStepper<>;
 using ConstantFieldPropagator = Propagator<ConstantFieldStepper, Navigator>;
-// Construct initial track parameters.
-CurvilinearTrackParameters makeParameters(double phi, double theta, double p,
-                                          double q) {
+
+/// Construct initial track parameters.
+BoundTrackParameters makeParameters(double phi, double theta, double p,
+                                    double q) {
   // create covariance matrix from reasonable standard deviations
   BoundVector stddev;
   stddev[eBoundLoc0] = 100_um;
@@ -69,8 +64,8 @@ CurvilinearTrackParameters makeParameters(double phi, double theta, double p,
   BoundSquareMatrix cov = stddev.cwiseProduct(stddev).asDiagonal();
   // Let the particle start from the origin
   Vector4 mPos4(-3_m, 0., 0., 0.);
-  return CurvilinearTrackParameters(mPos4, phi, theta, q / p, cov,
-                                    ParticleHypothesis::pionLike(q));
+  return BoundTrackParameters::createCurvilinear(
+      mPos4, phi, theta, q / p, cov, ParticleHypothesis::pionLike(q));
 }
 
 std::pair<Vector3, Vector3> stripEnds(
@@ -95,13 +90,13 @@ std::pair<Vector3, Vector3> stripEnds(
   auto gPos1 = surface->localToGlobal(gctx, lpos1, globalFakeMom);
   auto gPos2 = surface->localToGlobal(gctx, lpos2, globalFakeMom);
 
-  return std::make_pair(gPos1, gPos2);
+  return {gPos1, gPos2};
 }
 
 // Create a test context
-GeometryContext tgContext = GeometryContext();
+GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
-const GeometryContext geoCtx;
+const auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
 const MagneticFieldContext magCtx;
 
 // detector geometry
@@ -114,17 +109,19 @@ const MeasurementResolution resPixel = {MeasurementType::eLoc01,
 const MeasurementResolution resStrip = {MeasurementType::eLoc01,
                                         {100_um, 100_um}};
 const MeasurementResolutionMap resolutions = {
-    {GeometryIdentifier().setVolume(2), resPixel},
-    {GeometryIdentifier().setVolume(3).setLayer(2), resStrip},
-    {GeometryIdentifier().setVolume(3).setLayer(4), resStrip},
-    {GeometryIdentifier().setVolume(3).setLayer(6), resStrip},
-    {GeometryIdentifier().setVolume(3).setLayer(8), resStrip},
+    {GeometryIdentifier().withVolume(2), resPixel},
+    {GeometryIdentifier().withVolume(3).withLayer(2), resStrip},
+    {GeometryIdentifier().withVolume(3).withLayer(4), resStrip},
+    {GeometryIdentifier().withVolume(3).withLayer(6), resStrip},
+    {GeometryIdentifier().withVolume(3).withLayer(8), resStrip},
 };
 
 std::default_random_engine rng(42);
 
+BOOST_AUTO_TEST_SUITE(SpacePointFormationSuite)
+
 BOOST_DATA_TEST_CASE(SpacePointBuilder_basic, bdata::xrange(1), index) {
-  (void)index;
+  static_cast<void>(index);
 
   double phi = 5._degree;
   double theta = 95._degree;
@@ -177,10 +174,9 @@ BOOST_DATA_TEST_CASE(SpacePointBuilder_basic, bdata::xrange(1), index) {
 
   Vector3 vertex = Vector3(-3_m, 0., 0.);
 
-  auto spConstructor =
-      [](const Vector3& pos, const std::optional<ActsScalar>& t,
-         const Vector2& cov, const std::optional<ActsScalar>& covT,
-         boost::container::static_vector<SourceLink, 2> slinks)
+  auto spConstructor = [](const Vector3& pos, const std::optional<double>& t,
+                          const Vector2& cov, const std::optional<double>& covT,
+                          boost::container::static_vector<SourceLink, 2> slinks)
       -> TestSpacePoint {
     return TestSpacePoint(pos, t, cov[0], cov[1], covT, std::move(slinks));
   };
@@ -320,4 +316,6 @@ BOOST_DATA_TEST_CASE(SpacePointBuilder_basic, bdata::xrange(1), index) {
   BOOST_CHECK_EQUAL(spacePoints.size(), 6);
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

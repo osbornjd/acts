@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
@@ -16,8 +16,8 @@
 #include "Acts/EventData/Charge.hpp"
 #include "Acts/EventData/GenericFreeTrackParameters.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/UnitVectors.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <limits>
 #include <optional>
@@ -26,12 +26,12 @@
 
 #include "TrackParametersDatasets.hpp"
 
-namespace {
-
 using namespace Acts;
 using namespace Acts::UnitLiterals;
 
-constexpr auto eps = 8 * std::numeric_limits<ActsScalar>::epsilon();
+namespace {
+
+constexpr auto eps = 8 * std::numeric_limits<double>::epsilon();
 const FreeSquareMatrix cov = FreeSquareMatrix::Identity();
 
 void checkParameters(const FreeTrackParameters& params, const Vector4& pos4,
@@ -67,11 +67,21 @@ void checkParameters(const FreeTrackParameters& params, const Vector4& pos4,
                        eps);
   CHECK_CLOSE_OR_SMALL(params.time(), params.template get<eFreeTime>(), eps,
                        eps);
+
+  // reflection
+  FreeTrackParameters reflectedParams = params;
+  reflectedParams.reflectInPlace();
+  CHECK_CLOSE_OR_SMALL(params.reflect().parameters(),
+                       reflectedParams.parameters(), eps, eps);
+  CHECK_CLOSE_OR_SMALL(reflectedParams.reflect().parameters(),
+                       params.parameters(), eps, eps);
 }
 
 }  // namespace
 
-BOOST_AUTO_TEST_SUITE(CurvilinearTrackParameters)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(EventDataSuite)
 
 BOOST_DATA_TEST_CASE(
     NeutralConstructFromAngles,
@@ -131,3 +141,5 @@ BOOST_DATA_TEST_CASE(
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

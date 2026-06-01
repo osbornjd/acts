@@ -1,15 +1,14 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Definitions/Tolerance.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
 #include <algorithm>
@@ -17,20 +16,22 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-
-#include <boost/container/static_vector.hpp>
+#include <span>
+#include <type_traits>
 
 namespace Acts {
 
 /// Status enum
 enum class IntersectionStatus : int {
-  missed = 0,
   unreachable = 0,
   reachable = 1,
   onSurface = 2
 };
 
 /// Ostream-operator for the IntersectionStatus enum
+/// @param os Output stream
+/// @param status IntersectionStatus to output
+/// @return Reference to output stream
 inline std::ostream& operator<<(std::ostream& os, IntersectionStatus status) {
   constexpr static std::array<const char*, 3> names = {
       {"missed/unreachable", "reachable", "onSurface"}};
@@ -39,43 +40,84 @@ inline std::ostream& operator<<(std::ostream& os, IntersectionStatus status) {
   return os;
 }
 
-///  @struct Intersection
-///
-///  Intersection struct used for position
+/// Intersection struct containing the position, path length and status of an
+/// intersection.
 template <unsigned int DIM>
 class Intersection {
  public:
   /// Position type
-  using Position = ActsVector<DIM>;
-  /// Status enum
-  using Status = IntersectionStatus;
+  using Position = Eigen::Map<const ActsVector<DIM>>;
 
   /// Constructor with arguments
   ///
   /// @param position is the position of the intersection
   /// @param pathLength is the path length to the intersection
   /// @param status is an enum indicating the status of the intersection
-  constexpr Intersection(const Position& position, double pathLength,
-                         Status status)
-      : m_position(position), m_pathLength(pathLength), m_status(status) {}
+  constexpr Intersection(const ActsVector<DIM>& position, double pathLength,
+                         IntersectionStatus status) noexcept
+      : Intersection(std::span<const double, DIM>{position.data(), DIM},
+                     pathLength, status) {}
 
-  /// Returns whether the intersection was successful or not
-  constexpr explicit operator bool() const {
-    return m_status != Status::missed;
+  /// Constructor from position vector, path length, and status
+  /// @param position The intersection position
+  /// @param pathLength The path length to the intersection
+  /// @param status The intersection status
+  constexpr Intersection(const Position& position, double pathLength,
+                         IntersectionStatus status) noexcept
+      : Intersection(std::span<const double, DIM>{position.data(), DIM},
+                     pathLength, status) {}
+
+  /// Constructor from position span, path length, and status
+  /// @param position Span of position coordinates
+  /// @param pathLength The path length to the intersection
+  /// @param status The intersection status
+  constexpr Intersection(std::span<const double, DIM> position,
+                         double pathLength, IntersectionStatus status) noexcept
+      : m_pathLength(pathLength), m_status(status) {
+    std::ranges::copy(position, m_position.begin());
   }
 
-  constexpr const Position& position() const { return m_position; }
+  /// Copy constructor
+  constexpr Intersection(const Intersection&) noexcept = default;
+  /// Move constructor
+  constexpr Intersection(Intersection&&) noexcept = default;
+  /// Copy assignment operator
+  /// @return Reference to this intersection for chaining
+  constexpr Intersection& operator=(const Intersection&) noexcept = default;
+  /// Move assignment operator
+  /// @return Reference to this intersection for chaining
+  constexpr Intersection& operator=(Intersection&&) noexcept = default;
 
-  constexpr ActsScalar pathLength() const { return m_pathLength; }
+  /// Returns whether the intersection was successful or not
+  /// @return True if intersection is reachable or on surface, false if unreachable
+  constexpr bool isValid() const noexcept {
+    return m_status != IntersectionStatus::unreachable;
+  }
 
-  constexpr Status status() const { return m_status; }
+  /// Returns the position of the interseciton
+  /// @return Position vector of the intersection point
+  Position position() const noexcept { return Position{m_position.data()}; }
 
-  constexpr static Intersection invalid() { return Intersection(); }
+  /// Returns the path length to the intersection
+  /// @return Signed path length from origin to intersection point
+  constexpr double pathLength() const noexcept { return m_pathLength; }
+
+  /// Returns the intersection status enum
+  /// @return Status indicating if intersection is unreachable, reachable, or on surface
+  constexpr IntersectionStatus status() const noexcept { return m_status; }
+
+  /// Static factory to create an invalid intersection
+  /// @return Invalid intersection with unreachable status
+  constexpr static Intersection Invalid() noexcept { return Intersection(); }
 
   /// Comparison function for path length order i.e. intersection closest to
   /// -inf will be first.
-  constexpr static bool pathLengthOrder(const Intersection& aIntersection,
-                                        const Intersection& bIntersection) {
+  /// @param aIntersection First intersection to compare
+  /// @param bIntersection Second intersection to compare
+  /// @return True if first intersection has smaller path length than second
+  constexpr static bool pathLengthOrder(
+      const Intersection& aIntersection,
+      const Intersection& bIntersection) noexcept {
     auto a = aIntersection.pathLength();
     auto b = bIntersection.pathLength();
     return a < b;
@@ -83,14 +125,20 @@ class Intersection {
 
   /// Comparison function for closest order i.e. intersection closest to 0 will
   /// be first.
-  constexpr static bool closestOrder(const Intersection& aIntersection,
-                                     const Intersection& bIntersection) {
-    if ((aIntersection.status() == Status::unreachable) &&
-        (bIntersection.status() != Status::unreachable)) {
+  /// @param aIntersection First intersection to compare
+  /// @param bIntersection Second intersection to compare
+  /// @return True if first intersection is closer to zero path length than second
+  constexpr static bool closestOrder(
+      const Intersection& aIntersection,
+      const Intersection& bIntersection) noexcept {
+    using enum IntersectionStatus;
+
+    if ((aIntersection.status() == unreachable) &&
+        (bIntersection.status() != unreachable)) {
       return false;
     }
-    if ((aIntersection.status() != Status::unreachable) &&
-        (bIntersection.status() == Status::unreachable)) {
+    if ((aIntersection.status() != unreachable) &&
+        (bIntersection.status() == unreachable)) {
       return true;
     }
     // both are reachable or onSurface now
@@ -101,8 +149,12 @@ class Intersection {
 
   /// Comparison function for closest forward order i.e. intersection closest to
   /// 0 with positive path length will be first.
-  constexpr static bool closestForwardOrder(const Intersection& aIntersection,
-                                            const Intersection& bIntersection) {
+  /// @param aIntersection First intersection to compare
+  /// @param bIntersection Second intersection to compare
+  /// @return True if first intersection is closer to zero with preference for forward direction
+  constexpr static bool closestForwardOrder(
+      const Intersection& aIntersection,
+      const Intersection& bIntersection) noexcept {
     auto a = aIntersection.pathLength();
     auto b = bIntersection.pathLength();
     return std::signbit(a) == std::signbit(b) ? std::abs(a) < std::abs(b)
@@ -111,191 +163,113 @@ class Intersection {
 
  private:
   /// Position of the intersection
-  Position m_position = Position::Zero();
+  std::array<double, DIM> m_position{};
   /// Signed path length to the intersection (if valid)
-  ActsScalar m_pathLength = std::numeric_limits<double>::infinity();
+  double m_pathLength = std::numeric_limits<double>::infinity();
   /// The Status of the intersection
-  Status m_status = Status::unreachable;
+  IntersectionStatus m_status = IntersectionStatus::unreachable;
 
-  constexpr Intersection() = default;
+  constexpr Intersection() noexcept = default;
 };
 
+/// Type alias for 2D intersection
 using Intersection2D = Intersection<2>;
+/// Type alias for 3D intersection
 using Intersection3D = Intersection<3>;
 
-static constexpr std::uint8_t s_maximumNumberOfIntersections = 2;
-using MultiIntersection3D =
-    boost::container::static_vector<Intersection3D,
-                                    s_maximumNumberOfIntersections>;
+static_assert(std::is_trivially_copy_constructible_v<Intersection2D>);
+static_assert(std::is_trivially_move_constructible_v<Intersection2D>);
+static_assert(std::is_trivially_move_assignable_v<Intersection2D>);
 
-template <typename object_t>
-class ObjectIntersection {
+using IntersectionIndex = std::uint8_t;
+static constexpr IntersectionIndex s_maximumNumberOfIntersections = 2;
+
+template <unsigned int DIM>
+class MultiIntersection {
  public:
-  /// Object intersection
-  ///
-  /// @param intersection is the intersection
-  /// @param object is the object to be instersected
-  /// @param index is the intersection index
-  constexpr ObjectIntersection(const Intersection3D& intersection,
-                               const object_t* object, std::uint8_t index = 0)
-      : m_intersection(intersection), m_object(object), m_index(index) {}
+  using IntersectionType = Intersection<DIM>;
+  using IndexedIntersection = std::pair<IntersectionType, IntersectionIndex>;
 
-  /// Returns whether the intersection was successful or not
-  constexpr explicit operator bool() const {
-    return m_intersection.operator bool();
+  using Container =
+      std::array<IntersectionType, s_maximumNumberOfIntersections>;
+
+  using size_type = IntersectionIndex;
+
+  constexpr explicit MultiIntersection(
+      const IntersectionType& intersection) noexcept
+      : m_intersections{intersection, IntersectionType::Invalid()}, m_size{1} {}
+  constexpr MultiIntersection(const IntersectionType& intersection1,
+                              const IntersectionType& intersection2) noexcept
+      : m_intersections{intersection1, intersection2}, m_size{2} {}
+
+  constexpr MultiIntersection(const MultiIntersection&) noexcept = default;
+  constexpr MultiIntersection(MultiIntersection&&) noexcept = default;
+  constexpr MultiIntersection& operator=(const MultiIntersection&) noexcept =
+      default;
+  constexpr MultiIntersection& operator=(MultiIntersection&&) noexcept =
+      default;
+
+  constexpr const IntersectionType& operator[](IntersectionIndex index) const {
+    return m_intersections[index];
   }
 
-  constexpr const Intersection3D& intersection() const {
-    return m_intersection;
+  constexpr const IntersectionType& at(IntersectionIndex index) const {
+    return m_intersections.at(index);
   }
 
-  constexpr const Intersection3D::Position& position() const {
-    return m_intersection.position();
+  constexpr IntersectionIndex size() const noexcept { return m_size; }
+
+  constexpr auto begin() const noexcept {
+    return std::span(m_intersections.data(), m_size).begin();
+  }
+  constexpr auto end() const noexcept {
+    return std::span(m_intersections.data(), m_size).end();
   }
 
-  constexpr ActsScalar pathLength() const {
-    return m_intersection.pathLength();
+  constexpr IntersectionType closest() const noexcept {
+    return closestWithIndex().first;
+  }
+  constexpr IndexedIntersection closestWithIndex() const noexcept {
+    auto min = std::ranges::min_element(m_intersections,
+                                        IntersectionType::closestOrder);
+    return {*min, static_cast<IntersectionIndex>(
+                      std::distance(m_intersections.begin(), min))};
   }
 
-  constexpr Intersection3D::Status status() const {
-    return m_intersection.status();
+  constexpr IntersectionType closestForward() const noexcept {
+    return closestForwardWithIndex().first;
   }
-
-  constexpr const object_t* object() const { return m_object; }
-
-  constexpr std::uint8_t index() const { return m_index; }
-
-  constexpr static ObjectIntersection invalid() { return ObjectIntersection(); }
-
-  constexpr static bool pathLengthOrder(
-      const ObjectIntersection& aIntersection,
-      const ObjectIntersection& bIntersection) {
-    return Intersection3D::pathLengthOrder(aIntersection.intersection(),
-                                           bIntersection.intersection());
-  }
-
-  constexpr static bool closestOrder(const ObjectIntersection& aIntersection,
-                                     const ObjectIntersection& bIntersection) {
-    return Intersection3D::closestOrder(aIntersection.intersection(),
-                                        bIntersection.intersection());
-  }
-
-  constexpr static bool closestForwardOrder(
-      const ObjectIntersection& aIntersection,
-      const ObjectIntersection& bIntersection) {
-    return Intersection3D::closestForwardOrder(aIntersection.intersection(),
-                                               bIntersection.intersection());
+  constexpr IndexedIntersection closestForwardWithIndex() const noexcept {
+    auto min = std::ranges::min_element(m_intersections,
+                                        IntersectionType::closestForwardOrder);
+    return {*min, static_cast<IntersectionIndex>(
+                      std::distance(m_intersections.begin(), min))};
   }
 
  private:
-  /// The intersection itself
-  Intersection3D m_intersection = Intersection3D::invalid();
-  /// The object that was (tried to be) intersected
-  const object_t* m_object = nullptr;
-  /// The intersection index
-  std::uint8_t m_index = 0;
-
-  constexpr ObjectIntersection() = default;
+  Container m_intersections{};
+  IntersectionIndex m_size{};
 };
 
-template <typename object_t>
-class ObjectMultiIntersection {
- public:
-  using SplitIntersections =
-      boost::container::static_vector<ObjectIntersection<object_t>,
-                                      s_maximumNumberOfIntersections>;
+using MultiIntersection2D = MultiIntersection<2>;
+using MultiIntersection3D = MultiIntersection<3>;
 
-  /// Object intersection
-  ///
-  /// @param intersections are the intersections
-  /// @param object is the object to be instersected
-  constexpr ObjectMultiIntersection(const MultiIntersection3D& intersections,
-                                    const object_t* object)
-      : m_intersections(intersections), m_object(object) {}
-
-  constexpr ObjectIntersection<object_t> operator[](std::uint8_t index) const {
-    return {m_intersections[index], m_object, index};
-  }
-
-  constexpr std::size_t size() const { return m_intersections.size(); }
-
-  constexpr const object_t* object() const { return m_object; }
-
-  constexpr SplitIntersections split() const {
-    SplitIntersections result;
-    for (std::size_t i = 0; i < size(); ++i) {
-      result.push_back(operator[](i));
-    }
-    return result;
-  }
-
-  constexpr ObjectIntersection<object_t> closest() const {
-    auto splitIntersections = split();
-    return *std::min_element(splitIntersections.begin(),
-                             splitIntersections.end(),
-                             ObjectIntersection<object_t>::closestOrder);
-  }
-
-  constexpr ObjectIntersection<object_t> closestForward() const {
-    auto splitIntersections = split();
-    return *std::min_element(splitIntersections.begin(),
-                             splitIntersections.end(),
-                             ObjectIntersection<object_t>::closestForwardOrder);
-  }
-
- private:
-  /// The intersections
-  MultiIntersection3D m_intersections;
-  /// The object that was (tried to be) intersected
-  const object_t* m_object = nullptr;
-};
+static_assert(std::is_trivially_copy_constructible_v<MultiIntersection2D>);
+static_assert(std::is_trivially_move_constructible_v<MultiIntersection2D>);
+static_assert(std::is_trivially_move_assignable_v<MultiIntersection2D>);
 
 namespace detail {
 
-/// This function checks if an intersection is valid for the specified
-/// path-limit and overstep-limit
+/// This function checks if an intersection path length is valid for the
+/// specified near-limit and far-limit
 ///
-/// @tparam intersection_t Type of the intersection object
-///
-/// @param intersection The intersection to check
-/// @param nearLimit The minimum distance for an intersection to be considered
-/// @param farLimit The maximum distance for an intersection to be considered
+/// @param pathLength The path length of the intersection
+/// @param nearLimit The minimum path length for an intersection to be considered
+/// @param farLimit The maximum path length for an intersection to be considered
 /// @param logger A optionally supplied logger which prints out a lot of infos
 ///               at VERBOSE level
-template <typename intersection_t>
-bool checkIntersection(const intersection_t& intersection, double nearLimit,
-                       double farLimit,
-                       const Logger& logger = getDummyLogger()) {
-  const double distance = intersection.pathLength();
-  // TODO why?
-  const double tolerance = s_onSurfaceTolerance;
-
-  ACTS_VERBOSE(" -> near limit, far limit, distance: "
-               << nearLimit << ", " << farLimit << ", " << distance);
-
-  const bool coCriterion = distance > nearLimit;
-  const bool cpCriterion = std::abs(distance) < std::abs(farLimit) + tolerance;
-
-  const bool accept = coCriterion && cpCriterion;
-
-  if (accept) {
-    ACTS_VERBOSE("Intersection is WITHIN limit");
-  } else {
-    ACTS_VERBOSE("Intersection is OUTSIDE limit because: ");
-    if (!coCriterion) {
-      ACTS_VERBOSE("- intersection path length "
-                   << distance << " <= near limit " << nearLimit);
-    }
-    if (!cpCriterion) {
-      ACTS_VERBOSE("- intersection path length "
-                   << std::abs(distance) << " is over the far limit "
-                   << (std::abs(farLimit) + tolerance)
-                   << " (including tolerance of " << tolerance << ")");
-    }
-  }
-
-  return accept;
-}
+bool checkPathLength(double pathLength, double nearLimit, double farLimit,
+                     const Logger& logger = getDummyLogger());
 
 }  // namespace detail
 

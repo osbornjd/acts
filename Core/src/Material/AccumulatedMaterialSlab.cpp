@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Material/AccumulatedMaterialSlab.hpp"
 
@@ -12,10 +12,10 @@
 #include "Acts/Material/detail/AverageMaterials.hpp"
 
 void Acts::AccumulatedMaterialSlab::accumulate(MaterialSlab slab,
-                                               float pathCorrection) {
+                                               double pathCorrection) {
   // scale the recorded material to the equivalence contribution along the
   // surface normal
-  slab.scaleThickness(1 / pathCorrection);
+  slab.scaleThickness(static_cast<float>(1. / pathCorrection));
   m_trackAverage = detail::combineSlabs(m_trackAverage, slab);
 }
 

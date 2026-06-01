@@ -1,15 +1,13 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
-#include "Acts/Definitions/Algebra.hpp"
-#include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/MagneticField/MagneticFieldProvider.hpp"
 #include "Acts/Utilities/AnnealingUtility.hpp"
 #include "Acts/Utilities/Logger.hpp"
@@ -22,7 +20,7 @@
 #include "Acts/Vertexing/VertexingError.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
 
-#include <functional>
+#include <algorithm>
 
 namespace Acts {
 
@@ -37,36 +35,46 @@ class AdaptiveMultiVertexFitter {
  public:
   /// @brief The fitter state
   struct State {
+    /// Constructor for multi-vertex fitter state
+    /// @param field Magnetic field provider for track extrapolation
+    /// @param magContext Magnetic field context for field evaluations
     State(const MagneticFieldProvider& field,
           const Acts::MagneticFieldContext& magContext)
         : ipState{field.makeCache(magContext)},
           fieldCache(field.makeCache(magContext)) {}
-    // Vertex collection to be fitted
+
+    /// Vertex collection to be fitted
     std::vector<Vertex*> vertexCollection;
 
-    // Annealing state
+    /// Annealing state for thermodynamic track weighting
     AnnealingUtility::State annealingState;
 
+    /// Impact point estimator state for track parameter calculations
     ImpactPointEstimator::State ipState;
 
+    /// Magnetic field cache for field evaluations during fitting
     MagneticFieldProvider::Cache fieldCache;
 
-    // Map to store vertices information
-    // @TODO Does this have to be a mutable pointer?
+    /// Map storing vertex information for each vertex in the fit
+    /// @todo Does this have to be a mutable pointer?
     std::map<Vertex*, VertexInfo> vtxInfoMap;
 
+    /// Multimap connecting tracks to their associated vertices
     std::multimap<InputTrack, Vertex*> trackToVerticesMultiMap;
 
+    /// Map storing track-at-vertex information for each track-vertex pair
     std::map<std::pair<InputTrack, Vertex*>, TrackAtVertex> tracksAtVerticesMap;
 
-    // Adds a vertex to trackToVerticesMultiMap
+    /// Adds a vertex to trackToVerticesMultiMap
+    /// @param vtx Vertex to add to the multimap with its associated tracks
     void addVertexToMultiMap(Vertex& vtx) {
       for (auto trk : vtxInfoMap[&vtx].trackLinks) {
         trackToVerticesMultiMap.emplace(trk, &vtx);
       }
     }
 
-    // Removes a vertex from trackToVerticesMultiMap
+    /// Removes a vertex from trackToVerticesMultiMap
+    /// @param vtx Vertex to remove from the multimap along with its track associations
     void removeVertexFromMultiMap(Vertex& vtx) {
       for (auto iter = trackToVerticesMultiMap.begin();
            iter != trackToVerticesMultiMap.end();) {
@@ -78,10 +86,13 @@ class AdaptiveMultiVertexFitter {
       }
     }
 
+    /// Remove a vertex from the vertex collection
+    /// @param vtxToRemove Vertex to remove from the collection
+    /// @param logger Logger for diagnostic messages
+    /// @return Result indicating success or failure of the removal operation
     Result<void> removeVertexFromCollection(Vertex& vtxToRemove,
                                             const Logger& logger) {
-      auto it = std::find(vertexCollection.begin(), vertexCollection.end(),
-                          &vtxToRemove);
+      auto it = std::ranges::find(vertexCollection, &vtxToRemove);
       // Check if the value was found before erasing
       if (it == vertexCollection.end()) {
         ACTS_ERROR("vtxToRemove is not part of vertexCollection.");
@@ -97,7 +108,7 @@ class AdaptiveMultiVertexFitter {
     /// @brief Config constructor
     ///
     /// @param est ImpactPointEstimator
-    Config(ImpactPointEstimator est) : ipEst(std::move(est)) {}
+    explicit Config(ImpactPointEstimator est) : ipEst(std::move(est)) {}
 
     // ImpactPointEstimator
     ImpactPointEstimator ipEst;
@@ -144,22 +155,9 @@ class AdaptiveMultiVertexFitter {
   /// @param cfg Configuration object
   /// object
   /// @param logger The logging instance
-  AdaptiveMultiVertexFitter(Config cfg,
-                            std::unique_ptr<const Logger> logger =
-                                getDefaultLogger("AdaptiveMultiVertexFitter",
-                                                 Logging::INFO))
-      : m_cfg(std::move(cfg)), m_logger(std::move(logger)) {
-    if (!m_cfg.extractParameters.connected()) {
-      throw std::invalid_argument(
-          "AdaptiveMultiVertexFitter: No function to extract parameters "
-          "from InputTrack_t provided.");
-    }
-
-    if (!m_cfg.trackLinearizer.connected()) {
-      throw std::invalid_argument(
-          "AdaptiveMultiVertexFitter: No track linearizer provided.");
-    }
-  }
+  explicit AdaptiveMultiVertexFitter(
+      Config cfg, std::unique_ptr<const Logger> logger = getDefaultLogger(
+                      "AdaptiveMultiVertexFitter", Logging::INFO));
 
   /// @brief Adds a new vertex to an existing multi-vertex fit.
   /// 1. The 3D impact parameters are calculated for all tracks associated
@@ -171,11 +169,12 @@ class AdaptiveMultiVertexFitter {
   /// 3. The multivertex fit is performed for all vertices on said list.
   ///
   /// @param state Fitter state
-  /// @param newVertex Vertex to be added to fit
+  /// @param newVertices Vertex to be added to fit
   /// @param vertexingOptions Vertexing options
   ///
   /// @return Result<void> object
-  Result<void> addVtxToFit(State& state, Vertex& newVertex,
+  Result<void> addVtxToFit(State& state,
+                           const std::vector<Vertex*>& newVertices,
                            const VertexingOptions& vertexingOptions) const;
 
   /// @brief Performs a simultaneous fit of all vertices in

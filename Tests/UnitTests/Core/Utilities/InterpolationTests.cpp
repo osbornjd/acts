@@ -1,26 +1,26 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Interpolation.hpp"
-#include "Acts/Utilities/TypeTraits.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <array>
 #include <vector>
 
-namespace Acts {
+using namespace Acts;
+using namespace Acts::detail;
 
-using namespace detail;
+namespace ActsTests {
 
-namespace Test {
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
 BOOST_AUTO_TEST_CASE(interpolation_1d) {
   using Point = std::array<double, 1u>;
@@ -123,6 +123,7 @@ BOOST_AUTO_TEST_CASE(interpolation_mixed_point_values) {
   CHECK_CLOSE_REL(interpolate((p << 2.).finished(), low, high, v), 20., 1e-6);
   CHECK_CLOSE_REL(interpolate((p << 2.3).finished(), low, high, v), 23., 1e-6);
 }
-}  // namespace Test
 
-}  // namespace Acts
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -14,7 +14,9 @@
 #include <optional>
 #include <stdexcept>
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTests {
 
 namespace states {
 struct Disconnected {};
@@ -86,7 +88,7 @@ struct fsm : FiniteStateMachine<fsm, states::Disconnected, states::Connecting,
   void on_process(Args&&... /*unused*/) {}
 };
 
-BOOST_AUTO_TEST_SUITE(Utilities)
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
 BOOST_AUTO_TEST_CASE(Transitions) {
   fsm sm{};
@@ -108,7 +110,7 @@ BOOST_AUTO_TEST_CASE(Transitions) {
   BOOST_CHECK(sm.is(states::Disconnected{}));
 }
 
-BOOST_AUTO_TEST_CASE(Terminted) {
+BOOST_AUTO_TEST_CASE(Terminated) {
   fsm sm{};
   BOOST_CHECK(sm.is(states::Disconnected{}));
 
@@ -297,4 +299,4 @@ BOOST_AUTO_TEST_CASE(InternalTransitions) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

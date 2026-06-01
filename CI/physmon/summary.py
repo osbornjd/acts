@@ -23,12 +23,12 @@ summary = []
 
 with open(args.results) as f:
     reader = csv.reader(f)
-    for title, slug, ec in reader:
+    for title, html_path, ec in reader:
         summary.append(
             {
                 "title": title,
                 "total": ec == "0",
-                "path": f"{slug}.html",
+                "path": html_path,
             }
         )
 
@@ -48,10 +48,16 @@ if args.html:
         )
 
         for s in summary:
-            f.write(
-                f"""
+            if s["title"].startswith("Comparison"):
+                f.write(
+                    f"""
+        <li>🔵 <a href="{s["path"]}">{s["title"]}</a></li>"""
+                )
+            else:
+                f.write(
+                    f"""
         <li>{"✅" if s["total"] else "🔴"} <a href="{s["path"]}">{s["title"]}</a></li>"""
-            )
+                )
 
         f.write(
             """
@@ -74,4 +80,8 @@ if args.md:
                 )
             else:
                 url = s["path"]
-            f.write(f"  - {'✅' if s['total'] else '🔴'} [{s['title']}]({url})\n")
+
+            if s["title"].startswith("Comparison"):
+                f.write(f"  - 🔵️ [{s['title']}]({url})\n")
+            else:
+                f.write(f"  - {'✅' if s['total'] else '🔴'} [{s['title']}]({url})\n")

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -16,6 +16,8 @@ namespace Acts {
 class Material;
 
 /// @class IVolumeMaterial
+///
+/// @ingroup material
 ///
 /// Virtual base class of volume material description
 //
@@ -29,6 +31,7 @@ class IVolumeMaterial {
   ///
   /// @param position is the request position for the material call
   /// @todo interface to change including 'cell'
+  /// @return The material properties at the given position
   virtual const Material material(const Vector3& position) const = 0;
 
   /// @brief output stream operator
@@ -44,6 +47,8 @@ class IVolumeMaterial {
   }
 
   /// Output Method for std::ostream, to be overloaded by child classes
+  /// @param sl Output stream to write to
+  /// @return Reference to the output stream for method chaining
   virtual std::ostream& toStream(std::ostream& sl) const = 0;
 };
 

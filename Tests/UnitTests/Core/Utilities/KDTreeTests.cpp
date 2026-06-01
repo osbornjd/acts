@@ -1,13 +1,14 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/KDTree.hpp"
 #include "Acts/Utilities/RangeXD.hpp"
 
@@ -73,14 +74,16 @@ std::vector<std::pair<std::array<double, 3>, int>> test_vector{
     {{-6.0, 3.5, -7.4}, 7},    {{3.2, -6.2, 3.9}, -25}};
 }
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTests {
 
 struct TreeFixture1DDoubleInt1 {
   TreeFixture1DDoubleInt1()
       : tree(std::vector<std::pair<std::array<double, 1>, int>>{
             {{1.0}, 5}, {{2.0}, 6}, {{-1.2}, 2}, {{0.9}, 10}}) {}
 
-  Acts::KDTree<1, int, double> tree;
+  KDTree<1, int, double> tree;
 };
 
 struct TreeFixture1DDoubleInt2 {
@@ -94,7 +97,7 @@ struct TreeFixture1DDoubleInt2 {
             {{110.0}, 1},
             {{-1000.0}, 3}}) {}
 
-  Acts::KDTree<1, int, double> tree;
+  KDTree<1, int, double> tree;
 };
 
 struct TreeFixture2DDoubleInt1 {
@@ -102,7 +105,7 @@ struct TreeFixture2DDoubleInt1 {
       : tree(std::vector<std::pair<std::array<double, 2>, int>>{
             {{1.0, 5.0}, 5}, {{2.0, -2.5}, 6}}) {}
 
-  Acts::KDTree<2, int, double> tree;
+  KDTree<2, int, double> tree;
 };
 
 struct TreeFixture3DDoubleInt1 {
@@ -119,14 +122,14 @@ struct TreeFixture3DDoubleInt1 {
             {{-2.8, 8.8, -7.2}, 62},  {{-0.1, 3.5, 5.5}, -95},
             {{-1.3, 6.9, 5.3}, -23},  {{6.2, 6.6, 7.1}, -84}}) {}
 
-  Acts::KDTree<3, int, double> tree;
+  KDTree<3, int, double> tree;
 };
 
 struct TreeFixture3DDoubleInt2 {
   TreeFixture3DDoubleInt2()
       : tree(std::vector<std::pair<std::array<double, 3>, int>>(test_vector)) {}
 
-  Acts::KDTree<3, int, double> tree;
+  KDTree<3, int, double> tree;
 };
 
 struct TreeFixture3DDoubleInt3 {
@@ -141,7 +144,7 @@ struct TreeFixture3DDoubleInt3 {
             {{-100.0, -1.0, -0.2}, 3},
             {{100.0, 1.9, 8.8}, 7}}) {}
 
-  Acts::KDTree<3, int, double> tree;
+  KDTree<3, int, double> tree;
 };
 
 struct TreeFixture10DDoubleInt1 {
@@ -158,7 +161,7 @@ struct TreeFixture10DDoubleInt1 {
             {{8.4, -4.0, 6.3, 1.1, -5.7, 8.1, -8.0, -2.5, -0.5, 3.2}, -56},
             {{2.3, 5.8, 1.4, 4.0, 9.0, -6.4, 1.0, -7.8, 4.3, -5.3}, -83}}) {}
 
-  Acts::KDTree<10, int, double> tree;
+  KDTree<10, int, double> tree;
 };
 
 struct TreeFixture3DDoubleString1 {
@@ -175,7 +178,7 @@ struct TreeFixture3DDoubleString1 {
             {{-2.7, -5.9, -7.3}, "string8"},
             {{3.1, -9.4, -2.5}, "string9"}}) {}
 
-  Acts::KDTree<3, std::string, double> tree;
+  KDTree<3, std::string, double> tree;
 };
 
 struct TreeFixture1DIntInt1 {
@@ -183,7 +186,7 @@ struct TreeFixture1DIntInt1 {
       : tree(std::vector<std::pair<std::array<int, 1>, int>>{
             {{1}, 5}, {{2}, 6}, {{-1}, 2}, {{5}, 10}}) {}
 
-  Acts::KDTree<1, int, int> tree;
+  KDTree<1, int, int> tree;
 };
 
 struct TreeFixture2DIntInt1 {
@@ -191,12 +194,12 @@ struct TreeFixture2DIntInt1 {
       : tree(std::vector<std::pair<std::array<int, 2>, int>>{
             {{1, 7}, 5}, {{2, 1}, 6}, {{-1, -11}, 2}, {{5, -2}, 10}}) {}
 
-  Acts::KDTree<2, int, int> tree;
+  KDTree<2, int, int> tree;
 };
 
-BOOST_AUTO_TEST_SUITE(Utilities)
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
-BOOST_AUTO_TEST_SUITE(KDTree)
+BOOST_AUTO_TEST_SUITE(KDTreeSuite)
 
 BOOST_FIXTURE_TEST_CASE(size_1, TreeFixture1DDoubleInt1) {
   BOOST_CHECK_EQUAL(tree.size(), 4);
@@ -236,12 +239,12 @@ BOOST_FIXTURE_TEST_CASE(range_search_1, TreeFixture1DDoubleInt2) {
 
   std::vector<int> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 3);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 5) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 6) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 10) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 7) == result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 2) == result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 9) == result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 5));
+  BOOST_CHECK(rangeContainsValue(result, 6));
+  BOOST_CHECK(rangeContainsValue(result, 10));
+  BOOST_CHECK(!rangeContainsValue(result, 7));
+  BOOST_CHECK(!rangeContainsValue(result, 2));
+  BOOST_CHECK(!rangeContainsValue(result, 9));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_2, TreeFixture1DDoubleInt2) {
@@ -250,13 +253,13 @@ BOOST_FIXTURE_TEST_CASE(range_search_2, TreeFixture1DDoubleInt2) {
 
   std::vector<int> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 7);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 1) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 2) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 3) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 5) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 6) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 9) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 10) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 1));
+  BOOST_CHECK(rangeContainsValue(result, 2));
+  BOOST_CHECK(rangeContainsValue(result, 3));
+  BOOST_CHECK(rangeContainsValue(result, 5));
+  BOOST_CHECK(rangeContainsValue(result, 6));
+  BOOST_CHECK(rangeContainsValue(result, 9));
+  BOOST_CHECK(rangeContainsValue(result, 10));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_3, TreeFixture1DDoubleInt2) {
@@ -274,7 +277,7 @@ BOOST_FIXTURE_TEST_CASE(range_search_4, TreeFixture2DDoubleInt1) {
 
   std::vector<int> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 1);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 5) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 5));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_5, TreeFixture2DDoubleInt1) {
@@ -284,8 +287,8 @@ BOOST_FIXTURE_TEST_CASE(range_search_5, TreeFixture2DDoubleInt1) {
 
   std::vector<int> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 2);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 5) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 6) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 5));
+  BOOST_CHECK(rangeContainsValue(result, 6));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_6, TreeFixture10DDoubleInt1) {
@@ -294,11 +297,11 @@ BOOST_FIXTURE_TEST_CASE(range_search_6, TreeFixture10DDoubleInt1) {
 
   std::vector<int> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 5);
-  BOOST_CHECK((std::find(result.begin(), result.end(), -66) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -51) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -19) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -13) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -83) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, -66));
+  BOOST_CHECK(rangeContainsValue(result, -51));
+  BOOST_CHECK(rangeContainsValue(result, -19));
+  BOOST_CHECK(rangeContainsValue(result, -13));
+  BOOST_CHECK(rangeContainsValue(result, -83));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_7, TreeFixture10DDoubleInt1) {
@@ -307,8 +310,8 @@ BOOST_FIXTURE_TEST_CASE(range_search_7, TreeFixture10DDoubleInt1) {
 
   std::vector<int> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 2);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 27) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -56) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 27));
+  BOOST_CHECK(rangeContainsValue(result, -56));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_8, TreeFixture3DDoubleString1) {
@@ -319,8 +322,7 @@ BOOST_FIXTURE_TEST_CASE(range_search_8, TreeFixture3DDoubleString1) {
 
   std::vector<std::string> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 1);
-  BOOST_CHECK(
-      (std::find(result.begin(), result.end(), "string0") != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, "string0"));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_9, TreeFixture3DDoubleString1) {
@@ -331,14 +333,10 @@ BOOST_FIXTURE_TEST_CASE(range_search_9, TreeFixture3DDoubleString1) {
 
   std::vector<std::string> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 4);
-  BOOST_CHECK(
-      (std::find(result.begin(), result.end(), "string0") != result.end()));
-  BOOST_CHECK(
-      (std::find(result.begin(), result.end(), "string3") != result.end()));
-  BOOST_CHECK(
-      (std::find(result.begin(), result.end(), "string4") != result.end()));
-  BOOST_CHECK(
-      (std::find(result.begin(), result.end(), "string9") != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, "string0"));
+  BOOST_CHECK(rangeContainsValue(result, "string3"));
+  BOOST_CHECK(rangeContainsValue(result, "string4"));
+  BOOST_CHECK(rangeContainsValue(result, "string9"));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_10, TreeFixture1DIntInt1) {
@@ -347,8 +345,8 @@ BOOST_FIXTURE_TEST_CASE(range_search_10, TreeFixture1DIntInt1) {
 
   std::vector<int> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 2);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 5) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 6) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 5));
+  BOOST_CHECK(rangeContainsValue(result, 6));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_11, TreeFixture2DIntInt1) {
@@ -357,8 +355,8 @@ BOOST_FIXTURE_TEST_CASE(range_search_11, TreeFixture2DIntInt1) {
 
   std::vector<int> result = tree.rangeSearch(range);
   BOOST_CHECK_EQUAL(result.size(), 2);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 5) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 6) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 5));
+  BOOST_CHECK(rangeContainsValue(result, 6));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_inplace_1, TreeFixture10DDoubleInt1) {
@@ -369,11 +367,11 @@ BOOST_FIXTURE_TEST_CASE(range_search_inplace_1, TreeFixture10DDoubleInt1) {
   tree.rangeSearch(range, result);
 
   BOOST_CHECK_EQUAL(result.size(), 5);
-  BOOST_CHECK((std::find(result.begin(), result.end(), -66) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -51) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -19) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -13) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -83) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, -66));
+  BOOST_CHECK(rangeContainsValue(result, -51));
+  BOOST_CHECK(rangeContainsValue(result, -19));
+  BOOST_CHECK(rangeContainsValue(result, -13));
+  BOOST_CHECK(rangeContainsValue(result, -83));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_inserter_1, TreeFixture10DDoubleInt1) {
@@ -384,11 +382,11 @@ BOOST_FIXTURE_TEST_CASE(range_search_inserter_1, TreeFixture10DDoubleInt1) {
   tree.rangeSearchInserter(range, std::back_inserter(result));
 
   BOOST_CHECK_EQUAL(result.size(), 5);
-  BOOST_CHECK((std::find(result.begin(), result.end(), -66) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -51) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -19) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -13) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -83) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, -66));
+  BOOST_CHECK(rangeContainsValue(result, -51));
+  BOOST_CHECK(rangeContainsValue(result, -19));
+  BOOST_CHECK(rangeContainsValue(result, -13));
+  BOOST_CHECK(rangeContainsValue(result, -83));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_map_1, TreeFixture10DDoubleInt1) {
@@ -400,11 +398,11 @@ BOOST_FIXTURE_TEST_CASE(range_search_map_1, TreeFixture10DDoubleInt1) {
       [](const std::array<double, 10>&, const int& i) -> int { return 2 * i; });
 
   BOOST_CHECK_EQUAL(result.size(), 5);
-  BOOST_CHECK((std::find(result.begin(), result.end(), -132) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -102) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -38) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -26) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), -166) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, -132));
+  BOOST_CHECK(rangeContainsValue(result, -102));
+  BOOST_CHECK(rangeContainsValue(result, -38));
+  BOOST_CHECK(rangeContainsValue(result, -26));
+  BOOST_CHECK(rangeContainsValue(result, -166));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_map_inserter_1, TreeFixture10DDoubleInt1) {
@@ -421,11 +419,11 @@ BOOST_FIXTURE_TEST_CASE(range_search_map_inserter_1, TreeFixture10DDoubleInt1) {
       std::back_inserter(result));
 
   BOOST_CHECK_EQUAL(result.size(), 5);
-  BOOST_CHECK((std::find(result.begin(), result.end(), "-66") != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), "-51") != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), "-19") != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), "-13") != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), "-83") != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, "-66"));
+  BOOST_CHECK(rangeContainsValue(result, "-51"));
+  BOOST_CHECK(rangeContainsValue(result, "-19"));
+  BOOST_CHECK(rangeContainsValue(result, "-13"));
+  BOOST_CHECK(rangeContainsValue(result, "-83"));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_map_inserter_2, TreeFixture2DIntInt1) {
@@ -441,8 +439,8 @@ BOOST_FIXTURE_TEST_CASE(range_search_map_inserter_2, TreeFixture2DIntInt1) {
       std::back_inserter(result));
 
   BOOST_CHECK_EQUAL(result.size(), 2);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 40) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 18) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 40));
+  BOOST_CHECK(rangeContainsValue(result, 18));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_map_discard_1, TreeFixture2DIntInt1) {
@@ -486,12 +484,10 @@ BOOST_FIXTURE_TEST_CASE(range_search_combinatorial, TreeFixture3DDoubleInt2) {
 
               std::vector<int> valid;
 
-              for (const std::pair<std::array<double, 3>, int>& i :
-                   test_vector) {
-                const std::array<double, 3>& c = i.first;
+              for (const auto& [c, value] : test_vector) {
                 if (xmin <= c[0] && c[0] < xmax && ymin <= c[1] &&
                     c[1] < ymax && zmin <= c[2] && c[2] < zmax) {
-                  valid.push_back(i.second);
+                  valid.push_back(value);
                 }
               }
 
@@ -500,8 +496,7 @@ BOOST_FIXTURE_TEST_CASE(range_search_combinatorial, TreeFixture3DDoubleInt2) {
               BOOST_CHECK_EQUAL(result.size(), valid.size());
 
               for (int j : valid) {
-                BOOST_CHECK((std::find(result.begin(), result.end(), j) !=
-                             result.end()));
+                BOOST_CHECK(rangeContainsValue(result, j));
               }
             }
           }
@@ -517,10 +512,10 @@ BOOST_FIXTURE_TEST_CASE(range_search_dominate1, TreeFixture3DDoubleInt3) {
 
   std::vector<int> result = tree.rangeSearch(range1);
   BOOST_CHECK_EQUAL(result.size(), 4);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 0) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 1) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 2) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 3) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 0));
+  BOOST_CHECK(rangeContainsValue(result, 1));
+  BOOST_CHECK(rangeContainsValue(result, 2));
+  BOOST_CHECK(rangeContainsValue(result, 3));
 }
 
 BOOST_FIXTURE_TEST_CASE(range_search_dominate2, TreeFixture3DDoubleInt3) {
@@ -529,10 +524,10 @@ BOOST_FIXTURE_TEST_CASE(range_search_dominate2, TreeFixture3DDoubleInt3) {
 
   std::vector<int> result = tree.rangeSearch(range1);
   BOOST_CHECK_EQUAL(result.size(), 4);
-  BOOST_CHECK((std::find(result.begin(), result.end(), 4) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 5) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 6) != result.end()));
-  BOOST_CHECK((std::find(result.begin(), result.end(), 7) != result.end()));
+  BOOST_CHECK(rangeContainsValue(result, 4));
+  BOOST_CHECK(rangeContainsValue(result, 5));
+  BOOST_CHECK(rangeContainsValue(result, 6));
+  BOOST_CHECK(rangeContainsValue(result, 7));
 }
 
 BOOST_AUTO_TEST_CASE(range_search_very_big) {
@@ -550,7 +545,7 @@ BOOST_AUTO_TEST_CASE(range_search_very_big) {
 
   std::vector<std::pair<std::array<double, 3>, int>> copy(points);
 
-  Acts::KDTree<3, int, double> tree(std::move(copy));
+  KDTree<3, int, double> tree(std::move(copy));
 
   for (double xmin = -10.0; xmin <= 10.0; xmin += 1.0) {
     for (double ymin = -10.0; ymin <= 10.0; ymin += 1.0) {
@@ -580,8 +575,7 @@ BOOST_AUTO_TEST_CASE(range_search_very_big) {
         BOOST_CHECK_EQUAL(result.size(), valid.size());
 
         for (int j : valid) {
-          BOOST_CHECK(
-              (std::find(result.begin(), result.end(), j) != result.end()));
+          BOOST_CHECK(rangeContainsValue(result, j));
         }
       }
     }
@@ -601,7 +595,7 @@ BOOST_AUTO_TEST_CASE(range_search_many_same) {
     points.push_back({{-64.0, -64.0, -64.0}, q++});
   }
 
-  Acts::KDTree<3, int, double> tree(std::move(points));
+  KDTree<3, int, double> tree(std::move(points));
 
   RangeXD<3, double> range1;
   range1[0].shrink(50.0, 70.0);
@@ -620,17 +614,15 @@ BOOST_AUTO_TEST_CASE(range_search_many_same) {
   BOOST_CHECK_EQUAL(result2.size(), 50);
 
   for (int i = 0; i < 50; ++i) {
-    BOOST_CHECK(
-        (std::find(result1.begin(), result1.end(), i) != result1.end()));
+    BOOST_CHECK(rangeContainsValue(result1, i));
   }
 
   for (int i = 50; i < 100; ++i) {
-    BOOST_CHECK(
-        (std::find(result2.begin(), result2.end(), i) != result2.end()));
+    BOOST_CHECK(rangeContainsValue(result2, i));
   }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Acts::Test
+}  // namespace ActsTests

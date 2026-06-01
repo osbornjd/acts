@@ -17,9 +17,15 @@ from acts.examples import (
     WhiteBoard,
     AlgorithmContext,
     ProcessCode,
+    MaterialMapping,
+)
+
+from acts.examples.root import (
     RootMaterialTrackReader,
     RootMaterialTrackWriter,
-    MaterialMapping,
+)
+
+from acts.examples.json import (
     JsonMaterialWriter,
     JsonFormat,
 )
@@ -153,9 +159,9 @@ if "__main__" == __name__:
 
     from acts.examples.itk import buildITkGeometry
 
-    detector, trackingGeometry, decorators = buildITkGeometry(
-        geo_example_dir, customMaterialFile=args.material
-    )
+    detector = buildITkGeometry(geo_example_dir, customMaterialFile=args.material)
+    trackingGeometry = detector.trackingGeometry()
+    decorators = detector.contextDecorators()
 
     runMaterialMapping(
         trackingGeometry,

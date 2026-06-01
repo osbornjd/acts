@@ -1,176 +1,218 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#pragma once
+
+#include "Acts/Propagator/EigenStepper.hpp"
+
+#include "Acts/Definitions/Direction.hpp"
 #include "Acts/EventData/TransformationHelpers.hpp"
 #include "Acts/Propagator/ConstrainedStep.hpp"
+#include "Acts/Propagator/EigenStepperError.hpp"
 #include "Acts/Propagator/detail/CovarianceEngine.hpp"
 
-template <typename E, typename A>
-Acts::EigenStepper<E, A>::EigenStepper(
-    std::shared_ptr<const MagneticFieldProvider> bField, double overstepLimit)
-    : m_bField(std::move(bField)), m_overstepLimit(overstepLimit) {}
+template <typename E>
+Acts::EigenStepper<E>::EigenStepper(
+    std::shared_ptr<const MagneticFieldProvider> bField)
+    : m_bField(std::move(bField)) {}
 
-template <typename E, typename A>
-auto Acts::EigenStepper<E, A>::makeState(
-    std::reference_wrapper<const GeometryContext> gctx,
-    std::reference_wrapper<const MagneticFieldContext> mctx,
-    const BoundTrackParameters& par, double ssize) const -> State {
-  return State{gctx, m_bField->makeCache(mctx), par, ssize};
+template <typename E>
+auto Acts::EigenStepper<E>::makeState(const Options& options) const -> State {
+  State state{options, m_bField->makeCache(options.magFieldContext)};
+  return state;
 }
 
-template <typename E, typename A>
-void Acts::EigenStepper<E, A>::resetState(State& state,
-                                          const BoundVector& boundParams,
-                                          const BoundSquareMatrix& cov,
-                                          const Surface& surface,
-                                          const double stepSize) const {
-  FreeVector freeParams =
-      transformBoundToFreeParameters(surface, state.geoContext, boundParams);
+template <typename E>
+void Acts::EigenStepper<E>::initialize(State& state,
+                                       const BoundTrackParameters& par) const {
+  initialize(state, par.parameters(), par.covariance(),
+             par.particleHypothesis(), par.referenceSurface());
+}
 
-  // Update the stepping state
+template <typename E>
+void Acts::EigenStepper<E>::initialize(State& state,
+                                       const BoundVector& boundParams,
+                                       const std::optional<BoundMatrix>& cov,
+                                       ParticleHypothesis particleHypothesis,
+                                       const Surface& surface) const {
+  FreeVector freeParams = transformBoundToFreeParameters(
+      surface, state.options.geoContext, boundParams);
+
+  state.particleHypothesis = particleHypothesis;
+
+  state.pathAccumulated = 0;
+  state.nSteps = 0;
+  state.nStepTrials = 0;
+  state.stepSize = ConstrainedStep();
+  state.stepSize.setAccuracy(state.options.initialStepSize);
+  state.stepSize.setUser(state.options.maxStepSize);
+  state.previousStepSize = 0;
+  state.statistics = StepperStatistics();
+
   state.pars = freeParams;
-  state.cov = cov;
-  state.stepSize = ConstrainedStep(stepSize);
-  state.pathAccumulated = 0.;
 
-  // Reinitialize the stepping jacobian
-  state.jacToGlobal = surface.boundToFreeJacobian(
-      state.geoContext, freeParams.template segment<3>(eFreePos0),
-      freeParams.template segment<3>(eFreeDir0));
-  state.jacobian = BoundMatrix::Identity();
-  state.jacTransport = FreeMatrix::Identity();
-  state.derivative = FreeVector::Zero();
+  // Init the jacobian matrix if needed
+  state.covTransport = cov.has_value();
+  if (state.covTransport) {
+    state.cov = *cov;
+    state.jacToGlobal = surface.boundToFreeJacobian(
+        state.options.geoContext, freeParams.segment<3>(eFreePos0),
+        freeParams.segment<3>(eFreeDir0));
+    state.jacobian = BoundMatrix::Identity();
+    state.jacTransport = FreeMatrix::Identity();
+    state.derivative = FreeVector::Zero();
+  }
 }
 
-template <typename E, typename A>
-auto Acts::EigenStepper<E, A>::boundState(
+template <typename E>
+auto Acts::EigenStepper<E>::boundState(
     State& state, const Surface& surface, bool transportCov,
     const FreeToBoundCorrection& freeToBoundCorrection) const
     -> Result<BoundState> {
   return detail::boundState(
-      state.geoContext, surface, state.cov, state.jacobian, state.jacTransport,
-      state.derivative, state.jacToGlobal, state.pars, state.particleHypothesis,
-      state.covTransport && transportCov, state.pathAccumulated,
-      freeToBoundCorrection);
+      state.options.geoContext, surface, state.cov, state.jacobian,
+      state.jacTransport, state.derivative, state.jacToGlobal, std::nullopt,
+      state.pars, state.particleHypothesis, state.covTransport && transportCov,
+      state.pathAccumulated, freeToBoundCorrection);
 }
 
-template <typename E, typename A>
-template <typename propagator_state_t, typename navigator_t>
-bool Acts::EigenStepper<E, A>::prepareCurvilinearState(
-    propagator_state_t& prop_state, const navigator_t& navigator) const {
+template <typename E>
+bool Acts::EigenStepper<E>::prepareCurvilinearState(State& state) const {
   // test whether the accumulated path has still its initial value.
-  if (prop_state.stepping.pathAccumulated == 0.) {
-    // if no step was executed the path length derivates have not been
-    // computed but are needed to compute the curvilinear covariance. The
-    // derivates are given by k1 for a zero step width.
-    if (prop_state.stepping.extension.validExtensionForStep(prop_state, *this,
-                                                            navigator)) {
-      // First Runge-Kutta point (at current position)
-      auto& sd = prop_state.stepping.stepData;
-      auto pos = position(prop_state.stepping);
-      auto fieldRes = getField(prop_state.stepping, pos);
-      if (fieldRes.ok()) {
-        sd.B_first = *fieldRes;
-        if (prop_state.stepping.extension.k1(prop_state, *this, navigator,
-                                             sd.k1, sd.B_first, sd.kQoP)) {
-          // dr/ds :
-          prop_state.stepping.derivative.template head<3>() =
-              prop_state.stepping.pars.template segment<3>(eFreeDir0);
-          // d (dr/ds) / ds :
-          prop_state.stepping.derivative.template segment<3>(4) = sd.k1;
-          // to set dt/ds :
-          prop_state.stepping.extension.finalize(
-              prop_state, *this, navigator,
-              prop_state.stepping.pathAccumulated);
-          return true;
-        }
-      }
-    }
+  if (state.pathAccumulated != 0) {
+    return true;
+  }
+
+  // if no step was executed the path length derivates have not been
+  // computed but are needed to compute the curvilinear covariance. The
+  // derivates are given by k1 for a zero step width.
+  // First Runge-Kutta point (at current position)
+  auto& sd = state.stepData;
+  auto pos = position(state);
+  auto fieldRes = getField(state, pos);
+  if (!fieldRes.ok()) {
     return false;
   }
+
+  sd.B_first = *fieldRes;
+  if (!state.extension.template k<0>(state, *this, nullptr, sd.k1, sd.B_first,
+                                     sd.kQoP)) {
+    return false;
+  }
+
+  // dr/ds :
+  state.derivative.template head<3>() =
+      state.pars.template segment<3>(eFreeDir0);
+  // d (dr/ds) / ds :
+  state.derivative.template segment<3>(4) = sd.k1;
+  // to set dt/ds :
+  state.extension.finalize(state, *this, nullptr, state.pathAccumulated);
   return true;
 }
 
-template <typename E, typename A>
-auto Acts::EigenStepper<E, A>::curvilinearState(State& state,
-                                                bool transportCov) const
-    -> CurvilinearState {
+template <typename E>
+auto Acts::EigenStepper<E>::curvilinearState(
+    State& state, bool transportCov) const -> BoundState {
   return detail::curvilinearState(
       state.cov, state.jacobian, state.jacTransport, state.derivative,
-      state.jacToGlobal, state.pars, state.particleHypothesis,
+      state.jacToGlobal, std::nullopt, state.pars, state.particleHypothesis,
       state.covTransport && transportCov, state.pathAccumulated);
 }
 
-template <typename E, typename A>
-void Acts::EigenStepper<E, A>::update(State& state,
-                                      const FreeVector& freeParams,
-                                      const BoundVector& /*boundParams*/,
-                                      const Covariance& covariance,
-                                      const Surface& surface) const {
+template <typename E>
+void Acts::EigenStepper<E>::update(State& state, const FreeVector& freeParams,
+                                   const BoundVector& /*boundParams*/,
+                                   const Covariance& covariance,
+                                   const Surface& surface) const {
   state.pars = freeParams;
   state.cov = covariance;
   state.jacToGlobal = surface.boundToFreeJacobian(
-      state.geoContext, freeParams.template segment<3>(eFreePos0),
+      state.options.geoContext, freeParams.template segment<3>(eFreePos0),
       freeParams.template segment<3>(eFreeDir0));
 }
 
-template <typename E, typename A>
-void Acts::EigenStepper<E, A>::update(State& state, const Vector3& uposition,
-                                      const Vector3& udirection, double qOverP,
-                                      double time) const {
+template <typename E>
+void Acts::EigenStepper<E>::update(State& state, const Vector3& uposition,
+                                   const Vector3& udirection, double qOverP,
+                                   double time) const {
   state.pars.template segment<3>(eFreePos0) = uposition;
   state.pars.template segment<3>(eFreeDir0) = udirection;
   state.pars[eFreeTime] = time;
   state.pars[eFreeQOverP] = qOverP;
 }
 
-template <typename E, typename A>
-void Acts::EigenStepper<E, A>::transportCovarianceToCurvilinear(
+template <typename E>
+void Acts::EigenStepper<E>::transportCovarianceToCurvilinear(
     State& state) const {
-  detail::transportCovarianceToCurvilinear(state.cov, state.jacobian,
-                                           state.jacTransport, state.derivative,
-                                           state.jacToGlobal, direction(state));
+  detail::transportCovarianceToCurvilinear(
+      state.cov, state.jacobian, state.jacTransport, state.derivative,
+      state.jacToGlobal, std::nullopt, direction(state));
 }
 
-template <typename E, typename A>
-void Acts::EigenStepper<E, A>::transportCovarianceToBound(
+template <typename E>
+void Acts::EigenStepper<E>::transportCovarianceToBound(
     State& state, const Surface& surface,
     const FreeToBoundCorrection& freeToBoundCorrection) const {
-  detail::transportCovarianceToBound(state.geoContext.get(), surface, state.cov,
-                                     state.jacobian, state.jacTransport,
-                                     state.derivative, state.jacToGlobal,
-                                     state.pars, freeToBoundCorrection);
+  detail::transportCovarianceToBound(
+      state.options.geoContext, surface, state.cov, state.jacobian,
+      state.jacTransport, state.derivative, state.jacToGlobal, std::nullopt,
+      state.pars, freeToBoundCorrection);
 }
 
-template <typename E, typename A>
-template <typename propagator_state_t, typename navigator_t>
-Acts::Result<double> Acts::EigenStepper<E, A>::step(
-    propagator_state_t& state, const navigator_t& navigator) const {
+template <typename E>
+Acts::Result<double> Acts::EigenStepper<E>::step(
+    State& state, Direction propDir, const IVolumeMaterial* material) const {
   // Runge-Kutta integrator state
-  auto& sd = state.stepping.stepData;
-  double error_estimate = 0.;
-  double h2 = 0, half_h = 0;
+  auto& sd = state.stepData;
 
-  auto pos = position(state.stepping);
-  auto dir = direction(state.stepping);
+  double errorEstimate = 0;
+  double h2 = 0;
+  double half_h = 0;
+
+  auto pos = position(state);
+  auto dir = direction(state);
 
   // First Runge-Kutta point (at current position)
-  auto fieldRes = getField(state.stepping, pos);
+  auto fieldRes = getField(state, pos);
   if (!fieldRes.ok()) {
     return fieldRes.error();
   }
   sd.B_first = *fieldRes;
-  if (!state.stepping.extension.validExtensionForStep(state, *this,
-                                                      navigator) ||
-      !state.stepping.extension.k1(state, *this, navigator, sd.k1, sd.B_first,
-                                   sd.kQoP)) {
+  if (!state.extension.template k<0>(state, *this, material, sd.k1, sd.B_first,
+                                     sd.kQoP)) {
     return 0.;
   }
+
+  const auto calcStepSizeScaling = [&](const double errorEstimate_) -> double {
+    // For details about these values see ATL-SOFT-PUB-2009-001
+    constexpr double lower = 0.25;
+    constexpr double upper = 4.0;
+    // This is given by the order of the Runge-Kutta method
+    constexpr double exponent = 0.25;
+
+    double x = state.options.stepTolerance / errorEstimate_;
+
+    if constexpr (exponent == 0.25) {
+      // This is 3x faster than std::pow
+      x = std::sqrt(std::sqrt(x));
+    } else {
+      x = std::pow(x, exponent);
+    }
+
+    return std::clamp(x, lower, upper);
+  };
+
+  const auto isErrorTolerable = [&](const double errorEstimate_) {
+    // For details about these values see ATL-SOFT-PUB-2009-001
+    constexpr double marginFactor = 4.0;
+
+    return errorEstimate_ <= marginFactor * state.options.stepTolerance;
+  };
 
   // The following functor starts to perform a Runge-Kutta step of a certain
   // size, going up to the point where it can return an estimate of the local
@@ -187,51 +229,54 @@ Acts::Result<double> Acts::EigenStepper<E, A>::step(
 
     // Second Runge-Kutta point
     const Vector3 pos1 = pos + half_h * dir + h2 * 0.125 * sd.k1;
-    auto field = getField(state.stepping, pos1);
+    auto field = getField(state, pos1);
     if (!field.ok()) {
       return failure(field.error());
     }
     sd.B_middle = *field;
 
-    if (!state.stepping.extension.k2(state, *this, navigator, sd.k2,
-                                     sd.B_middle, sd.kQoP, half_h, sd.k1)) {
+    if (!state.extension.template k<1>(state, *this, material, sd.k2,
+                                       sd.B_middle, sd.kQoP, half_h, sd.k1)) {
       return success(false);
     }
 
     // Third Runge-Kutta point
-    if (!state.stepping.extension.k3(state, *this, navigator, sd.k3,
-                                     sd.B_middle, sd.kQoP, half_h, sd.k2)) {
+    if (!state.extension.template k<2>(state, *this, material, sd.k3,
+                                       sd.B_middle, sd.kQoP, half_h, sd.k2)) {
       return success(false);
     }
 
     // Last Runge-Kutta point
     const Vector3 pos2 = pos + h * dir + h2 * 0.5 * sd.k3;
-    field = getField(state.stepping, pos2);
+    field = getField(state, pos2);
     if (!field.ok()) {
       return failure(field.error());
     }
     sd.B_last = *field;
-    if (!state.stepping.extension.k4(state, *this, navigator, sd.k4, sd.B_last,
-                                     sd.kQoP, h, sd.k3)) {
+    if (!state.extension.template k<3>(state, *this, material, sd.k4, sd.B_last,
+                                       sd.kQoP, h, sd.k3)) {
       return success(false);
     }
 
     // Compute and check the local integration error estimate
-    error_estimate =
+    errorEstimate =
         h2 * ((sd.k1 - sd.k2 - sd.k3 + sd.k4).template lpNorm<1>() +
               std::abs(sd.kQoP[0] - sd.kQoP[1] - sd.kQoP[2] + sd.kQoP[3]));
-    error_estimate = std::max(error_estimate, 1e-20);
+    // Protect against division by zero
+    errorEstimate = std::max(1e-20, errorEstimate);
 
-    return success(error_estimate <= state.options.stepTolerance);
+    return success(isErrorTolerable(errorEstimate));
   };
 
-  const double initialH =
-      state.stepping.stepSize.value() * state.options.direction;
+  const double initialH = state.stepSize.value() * propDir;
   double h = initialH;
   std::size_t nStepTrials = 0;
   // Select and adjust the appropriate Runge-Kutta step size as given
   // ATL-SOFT-PUB-2009-001
   while (true) {
+    ++nStepTrials;
+    ++state.statistics.nAttemptedSteps;
+
     auto res = tryRungeKuttaStep(h);
     if (!res.ok()) {
       return res.error();
@@ -240,11 +285,9 @@ Acts::Result<double> Acts::EigenStepper<E, A>::step(
       break;
     }
 
-    // double std::sqrt is 3x faster than std::pow
-    const double stepSizeScaling =
-        std::clamp(std::sqrt(std::sqrt(state.options.stepTolerance /
-                                       std::abs(2. * error_estimate))),
-                   0.25, 4.0);
+    ++state.statistics.nRejectedSteps;
+
+    const double stepSizeScaling = calcStepSizeScaling(errorEstimate);
     h *= stepSizeScaling;
 
     // If step size becomes too small the particle remains at the initial
@@ -260,14 +303,15 @@ Acts::Result<double> Acts::EigenStepper<E, A>::step(
       // Too many trials, have to abort
       return EigenStepperError::StepSizeAdjustmentFailed;
     }
-    nStepTrials++;
   }
 
   // When doing error propagation, update the associated Jacobian matrix
-  if (state.stepping.covTransport) {
+  if (state.covTransport) {
+    // using the direction before updated below
+
     // The step transport matrix in global coordinates
     FreeMatrix D;
-    if (!state.stepping.extension.finalize(state, *this, navigator, h, D)) {
+    if (!state.extension.finalize(state, *this, material, h, D)) {
       return EigenStepperError::StepInvalid;
     }
 
@@ -290,54 +334,59 @@ Acts::Result<double> Acts::EigenStepper<E, A>::step(
     // sub-matrices at all!
     assert((D.topLeftCorner<4, 4>().isIdentity()));
     assert((D.bottomLeftCorner<4, 4>().isZero()));
-    assert((state.stepping.jacTransport.template topLeftCorner<4, 4>()
-                .isIdentity()));
-    assert((state.stepping.jacTransport.template bottomLeftCorner<4, 4>()
-                .isZero()));
+    assert((state.jacTransport.template topLeftCorner<4, 4>().isIdentity()));
+    assert((state.jacTransport.template bottomLeftCorner<4, 4>().isZero()));
 
-    state.stepping.jacTransport.template topRightCorner<4, 4>() +=
+    state.jacTransport.template topRightCorner<4, 4>() +=
         D.topRightCorner<4, 4>() *
-        state.stepping.jacTransport.template bottomRightCorner<4, 4>();
-    state.stepping.jacTransport.template bottomRightCorner<4, 4>() =
+        state.jacTransport.template bottomRightCorner<4, 4>();
+    state.jacTransport.template bottomRightCorner<4, 4>() =
         (D.bottomRightCorner<4, 4>() *
-         state.stepping.jacTransport.template bottomRightCorner<4, 4>())
+         state.jacTransport.template bottomRightCorner<4, 4>())
             .eval();
   } else {
-    if (!state.stepping.extension.finalize(state, *this, navigator, h)) {
+    if (!state.extension.finalize(state, *this, material, h)) {
       return EigenStepperError::StepInvalid;
     }
   }
 
   // Update the track parameters according to the equations of motion
-  state.stepping.pars.template segment<3>(eFreePos0) +=
+  state.pars.template segment<3>(eFreePos0) +=
       h * dir + h2 / 6. * (sd.k1 + sd.k2 + sd.k3);
-  state.stepping.pars.template segment<3>(eFreeDir0) +=
+  state.pars.template segment<3>(eFreeDir0) +=
       h / 6. * (sd.k1 + 2. * (sd.k2 + sd.k3) + sd.k4);
-  (state.stepping.pars.template segment<3>(eFreeDir0)).normalize();
+  (state.pars.template segment<3>(eFreeDir0)).normalize();
 
-  if (state.stepping.covTransport) {
-    state.stepping.derivative.template head<3>() =
-        state.stepping.pars.template segment<3>(eFreeDir0);
-    state.stepping.derivative.template segment<3>(4) = sd.k4;
+  if (state.covTransport) {
+    // using the updated direction
+    state.derivative.template head<3>() =
+        state.pars.template segment<3>(eFreeDir0);
+    state.derivative.template segment<3>(4) = sd.k4;
   }
-  state.stepping.pathAccumulated += h;
-  // double std::sqrt is 3x faster than std::pow
-  const double stepSizeScaling =
-      std::clamp(std::sqrt(std::sqrt(state.options.stepTolerance /
-                                     std::abs(error_estimate))),
-                 0.25, 4.0);
+
+  state.pathAccumulated += h;
+  ++state.nSteps;
+  state.nStepTrials += nStepTrials;
+
+  ++state.statistics.nSuccessfulSteps;
+  if (propDir != Direction::fromScalarZeroAsPositive(initialH)) {
+    ++state.statistics.nReverseSteps;
+  }
+  state.statistics.pathLength += h;
+  state.statistics.absolutePathLength += std::abs(h);
+
+  const double stepSizeScaling = calcStepSizeScaling(errorEstimate);
   const double nextAccuracy = std::abs(h * stepSizeScaling);
-  const double previousAccuracy = std::abs(state.stepping.stepSize.accuracy());
+  const double previousAccuracy = std::abs(state.stepSize.accuracy());
   const double initialStepLength = std::abs(initialH);
   if (nextAccuracy < initialStepLength || nextAccuracy > previousAccuracy) {
-    state.stepping.stepSize.setAccuracy(nextAccuracy);
+    state.stepSize.setAccuracy(nextAccuracy);
   }
-  state.stepping.stepSize.nStepTrials = nStepTrials;
 
   return h;
 }
 
-template <typename E, typename A>
-void Acts::EigenStepper<E, A>::setIdentityJacobian(State& state) const {
+template <typename E>
+void Acts::EigenStepper<E>::setIdentityJacobian(State& state) const {
   state.jacobian = BoundMatrix::Identity();
 }

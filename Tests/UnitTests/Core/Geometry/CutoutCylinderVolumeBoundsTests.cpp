@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -13,9 +13,9 @@
 #include "Acts/Geometry/CutoutCylinderVolumeBounds.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/BoundingBox.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <algorithm>
 #include <array>
@@ -25,10 +25,9 @@
 #include <utility>
 #include <vector>
 
-namespace Acts {
-namespace Test {
+namespace Acts::Test {
 
-BOOST_AUTO_TEST_SUITE(Geometry)
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_AUTO_TEST_CASE(CutoutCylinderVolumeBoundsConstruction) {
   CutoutCylinderVolumeBounds ccvb(5, 10, 15, 30, 25);
@@ -172,7 +171,7 @@ BOOST_AUTO_TEST_CASE(CutoutCylinderVolumeBoundsInside) {
 }
 
 BOOST_AUTO_TEST_CASE(CutoutCylinderVolumeBoundsBoundingBox) {
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
   CutoutCylinderVolumeBounds ccvb(5, 10, 15, 30, 25);
   auto box = ccvb.boundingBox();
   CHECK_CLOSE_ABS(box.min(), Vector3(-15, -15, -30), 1e-6);
@@ -182,20 +181,21 @@ BOOST_AUTO_TEST_CASE(CutoutCylinderVolumeBoundsBoundingBox) {
 }
 
 BOOST_AUTO_TEST_CASE(CutoutCylinderVolumeOrientedBoundaries) {
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
   CutoutCylinderVolumeBounds ccvb(5, 10, 15, 30, 25);
 
   auto ccvbOrientedSurfaces = ccvb.orientedSurfaces(Transform3::Identity());
   BOOST_CHECK_EQUAL(ccvbOrientedSurfaces.size(), 8);
 
-  auto geoCtx = GeometryContext();
+  auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
   Vector3 xaxis(1., 0., 0.);
   Vector3 yaxis(0., 1., 0.);
   Vector3 zaxis(0., 0., 1.);
 
   for (auto& os : ccvbOrientedSurfaces) {
-    auto onSurface = os.surface->binningPosition(geoCtx, binR);
+    auto onSurface =
+        os.surface->referencePosition(geoCtx, AxisDirection::AxisR);
     auto locPos =
         os.surface->globalToLocal(geoCtx, onSurface, Vector3::Zero()).value();
     auto osNormal = os.surface->normal(geoCtx, locPos);
@@ -207,7 +207,7 @@ BOOST_AUTO_TEST_CASE(CutoutCylinderVolumeOrientedBoundaries) {
     BOOST_CHECK(!ccvb.inside(outsideCCvb));
 
     // Test the orientation of the boundary surfaces
-    auto rot = os.surface->transform(geoCtx).rotation();
+    auto rot = os.surface->localToGlobalTransform(geoCtx).rotation();
     BOOST_CHECK(rot.col(0).isApprox(xaxis));
     BOOST_CHECK(rot.col(1).isApprox(yaxis));
     BOOST_CHECK(rot.col(2).isApprox(zaxis));
@@ -215,5 +215,5 @@ BOOST_AUTO_TEST_CASE(CutoutCylinderVolumeOrientedBoundaries) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Test
-}  // namespace Acts
+
+}  // namespace Acts::Test

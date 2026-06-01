@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/Utilities/Options.hpp"
 
@@ -15,6 +15,7 @@
 #include <exception>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -22,20 +23,12 @@
 
 #include <TApplication.h>
 #include <boost/program_options.hpp>
+#include <boost/timer/progress_display.hpp>
 #include <nlohmann/json.hpp>
 
 #define BOOST_AVAILABLE 1
-#if ((BOOST_VERSION / 100) % 1000) <= 71
-// Boost <=1.71 and lower do not have progress_display.hpp as a replacement yet
-#include <boost/progress.hpp>
-
-using progress_display = boost::progress_display;
-#else
-// Boost >=1.72 can use this as a replacement
-#include <boost/timer/progress_display.hpp>
 
 using progress_display = boost::timer::progress_display;
-#endif
 
 #define NLOHMANN_AVAILABLE 1
 #include "trackSummaryAnalysis.C"
@@ -45,7 +38,7 @@ using namespace boost::program_options;
 using Interval = ActsExamples::Options::Interval;
 using VariableReals = ActsExamples::Options::VariableReals;
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   std::cout << "*** ACTS Perigee parameters and Track summary plotting "
             << std::endl;
 
@@ -78,7 +71,8 @@ int main(int argc, char** argv) {
     ao("phi-bins", value<unsigned int>()->default_value(10),
        "Number of bins in phi.");
     ao("phi-range",
-       value<Interval>()->value_name("MIN:MAX")->default_value({-M_PI, M_PI}),
+       value<Interval>()->value_name("MIN:MAX")->default_value(
+           {-std::numbers::pi, std::numbers::pi}),
        "Range for the phi bins.");
     ao("pt-borders", value<VariableReals>()->required(),
        "Transverse momentum borders.");
@@ -92,14 +86,14 @@ int main(int argc, char** argv) {
     // Define the parameters for the residual/pull analysis
     std::vector<std::string> resPullPars = {"d0",  "z0",   "phi0", "theta0",
                                             "qop", "time", "pt"};
-    for (const auto& rp : resPullPars) {
+    for (const auto &rp : resPullPars) {
       ao(rp.c_str(), bool_switch(),
          (std::string("Residual/pulls for ") + rp).c_str());
     }
     // Define the auxiliary track information
     std::vector<std::string> auxPars = {"chi2ndf", "measurements", "holes",
                                         "outliers", "shared"};
-    for (const auto& aux : auxPars) {
+    for (const auto &aux : auxPars) {
       ao(aux.c_str(), bool_switch(),
          (std::string("Auxiliary information for ") + aux).c_str());
     }
@@ -108,7 +102,7 @@ int main(int argc, char** argv) {
     variables_map vm;
     store(command_line_parser(argc, argv).options(description).run(), vm);
 
-    if (vm.count("help") != 0u) {
+    if (vm.contains("help")) {
       std::cout << description;
       return 1;
     }
@@ -140,15 +134,15 @@ int main(int argc, char** argv) {
     unsigned int nPhiBins = vm["phi-bins"].as<unsigned int>();
     auto phiInterval = vm["phi-range"].as<Interval>();
     std::array<float, 2> phiRange = {
-        static_cast<float>(phiInterval.lower.value_or(-M_PI)),
-        static_cast<float>(phiInterval.upper.value_or(M_PI))};
+        static_cast<float>(phiInterval.lower.value_or(-std::numbers::pi)),
+        static_cast<float>(phiInterval.upper.value_or(std::numbers::pi))};
 
     auto ptBorders = vm["pt-borders"].as<VariableReals>().values;
     if (ptBorders.empty()) {
       ptBorders = {0., std::numeric_limits<double>::infinity()};
     }
 
-    TApplication* tApp =
+    TApplication *tApp =
         vm["silent"].as<bool>()
             ? nullptr
             : new TApplication("TrackSummary", nullptr, nullptr);
@@ -195,7 +189,7 @@ int main(int argc, char** argv) {
       tApp->Run();
     }
 
-  } catch (std::exception& e) {
+  } catch (std::exception &e) {
     std::cerr << e.what() << "\n";
   }
 

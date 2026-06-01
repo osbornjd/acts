@@ -1,13 +1,21 @@
-add_library(
-  ActsExamplesDetectorsCommon
-  INTERFACE)
-target_include_directories(
-  ActsExamplesDetectorsCommon
-  INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-target_link_libraries(
-  ActsExamplesDetectorsCommon
-  INTERFACE Boost::program_options)
 
-# interface libraries do not exist in the filesystem; no installation needed
+acts_add_library(
+    ExamplesDetectorsCommon
+    src/Detector.cpp
+    src/AlignmentDecorator.cpp
+    src/StructureSelector.cpp
+)
+target_include_directories(
+    ActsExamplesDetectorsCommon
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+target_link_libraries(
+    ActsExamplesDetectorsCommon
+    PUBLIC Acts::ExamplesFramework
+)
+
+install(
+  TARGETS ActsExamplesDetectorsCommon
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 install(DIRECTORY include/ActsExamples DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -16,10 +16,8 @@
 #include <cstddef>
 #include <limits>
 #include <string>
-#include <vector>
 
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// Write out particles in the TrackML comma-separated-value format.
 ///
@@ -62,7 +60,7 @@ class CsvParticleWriter final : public WriterT<SimParticleContainer> {
   ///
   /// @param[in] ctx is the algorithm context
   /// @param[in] particles are the particle to be written
-  ProcessCode writeT(const ActsExamples::AlgorithmContext& ctx,
+  ProcessCode writeT(const AlgorithmContext& ctx,
                      const SimParticleContainer& particles) override;
 
  private:

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -16,8 +16,11 @@ namespace Acts {
 
 /// Simple struct to select volumes
 struct VolumeSelector {
+  /// Flag indicating whether to select volumes with material
   bool selectMaterial = true;
+  /// Flag indicating whether to select volumes with layers
   bool selectLayer = false;
+  /// Flag indicating whether to select passive volumes
   bool selectPassive = false;
 
   /// VolumeSelector with options
@@ -25,8 +28,8 @@ struct VolumeSelector {
   /// @param sMaterial is the directive to select material volumes
   /// @param sLayer is the directive to select volumes with layers
   /// @param sPassive is the directive to select passive volumes
-  VolumeSelector(bool sMaterial = true, bool sLayer = false,
-                 bool sPassive = false)
+  explicit VolumeSelector(bool sMaterial = true, bool sLayer = false,
+                          bool sPassive = false)
       : selectMaterial(sMaterial),
         selectLayer(sLayer),
         selectPassive(sPassive) {}
@@ -34,6 +37,7 @@ struct VolumeSelector {
   /// Call operator to check if a volume should be selected
   ///
   /// @param volume is the test volume
+  /// @return true if volume meets selection criteria
   bool operator()(const Acts::TrackingVolume& volume) const {
     if (selectMaterial && volume.volumeMaterial() != nullptr) {
       return true;
@@ -50,9 +54,12 @@ struct VolumeSelector {
 
 /// The information to be writtern out per hit volume
 struct VolumeHit {
+  /// Pointer to the tracking volume that was hit
   const TrackingVolume* volume = nullptr;
-  Vector3 position;
-  Vector3 direction;
+  /// Position where the volume was encountered
+  Vector3 position{};
+  /// Direction of propagation when volume was encountered
+  Vector3 direction{};
 };
 
 /// A Volume Collector struct
@@ -70,9 +77,11 @@ struct VolumeCollector {
   /// It has all the VolumeHit objects that
   /// are collected (and thus have been selected)
   struct this_result {
+    /// Container of collected volume hits during propagation
     std::vector<VolumeHit> collected;
   };
 
+  /// Type alias for collector result type
   using result_type = this_result;
 
   /// Collector action for the ActionList of the Propagator
@@ -91,9 +100,9 @@ struct VolumeCollector {
   /// @param logger the logger object
   template <typename propagator_state_t, typename stepper_t,
             typename navigator_t>
-  void operator()(propagator_state_t& state, const stepper_t& stepper,
-                  const navigator_t& navigator, result_type& result,
-                  const Logger& logger) const {
+  Result<void> act(propagator_state_t& state, const stepper_t& stepper,
+                   const navigator_t& navigator, result_type& result,
+                   const Logger& logger) const {
     auto currentVolume = navigator.currentVolume(state.navigation);
 
     // The current volume has been assigned by the navigator
@@ -118,6 +127,8 @@ struct VolumeCollector {
         ACTS_VERBOSE("Collect volume  " << currentVolume->geometryId());
       }
     }
+
+    return {};
   }
 };
 

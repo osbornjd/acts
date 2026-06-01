@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -36,6 +36,7 @@ class ISurfaceMaterialAccumulater {
   virtual ~ISurfaceMaterialAccumulater() = default;
 
   /// Factory for creating the state
+  /// @return Unique pointer to a new state object for material accumulation
   virtual std::unique_ptr<State> createState() const = 0;
 
   /// @brief Accumulate the material interaction on the surface
@@ -55,6 +56,7 @@ class ISurfaceMaterialAccumulater {
   /// @param state the state of the accumulator
   ///
   /// @note this does the run average over the (binned) material
+  /// @return Map of geometry IDs to finalized surface material objects
   virtual std::map<GeometryIdentifier, std::shared_ptr<const ISurfaceMaterial>>
   finalizeMaterial(State& state) const = 0;
 };

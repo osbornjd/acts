@@ -1,22 +1,32 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#pragma once
+
+#include "ActsAlignment/Kernel/Alignment.hpp"
+
+#include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
 #include "Acts/EventData/VectorTrackContainer.hpp"
+#include "Acts/TrackFitting/detail/KalmanGlobalCovariance.hpp"
+#include "Acts/Utilities/detail/EigenCompat.hpp"
+#include "ActsAlignment/Kernel/AlignmentError.hpp"
+
+#include <queue>
 
 template <typename fitter_t>
-template <typename source_link_t, typename start_parameters_t,
-          typename fit_options_t>
+template <typename source_link_t, typename fit_options_t>
 Acts::Result<ActsAlignment::detail::TrackAlignmentState>
 ActsAlignment::Alignment<fitter_t>::evaluateTrackAlignmentState(
     const Acts::GeometryContext& gctx,
-    const std::vector<source_link_t>& sourcelinks,
-    const start_parameters_t& sParameters, const fit_options_t& fitOptions,
+    const std::vector<source_link_t>& sourceLinks,
+    const Acts::BoundTrackParameters& sParameters,
+    const fit_options_t& fitOptions,
     const std::unordered_map<const Acts::Surface*, std::size_t>&
         idxedAlignSurfaces,
     const ActsAlignment::AlignmentMask& alignMask) const {
@@ -24,8 +34,8 @@ ActsAlignment::Alignment<fitter_t>::evaluateTrackAlignmentState(
                               Acts::VectorMultiTrajectory{}};
 
   // Convert to Acts::SourceLink during iteration
-  Acts::SourceLinkAdapterIterator begin{sourcelinks.begin()};
-  Acts::SourceLinkAdapterIterator end{sourcelinks.end()};
+  Acts::SourceLinkAdapterIterator begin{sourceLinks.begin()};
+  Acts::SourceLinkAdapterIterator end{sourceLinks.end()};
 
   // Perform the fit
   auto fitRes = m_fitter.fit(begin, end, sParameters, fitOptions, tracks);
@@ -82,13 +92,13 @@ void ActsAlignment::Alignment<fitter_t>::calculateAlignmentParameters(
   alignResult.numTracks = trajectoryCollection.size();
   double sumChi2ONdf = 0;
   for (unsigned int iTraj = 0; iTraj < trajectoryCollection.size(); iTraj++) {
-    const auto& sourcelinks = trajectoryCollection.at(iTraj);
+    const auto& sourceLinks = trajectoryCollection.at(iTraj);
     const auto& sParameters = startParametersCollection.at(iTraj);
     // Set the target surface
     fitOptionsWithRefSurface.referenceSurface = &sParameters.referenceSurface();
     // The result for one single track
     auto evaluateRes = evaluateTrackAlignmentState(
-        fitOptions.geoContext, sourcelinks, sParameters,
+        fitOptions.geoContext, sourceLinks, sParameters,
         fitOptionsWithRefSurface, alignResult.idxedAlignSurfaces, alignMask);
     if (!evaluateRes.ok()) {
       ACTS_DEBUG("Evaluation of alignment state for track " << iTraj
@@ -155,7 +165,7 @@ template <typename fitter_t>
 Acts::Result<void>
 ActsAlignment::Alignment<fitter_t>::updateAlignmentParameters(
     const Acts::GeometryContext& gctx,
-    const std::vector<Acts::DetectorElementBase*>& alignedDetElements,
+    const std::vector<Acts::SurfacePlacementBase*>& alignedDetElements,
     const ActsAlignment::AlignedTransformUpdater& alignedTransformUpdater,
     ActsAlignment::AlignmentResult& alignResult) const {
   // Update the aligned transform
@@ -163,10 +173,8 @@ ActsAlignment::Alignment<fitter_t>::updateAlignmentParameters(
   for (const auto& [surface, index] : alignResult.idxedAlignSurfaces) {
     // 1. The original transform
     const Acts::Vector3& oldCenter = surface->center(gctx);
-    const Acts::Transform3& oldTransform = surface->transform(gctx);
-    const Acts::RotationMatrix3& oldRotation = oldTransform.rotation();
-    // The elements stored below is (rotZ, rotY, rotX)
-    const Acts::Vector3& oldEulerAngles = oldRotation.eulerAngles(2, 1, 0);
+    const Acts::Transform3& oldTransform =
+        surface->localToGlobalTransform(gctx);
 
     // 2. The delta transform
     deltaAlignmentParam = alignResult.deltaAlignmentParameters.segment(
@@ -180,18 +188,17 @@ ActsAlignment::Alignment<fitter_t>::updateAlignmentParameters(
 
     // 3. The new transform
     const Acts::Vector3 newCenter = oldCenter + deltaCenter;
-    // The rotation around global z axis
-    Acts::AngleAxis3 rotZ(oldEulerAngles(0) + deltaEulerAngles(2),
-                          Acts::Vector3::UnitZ());
-    // The rotation around global y axis
-    Acts::AngleAxis3 rotY(oldEulerAngles(1) + deltaEulerAngles(1),
-                          Acts::Vector3::UnitY());
-    // The rotation around global x axis
-    Acts::AngleAxis3 rotX(oldEulerAngles(2) + deltaEulerAngles(0),
-                          Acts::Vector3::UnitX());
-    Eigen::Quaternion<Acts::ActsScalar> newRotation = rotZ * rotY * rotX;
-    const Acts::Transform3 newTransform =
-        Acts::Translation3(newCenter) * newRotation;
+    Acts::Transform3 newTransform = oldTransform;
+    newTransform.translation() = newCenter;
+    // Rotation first around fixed local x, then around fixed local y, and last
+    // around fixed local z, this is the same as first around local z, then
+    // around new loca y, and last around new local x below
+    newTransform *=
+        Acts::AngleAxis3(deltaEulerAngles(2), Acts::Vector3::UnitZ());
+    newTransform *=
+        Acts::AngleAxis3(deltaEulerAngles(1), Acts::Vector3::UnitY());
+    newTransform *=
+        Acts::AngleAxis3(deltaEulerAngles(0), Acts::Vector3::UnitX());
 
     // 4. Update the aligned transform
     //@Todo: use a better way to handle this (need dynamic cast to inherited
@@ -309,12 +316,13 @@ ActsAlignment::Alignment<fitter_t>::align(
     for (const auto& det : alignOptions.alignedDetElements) {
       const auto& surface = &det->surface();
       const auto& transform =
-          det->transform(alignOptions.fitOptions.geoContext);
+          det->localToGlobalTransform(alignOptions.fitOptions.geoContext);
       // write it to the result
       alignResult.alignedParameters.emplace(det, transform);
       const auto& translation = transform.translation();
       const auto& rotation = transform.rotation();
-      const Acts::Vector3 rotAngles = rotation.eulerAngles(2, 1, 0);
+      const Acts::Vector3 rotAngles =
+          Acts::detail::EigenCompat::canonicalEulerAngles(rotation, 2, 1, 0);
       ACTS_VERBOSE("Detector element with surface "
                    << surface->geometryId()
                    << " has aligned geometry position as below:");

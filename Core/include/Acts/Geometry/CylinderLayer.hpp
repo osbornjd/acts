@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -13,18 +13,17 @@
 #include "Acts/Geometry/Layer.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
-#include "Acts/Surfaces/SurfaceArray.hpp"
 
-#include <algorithm>
 #include <memory>
-#include <utility>
 
 namespace Acts {
+
 class CylinderBounds;
+class SurfaceArray;
 
 /// @class CylinderLayer
 ///
-/// Class to describe a cylindrical detector layer for tracking, it inhertis
+/// Class to describe a cylindrical detector layer for tracking, it inherits
 /// from both, Layer base class and CylinderSurface class
 ///
 class CylinderLayer : public CylinderSurface, public Layer {
@@ -47,11 +46,7 @@ class CylinderLayer : public CylinderSurface, public Layer {
       const std::shared_ptr<const CylinderBounds>& cbounds,
       std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
       double thickness = 0., std::unique_ptr<ApproachDescriptor> ad = nullptr,
-      LayerType laytyp = passive) {
-    return std::shared_ptr<CylinderLayer>(
-        new CylinderLayer(transform, cbounds, std::move(surfaceArray),
-                          thickness, std::move(ad), laytyp));
-  }
+      LayerType laytyp = passive);
 
   CylinderLayer(const CylinderLayer& cla) = delete;
   CylinderLayer() = delete;
@@ -60,9 +55,11 @@ class CylinderLayer : public CylinderSurface, public Layer {
 
   /// Transforms the layer into a Surface representation
   /// This is for positioning and extrapolation
+  /// @return Const reference to the cylinder surface representing this layer
   const CylinderSurface& surfaceRepresentation() const override;
 
-  // Non-const version
+  /// Non-const version of surface representation access
+  /// @return Mutable reference to the cylinder surface
   CylinderSurface& surfaceRepresentation() override;
 
  private:

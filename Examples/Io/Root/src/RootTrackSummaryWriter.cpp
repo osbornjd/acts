@@ -1,30 +1,25 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/Io/Root/RootTrackSummaryWriter.hpp"
 
 #include "Acts/Definitions/TrackParametrization.hpp"
-#include "Acts/EventData/GenericBoundTrackParameters.hpp"
-#include "Acts/EventData/MultiTrajectoryHelpers.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/TrackFitting/GsfOptions.hpp"
 #include "Acts/Utilities/Intersection.hpp"
-#include "Acts/Utilities/MultiIndex.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Utilities/detail/periodic.hpp"
-#include "ActsExamples/EventData/IndexSourceLink.hpp"
 #include "ActsExamples/EventData/TruthMatching.hpp"
 #include "ActsExamples/Framework/AlgorithmContext.hpp"
 #include "ActsExamples/Framework/WriterT.hpp"
 #include "ActsExamples/Validation/TrackClassification.hpp"
 #include "ActsFatras/EventData/Barcode.hpp"
-#include "ActsFatras/EventData/Particle.hpp"
 
 #include <array>
 #include <cmath>
@@ -32,7 +27,7 @@
 #include <cstdint>
 #include <ios>
 #include <limits>
-#include <memory>
+#include <numbers>
 #include <optional>
 #include <ostream>
 #include <stdexcept>
@@ -52,12 +47,6 @@ RootTrackSummaryWriter::RootTrackSummaryWriter(
     : WriterT(config.inputTracks, "RootTrackSummaryWriter", level),
       m_cfg(config) {
   // tracks collection name is already checked by base ctor
-  if (m_cfg.inputParticles.empty()) {
-    throw std::invalid_argument("Missing particles input collection");
-  }
-  if (m_cfg.inputTrackParticleMatching.empty()) {
-    throw std::invalid_argument("Missing input track particles matching");
-  }
   if (m_cfg.filePath.empty()) {
     throw std::invalid_argument("Missing output filename");
   }
@@ -65,8 +54,9 @@ RootTrackSummaryWriter::RootTrackSummaryWriter(
     throw std::invalid_argument("Missing tree name");
   }
 
-  m_inputParticles.initialize(m_cfg.inputParticles);
-  m_inputTrackParticleMatching.initialize(m_cfg.inputTrackParticleMatching);
+  m_inputParticles.maybeInitialize(m_cfg.inputParticles);
+  m_inputTrackParticleMatching.maybeInitialize(
+      m_cfg.inputTrackParticleMatching);
 
   // Setup ROOT I/O
   auto path = m_cfg.filePath;
@@ -99,7 +89,16 @@ RootTrackSummaryWriter::RootTrackSummaryWriter(
   m_outputTree->Branch("outlierLayer", &m_outlierLayer);
 
   m_outputTree->Branch("nMajorityHits", &m_nMajorityHits);
-  m_outputTree->Branch("majorityParticleId", &m_majorityParticleId);
+  m_outputTree->Branch("majorityParticleId_vertex_primary",
+                       &m_majorityParticleVertexPrimary);
+  m_outputTree->Branch("majorityParticleId_vertex_secondary",
+                       &m_majorityParticleVertexSecondary);
+  m_outputTree->Branch("majorityParticleId_particle",
+                       &m_majorityParticleParticle);
+  m_outputTree->Branch("majorityParticleId_generation",
+                       &m_majorityParticleGeneration);
+  m_outputTree->Branch("majorityParticleId_sub_particle",
+                       &m_majorityParticleSubParticle);
   m_outputTree->Branch("trackClassification", &m_trackClassification);
   m_outputTree->Branch("t_charge", &m_t_charge);
   m_outputTree->Branch("t_time", &m_t_time);
@@ -116,6 +115,7 @@ RootTrackSummaryWriter::RootTrackSummaryWriter(
   m_outputTree->Branch("t_pT", &m_t_pT);
   m_outputTree->Branch("t_d0", &m_t_d0);
   m_outputTree->Branch("t_z0", &m_t_z0);
+  m_outputTree->Branch("t_prodR", &m_t_prodR);
 
   m_outputTree->Branch("hasFittedParams", &m_hasFittedParams);
   m_outputTree->Branch("eLOC0_fit", &m_eLOC0_fit);
@@ -219,9 +219,16 @@ ProcessCode RootTrackSummaryWriter::finalize() {
 
 ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
                                            const ConstTrackContainer& tracks) {
-  // Read additional input collections
-  const auto& particles = m_inputParticles(ctx);
-  const auto& trackParticleMatching = m_inputTrackParticleMatching(ctx);
+  // In case we do not have truth info, we bind to a empty collection
+  const static SimParticleContainer emptyParticles;
+  const static TrackParticleMatching emptyTrackParticleMatching;
+
+  const auto& particles =
+      m_inputParticles.isInitialized() ? m_inputParticles(ctx) : emptyParticles;
+  const auto& trackParticleMatching =
+      m_inputTrackParticleMatching.isInitialized()
+          ? m_inputTrackParticleMatching(ctx)
+          : emptyTrackParticleMatching;
 
   // For each particle within a track, how many hits did it contribute
   std::vector<ParticleHitCount> particleHitCounts;
@@ -243,6 +250,7 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
     m_nSharedHits.push_back(track.nSharedHits());
     m_chi2Sum.push_back(track.chi2());
     m_NDF.push_back(track.nDoF());
+
     {
       std::vector<double> measurementChi2;
       std::vector<std::uint32_t> measurementVolume;
@@ -254,19 +262,16 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
         const auto& geoID = state.referenceSurface().geometryId();
         const auto& volume = geoID.volume();
         const auto& layer = geoID.layer();
-        if (state.typeFlags().test(Acts::TrackStateFlag::MeasurementFlag)) {
+        if (state.typeFlags().isOutlier()) {
+          outlierChi2.push_back(state.chi2());
+          outlierVolume.push_back(volume);
+          outlierLayer.push_back(layer);
+        } else if (state.typeFlags().isMeasurement()) {
           measurementChi2.push_back(state.chi2());
           measurementVolume.push_back(volume);
           measurementLayer.push_back(layer);
         }
-        if (state.typeFlags().test(Acts::TrackStateFlag::OutlierFlag)) {
-          outlierChi2.push_back(state.chi2());
-          outlierVolume.push_back(volume);
-          outlierLayer.push_back(layer);
-        }
       }
-      // IDs are stored as double (as the vector of vector of int is not known
-      // to ROOT)
       m_measurementChi2.push_back(std::move(measurementChi2));
       m_measurementVolume.push_back(std::move(measurementVolume));
       m_measurementLayer.push_back(std::move(measurementLayer));
@@ -276,8 +281,7 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
     }
 
     // Initialize the truth particle info
-    ActsFatras::Barcode majorityParticleId(
-        std::numeric_limits<std::size_t>::max());
+    ActsFatras::Barcode majorityParticleId{};
     TrackMatchClassification trackClassification =
         TrackMatchClassification::Unknown;
     unsigned int nMajorityHits = std::numeric_limits<unsigned int>::max();
@@ -297,6 +301,7 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
     float t_d0 = NaNfloat;
     float t_z0 = NaNfloat;
     float t_qop = NaNfloat;
+    float t_prodR = NaNfloat;
 
     // Get the perigee surface
     const Acts::Surface* pSurface =
@@ -320,8 +325,7 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
 
         const auto& particle = *ip;
         ACTS_VERBOSE("Find the truth particle with barcode "
-                     << majorityParticleId << "="
-                     << majorityParticleId.value());
+                     << majorityParticleId << "=" << majorityParticleId.hash());
         // Get the truth particle info at vertex
         t_p = particle.absoluteMomentum();
         t_charge = static_cast<int>(particle.charge());
@@ -337,12 +341,14 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
         t_eta = eta(particle.direction());
         t_pT = t_p * perp(particle.direction());
         t_qop = particle.qOverP();
+        t_prodR = std::sqrt(t_vx * t_vx + t_vy * t_vy);
 
         if (pSurface != nullptr) {
-          auto intersection =
+          Acts::Intersection3D intersection =
               pSurface
                   ->intersect(ctx.geoContext, particle.position(),
-                              particle.direction(), Acts::BoundaryCheck(false))
+                              particle.direction(),
+                              Acts::BoundaryTolerance::Infinite())
                   .closest();
           auto position = intersection.position();
 
@@ -358,7 +364,7 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
         }
       } else {
         ACTS_DEBUG("Truth particle with barcode "
-                   << majorityParticleId << "=" << majorityParticleId.value()
+                   << majorityParticleId << "=" << majorityParticleId.hash()
                    << " not found in the input collection!");
       }
     }
@@ -369,7 +375,13 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
 
     // Push the corresponding truth particle info for the track.
     // Always push back even if majority particle not found
-    m_majorityParticleId.push_back(majorityParticleId.value());
+    m_majorityParticleVertexPrimary.push_back(
+        majorityParticleId.vertexPrimary());
+    m_majorityParticleVertexSecondary.push_back(
+        majorityParticleId.vertexSecondary());
+    m_majorityParticleParticle.push_back(majorityParticleId.particle());
+    m_majorityParticleGeneration.push_back(majorityParticleId.generation());
+    m_majorityParticleSubParticle.push_back(majorityParticleId.subParticle());
     m_trackClassification.push_back(static_cast<int>(trackClassification));
     m_nMajorityHits.push_back(nMajorityHits);
     m_t_charge.push_back(t_charge);
@@ -387,6 +399,7 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
     m_t_pT.push_back(t_pT);
     m_t_d0.push_back(t_d0);
     m_t_z0.push_back(t_z0);
+    m_t_prodR.push_back(t_prodR);
 
     // Initialize the fitted track parameters info
     std::array<float, Acts::eBoundSize> param = {NaNfloat, NaNfloat, NaNfloat,
@@ -404,9 +417,9 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
         param[i] = parameter[i];
       }
 
-      const auto& covariance = track.covariance();
       for (unsigned int i = 0; i < Acts::eBoundSize; ++i) {
-        error[i] = std::sqrt(covariance(i, i));
+        double variance = getCov(i, i);
+        error[i] = variance >= 0 ? std::sqrt(variance) : NaNfloat;
       }
     }
 
@@ -417,14 +430,15 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
     if (foundMajorityParticle && hasFittedParams) {
       res = {param[Acts::eBoundLoc0] - t_d0,
              param[Acts::eBoundLoc1] - t_z0,
-             Acts::detail::difference_periodic(param[Acts::eBoundPhi], t_phi,
-                                               static_cast<float>(2 * M_PI)),
+             Acts::detail::difference_periodic(
+                 param[Acts::eBoundPhi], t_phi,
+                 static_cast<float>(2 * std::numbers::pi)),
              param[Acts::eBoundTheta] - t_theta,
              param[Acts::eBoundQOverP] - t_qop,
              param[Acts::eBoundTime] - t_time};
 
       for (unsigned int i = 0; i < Acts::eBoundSize; ++i) {
-        pull[i] = res[i] / error[i];  // MARK: fpeMask(FLTINV, 1, #2284)
+        pull[i] = res[i] / error[i];
       }
     }
 
@@ -526,7 +540,7 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
     if (m_cfg.writeGx2fSpecific) {
       if (tracks.hasColumn(Acts::hashString("Gx2fnUpdateColumn"))) {
         int nUpdate = static_cast<int>(
-            track.template component<std::size_t,
+            track.template component<std::uint32_t,
                                      Acts::hashString("Gx2fnUpdateColumn")>());
         m_nUpdatesGx2f.push_back(nUpdate);
       } else {
@@ -554,7 +568,11 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
   m_outlierLayer.clear();
 
   m_nMajorityHits.clear();
-  m_majorityParticleId.clear();
+  m_majorityParticleVertexPrimary.clear();
+  m_majorityParticleVertexSecondary.clear();
+  m_majorityParticleParticle.clear();
+  m_majorityParticleGeneration.clear();
+  m_majorityParticleSubParticle.clear();
   m_trackClassification.clear();
   m_t_charge.clear();
   m_t_time.clear();
@@ -571,6 +589,7 @@ ProcessCode RootTrackSummaryWriter::writeT(const AlgorithmContext& ctx,
   m_t_eta.clear();
   m_t_d0.clear();
   m_t_z0.clear();
+  m_t_prodR.clear();
 
   m_hasFittedParams.clear();
   m_eLOC0_fit.clear();

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -17,7 +17,7 @@
 #include "Acts/Geometry/VolumeBounds.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <algorithm>
 #include <array>
@@ -26,17 +26,25 @@
 #include <utility>
 #include <vector>
 
-namespace Acts::Test {
+using namespace Acts;
 
-GeometryContext gctx = GeometryContext();
+namespace ActsTests {
+
+GeometryContext gctx = GeometryContext::dangerouslyDefaultConstruct();
 
 double hx{10.}, hy{20.}, hz{30.};
 
-BOOST_AUTO_TEST_SUITE(Geometry)
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_AUTO_TEST_CASE(CuboidVolumeConstruction) {
   // Test Construction
   CuboidVolumeBounds box(hx, hy, hz);
+
+  // Test initializer list construction
+  CuboidVolumeBounds init(
+      {{CuboidVolumeBounds::BoundValues::eHalfLengthX, hx},
+       {CuboidVolumeBounds::BoundValues::eHalfLengthY, hy},
+       {CuboidVolumeBounds::BoundValues::eHalfLengthZ, hz}});
 
   // Test copy construction
   CuboidVolumeBounds copied(box);
@@ -71,6 +79,11 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeException) {
   BOOST_CHECK_THROW(CuboidVolumeBounds(hx, -hy, -hz), std::logic_error);
   // Other iterations : all
   BOOST_CHECK_THROW(CuboidVolumeBounds(-hx, -hy, -hz), std::logic_error);
+  // Initializer list with missing bound values
+  BOOST_CHECK_THROW(
+      CuboidVolumeBounds({{CuboidVolumeBounds::BoundValues::eHalfLengthX, hx},
+                          {CuboidVolumeBounds::BoundValues::eHalfLengthZ, hz}}),
+      std::logic_error);
 }
 
 BOOST_AUTO_TEST_CASE(CuboidVolumeProperties) {
@@ -104,11 +117,11 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeProperties) {
   }
 
   // Check the binning value positions
-  CHECK_CLOSE_ABS(box.binningBorder(Acts::binX), hx, s_epsilon);
-  CHECK_CLOSE_ABS(box.binningBorder(Acts::binY), hy, s_epsilon);
-  CHECK_CLOSE_ABS(box.binningBorder(Acts::binZ), hz, s_epsilon);
-  CHECK_CLOSE_ABS(box.binningBorder(Acts::binR), std::sqrt(hx * hx + hy * hy),
-                  s_epsilon);
+  CHECK_CLOSE_ABS(box.referenceBorder(AxisDirection::AxisX), hx, s_epsilon);
+  CHECK_CLOSE_ABS(box.referenceBorder(AxisDirection::AxisY), hy, s_epsilon);
+  CHECK_CLOSE_ABS(box.referenceBorder(AxisDirection::AxisZ), hz, s_epsilon);
+  CHECK_CLOSE_ABS(box.referenceBorder(AxisDirection::AxisR),
+                  std::sqrt(hx * hx + hy * hy), s_epsilon);
 }
 
 BOOST_AUTO_TEST_CASE(CuboidVolumeBoundarySurfaces) {
@@ -117,12 +130,11 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBoundarySurfaces) {
 
   BOOST_CHECK_EQUAL(cvbOrientedSurfaces.size(), 6);
 
-  auto geoCtx = GeometryContext();
+  auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
 
   for (auto& os : cvbOrientedSurfaces) {
     auto osCenter = os.surface->center(geoCtx);
-    const auto* pSurface =
-        dynamic_cast<const Acts::PlaneSurface*>(os.surface.get());
+    const auto* pSurface = dynamic_cast<const PlaneSurface*>(os.surface.get());
     BOOST_REQUIRE_MESSAGE(pSurface != nullptr,
                           "The surface is not a plane surface");
     auto osNormal = pSurface->normal(geoCtx);
@@ -138,38 +150,44 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBoundarySurfaces) {
   Vector3 zaxis(0., 0., 1.);
 
   // Test the orientation of the boundary surfaces
-  auto nFaceXY =
-      cvbOrientedSurfaces[negativeFaceXY].surface->transform(geoCtx).rotation();
+  auto nFaceXY = cvbOrientedSurfaces[negativeFaceXY]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(nFaceXY.col(0).isApprox(xaxis));
   BOOST_CHECK(nFaceXY.col(1).isApprox(yaxis));
   BOOST_CHECK(nFaceXY.col(2).isApprox(zaxis));
 
-  auto pFaceXY =
-      cvbOrientedSurfaces[positiveFaceXY].surface->transform(geoCtx).rotation();
+  auto pFaceXY = cvbOrientedSurfaces[positiveFaceXY]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(pFaceXY.col(0).isApprox(xaxis));
   BOOST_CHECK(pFaceXY.col(1).isApprox(yaxis));
   BOOST_CHECK(pFaceXY.col(2).isApprox(zaxis));
 
-  auto nFaceYZ =
-      cvbOrientedSurfaces[negativeFaceYZ].surface->transform(geoCtx).rotation();
+  auto nFaceYZ = cvbOrientedSurfaces[negativeFaceYZ]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(nFaceYZ.col(0).isApprox(yaxis));
   BOOST_CHECK(nFaceYZ.col(1).isApprox(zaxis));
   BOOST_CHECK(nFaceYZ.col(2).isApprox(xaxis));
 
-  auto pFaceYZ =
-      cvbOrientedSurfaces[positiveFaceYZ].surface->transform(geoCtx).rotation();
+  auto pFaceYZ = cvbOrientedSurfaces[positiveFaceYZ]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(pFaceYZ.col(0).isApprox(yaxis));
   BOOST_CHECK(pFaceYZ.col(1).isApprox(zaxis));
   BOOST_CHECK(pFaceYZ.col(2).isApprox(xaxis));
 
-  auto nFaceZX =
-      cvbOrientedSurfaces[negativeFaceZX].surface->transform(geoCtx).rotation();
+  auto nFaceZX = cvbOrientedSurfaces[negativeFaceZX]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(nFaceZX.col(0).isApprox(zaxis));
   BOOST_CHECK(nFaceZX.col(1).isApprox(xaxis));
   BOOST_CHECK(nFaceZX.col(2).isApprox(yaxis));
 
-  auto pFaceZX =
-      cvbOrientedSurfaces[positiveFaceZX].surface->transform(geoCtx).rotation();
+  auto pFaceZX = cvbOrientedSurfaces[positiveFaceZX]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(pFaceZX.col(0).isApprox(zaxis));
   BOOST_CHECK(pFaceZX.col(1).isApprox(xaxis));
   BOOST_CHECK(pFaceZX.col(2).isApprox(yaxis));
@@ -181,8 +199,8 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBoundsSetValues) {
   for (auto bValue :
        {CuboidVolumeBounds::eHalfLengthX, CuboidVolumeBounds::eHalfLengthY,
         CuboidVolumeBounds::eHalfLengthZ}) {
-    ActsScalar target = 0.5 * box.get(bValue);
-    ActsScalar previous = box.get(bValue);
+    double target = 0.5 * box.get(bValue);
+    double previous = box.get(bValue);
     BOOST_CHECK_THROW(box.set(bValue, -1), std::logic_error);
     BOOST_CHECK_EQUAL(box.get(bValue), previous);
     box.set(bValue, target);
@@ -203,4 +221,4 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBoundsSetValues) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

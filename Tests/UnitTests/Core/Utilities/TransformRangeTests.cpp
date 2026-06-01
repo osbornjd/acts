@@ -1,19 +1,25 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
+#include <boost/test/tools/old/interface.hpp>
 #include <boost/test/unit_test.hpp>
+#include <boost/test/unit_test_suite.hpp>
 
 #include "Acts/Utilities/TransformRange.hpp"
 
+#include <algorithm>
+#include <ranges>
+
 using namespace Acts;
 
-BOOST_AUTO_TEST_SUITE(TransformRangeTests)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
 auto checkSameAddresses = [](const auto& orig, auto& act) {
   BOOST_CHECK_EQUAL(orig.size(), act.size());
@@ -100,6 +106,14 @@ BOOST_AUTO_TEST_CASE(TransformRangeDeref) {
       static_assert(std::is_same_v<decltype(*(++r.begin())), int&>);
       checkSameAddresses(v, r);
 
+      std::vector<int> unpacked;
+      std::ranges::transform(r, std::back_inserter(unpacked),
+                             [](auto val) { return val; });
+      std::vector<int> exp = {1, 2, 4};
+
+      BOOST_CHECK_EQUAL_COLLECTIONS(exp.begin(), exp.end(), unpacked.begin(),
+                                    unpacked.end());
+
       auto cr = detail::TransformRange{detail::ConstDereference{}, raw_v};
       static_assert(std::is_same_v<decltype(cr)::value_type, const int>);
       static_assert(std::is_same_v<decltype(cr)::reference, const int&>);
@@ -109,6 +123,13 @@ BOOST_AUTO_TEST_CASE(TransformRangeDeref) {
       static_assert(std::is_same_v<decltype(*cr.begin()), const int&>);
       static_assert(std::is_same_v<decltype(*(++cr.begin())), const int&>);
       checkSameAddresses(v, r);
+
+      unpacked.clear();
+      std::ranges::transform(cr, std::back_inserter(unpacked),
+                             [](auto val) { return val; });
+
+      BOOST_CHECK_EQUAL_COLLECTIONS(exp.begin(), exp.end(), unpacked.begin(),
+                                    unpacked.end());
     }
   }
 
@@ -128,6 +149,12 @@ BOOST_AUTO_TEST_CASE(TransformRangeDeref) {
       static_assert(std::is_same_v<decltype(*r.begin()), const int&>);
       static_assert(std::is_same_v<decltype(*(++r.begin())), const int&>);
       checkSameAddresses(v, r);
+
+      std::vector<int> unpacked;
+      std::ranges::transform(r, std::back_inserter(unpacked),
+                             [](auto val) { return val; });
+
+      BOOST_CHECK(unpacked == std::vector<int>({1, 2, 3}));
     }
 
     std::vector<const int*> raw_v;
@@ -227,4 +254,25 @@ BOOST_AUTO_TEST_CASE(TransformRangeReferenceWrappers) {
   BOOST_CHECK_EQUAL_COLLECTIONS(exp.begin(), exp.end(), act.begin(), act.end());
 }
 
+BOOST_AUTO_TEST_CASE(Ranges) {
+  std::vector<std::unique_ptr<int>> v;
+  v.push_back(std::make_unique<int>(1));
+  v.push_back(std::make_unique<int>(2));
+  v.push_back(std::make_unique<int>(3));
+  v.push_back(std::make_unique<int>(4));
+  v.push_back(std::make_unique<int>(5));
+  auto r = detail::TransformRange{detail::Dereference{}, v};
+
+  std::vector<int> results;
+  std::ranges::copy(r | std::views::transform([](int val) { return val * 3; }) |
+                        std::views::filter([](int val) { return val < 10; }),
+                    std::back_inserter(results));
+  BOOST_CHECK_EQUAL(results.size(), 3);
+  std::vector exp{3, 6, 9};
+  BOOST_CHECK_EQUAL_COLLECTIONS(exp.begin(), exp.end(), results.begin(),
+                                results.end());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

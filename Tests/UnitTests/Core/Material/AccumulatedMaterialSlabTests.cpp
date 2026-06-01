@@ -1,41 +1,35 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Material/AccumulatedMaterialSlab.hpp"
 #include "Acts/Material/Material.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
+#include "ActsTests/CommonHelpers/PredefinedMaterials.hpp"
 
 #include <limits>
 #include <utility>
 
-namespace {
-
-using Acts::AccumulatedMaterialSlab;
-using Acts::Material;
-using Acts::MaterialSlab;
-using Acts::Test::makeSilicon;
-using Acts::Test::makeUnitSlab;
+using namespace Acts;
 
 constexpr auto eps = std::numeric_limits<float>::epsilon();
 
-}  // namespace
+namespace ActsTests {
 
-BOOST_AUTO_TEST_SUITE(MaterialAccumulatedMaterialSlab)
+BOOST_AUTO_TEST_SUITE(MaterialSuite)
 
 BOOST_AUTO_TEST_CASE(Nothing) {
   AccumulatedMaterialSlab a;
   auto [average, trackCount] = a.totalAverage();
   // material is vacuum
-  BOOST_CHECK(!(average));
+  BOOST_CHECK(average.isVacuum());
   BOOST_CHECK_EQUAL(trackCount, 0u);
 }
 
@@ -46,7 +40,7 @@ BOOST_AUTO_TEST_CASE(EmptyTracksIgnored) {
   a.trackAverage();
   a.trackAverage();
   auto [average, trackCount] = a.totalAverage();
-  BOOST_CHECK(!(average));
+  BOOST_CHECK(average.isVacuum());
   BOOST_CHECK_EQUAL(trackCount, 0u);
 }
 
@@ -57,7 +51,7 @@ BOOST_AUTO_TEST_CASE(EmptyTracks) {
   a.trackAverage(true);
   a.trackAverage(true);
   auto [average, trackCount] = a.totalAverage();
-  BOOST_CHECK(!(average));
+  BOOST_CHECK(average.isVacuum());
   BOOST_CHECK_EQUAL(trackCount, 3u);
 }
 
@@ -173,7 +167,7 @@ BOOST_AUTO_TEST_CASE(MultipleDifferentTracks) {
   }
   // add vacuum w/ given the same thickness as the current average
   {
-    MaterialSlab vac(2 * unit.thickness());
+    MaterialSlab vac = MaterialSlab::Vacuum(2 * unit.thickness());
     // add vacuum twice to counteract the existing two tracks stored
     a.accumulate(vac);
     a.trackAverage();
@@ -199,3 +193,5 @@ BOOST_AUTO_TEST_CASE(MultipleDifferentTracks) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

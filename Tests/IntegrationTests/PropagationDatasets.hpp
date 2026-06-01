@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -31,7 +31,6 @@ const auto thetaForwardBackward = bdata::make(
     {2_degree, 10_degree, 30_degree, 150_degree, 170_degree, 178_degree});
 const auto thetaBeam = bdata::make({0_degree, 180_degree});
 const auto thetaWithoutBeam = thetaCentral + thetaForwardBackward;
-const auto theta = thetaCentral + thetaForwardBackward + thetaBeam;
 
 // momentum and charge
 const auto absMomentum = bdata::make({0.5_GeV, 1_GeV, 10_GeV, 100_GeV});

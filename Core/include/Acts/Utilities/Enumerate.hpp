@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -12,6 +12,7 @@
 #include <utility>
 
 namespace Acts {
+
 /// Helper utility to allow indexed enumeration with structured binding
 ///
 /// Usage:
@@ -19,14 +20,17 @@ namespace Acts {
 /// for (auto [ i, value ] = enumerate(container) ) { ... };
 ///
 /// with 'container' any stl-like container
-///
-template <typename container_type,
-          typename container_type_iter =
-              decltype(std::begin(std::declval<container_type>())),
-          typename = decltype(std::end(std::declval<container_type>()))>
+/// @param iterable Container to enumerate
+/// @return Enumerable wrapper with index and value pairs
+template <
+    typename container_type,
+    typename index_type = typename std::decay_t<container_type>::size_type,
+    typename container_type_iter =
+        decltype(std::begin(std::declval<container_type>())),
+    typename = decltype(std::end(std::declval<container_type>()))>
 constexpr auto enumerate(container_type &&iterable) {
   struct iterator {
-    std::size_t i;
+    index_type i;
     container_type_iter iter;
 
     bool operator!=(const iterator &rhs) const { return iter != rhs.iter; }

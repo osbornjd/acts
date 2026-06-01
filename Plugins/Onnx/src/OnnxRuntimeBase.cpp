@@ -1,18 +1,19 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/Onnx/OnnxRuntimeBase.hpp"
+#include "ActsPlugins/Onnx/OnnxRuntimeBase.hpp"
 
 #include <cassert>
 #include <stdexcept>
 
 // Parametrized constructor
-Acts::OnnxRuntimeBase::OnnxRuntimeBase(Ort::Env& env, const char* modelPath) {
+ActsPlugins::OnnxRuntimeBase::OnnxRuntimeBase(Ort::Env& env,
+                                              const char* modelPath) {
   // Set the ONNX runtime session options
   Ort::SessionOptions sessionOptions;
   // Set graph optimization level
@@ -54,9 +55,9 @@ Acts::OnnxRuntimeBase::OnnxRuntimeBase(Ort::Env& env, const char* modelPath) {
 }
 
 // Inference function using ONNX runtime for one single entry
-std::vector<float> Acts::OnnxRuntimeBase::runONNXInference(
+std::vector<float> ActsPlugins::OnnxRuntimeBase::runONNXInference(
     std::vector<float>& inputTensorValues) const {
-  Acts::NetworkBatchInput vectorInput(1, inputTensorValues.size());
+  NetworkBatchInput vectorInput(1, inputTensorValues.size());
   for (std::size_t i = 0; i < inputTensorValues.size(); i++) {
     vectorInput(0, i) = inputTensorValues[i];
   }
@@ -66,18 +67,18 @@ std::vector<float> Acts::OnnxRuntimeBase::runONNXInference(
 
 // Inference function using ONNX runtime
 // the function assumes that the model has 1 input node and 1 output node
-std::vector<std::vector<float>> Acts::OnnxRuntimeBase::runONNXInference(
-    Acts::NetworkBatchInput& inputTensorValues) const {
+std::vector<std::vector<float>> ActsPlugins::OnnxRuntimeBase::runONNXInference(
+    NetworkBatchInput& inputTensorValues) const {
   return runONNXInferenceMultiOutput(inputTensorValues).front();
 }
 
 // Inference function for single-input, multi-output models
 std::vector<std::vector<std::vector<float>>>
-Acts::OnnxRuntimeBase::runONNXInferenceMultiOutput(
+ActsPlugins::OnnxRuntimeBase::runONNXInferenceMultiOutput(
     NetworkBatchInput& inputTensorValues) const {
   int batchSize = inputTensorValues.rows();
-  std::vector<int64_t> inputNodeDims = m_inputNodeDims;
-  std::vector<std::vector<int64_t>> outputNodeDims = m_outputNodeDims;
+  std::vector<std::int64_t> inputNodeDims = m_inputNodeDims;
+  std::vector<std::vector<std::int64_t>> outputNodeDims = m_outputNodeDims;
 
   // The first dim node should correspond to the batch size
   // If it is -1, it is dynamic and should be set to the input size
@@ -86,7 +87,7 @@ Acts::OnnxRuntimeBase::runONNXInferenceMultiOutput(
   }
 
   bool outputDimsMatch = true;
-  for (std::vector<int64_t>& nodeDim : outputNodeDims) {
+  for (std::vector<std::int64_t>& nodeDim : outputNodeDims) {
     if (nodeDim[0] == -1) {
       nodeDim[0] = batchSize;
     }

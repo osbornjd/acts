@@ -1,17 +1,16 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Geometry/GeometryHierarchyMap.hpp"
 #include "Acts/TrackFitting/KalmanFitter.hpp"
 #include "ActsAlignment/Kernel/Alignment.hpp"
-#include "ActsExamples/EventData/IndexSourceLink.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/ProtoTrack.hpp"
 #include "ActsExamples/EventData/Track.hpp"
@@ -58,7 +57,7 @@ class AlignmentAlgorithm final : public IAlgorithm {
  public:
   using AlignmentResult = Acts::Result<ActsAlignment::AlignmentResult>;
   using AlignmentParameters =
-      std::unordered_map<Acts::DetectorElementBase*, Acts::Transform3>;
+      std::unordered_map<Acts::SurfacePlacementBase*, Acts::Transform3>;
   /// Alignment function that takes sets of input measurements, initial
   /// trackstate and alignment options and returns some alignment-specific
   /// result.
@@ -88,8 +87,6 @@ class AlignmentAlgorithm final : public IAlgorithm {
   struct Config {
     /// Input measurements collection.
     std::string inputMeasurements;
-    /// Input source links collection.
-    std::string inputSourceLinks;
     /// Input proto tracks collection, i.e. groups of hit indices.
     std::string inputProtoTracks;
     /// Input initial track parameter estimates for for each proto track.
@@ -101,7 +98,7 @@ class AlignmentAlgorithm final : public IAlgorithm {
     /// The aligned transform updater
     ActsAlignment::AlignedTransformUpdater alignedTransformUpdater;
     /// The surfaces (with detector elements) to be aligned
-    std::vector<Acts::DetectorElementBase*> alignedDetElements;
+    std::vector<Acts::SurfacePlacementBase*> alignedDetElements;
     /// The alignment mask at each iteration
     std::map<unsigned int, std::bitset<6>> iterationState;
     /// Cutoff value for average chi2/ndf
@@ -133,8 +130,6 @@ class AlignmentAlgorithm final : public IAlgorithm {
 
   ReadDataHandle<MeasurementContainer> m_inputMeasurements{this,
                                                            "InputMeasurements"};
-  ReadDataHandle<IndexSourceLinkContainer> m_inputSourceLinks{
-      this, "InputSourceLinks"};
   ReadDataHandle<TrackParametersContainer> m_inputInitialTrackParameters{
       this, "InputInitialTrackParameters"};
   ReadDataHandle<ProtoTrackContainer> m_inputProtoTracks{this,

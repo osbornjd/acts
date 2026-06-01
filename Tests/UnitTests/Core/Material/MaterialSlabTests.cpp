@@ -1,28 +1,31 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Material/Material.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <limits>
 #include <vector>
 
 static constexpr auto eps = 2 * std::numeric_limits<float>::epsilon();
 
-BOOST_AUTO_TEST_SUITE(material_properties)
+using namespace Acts;
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(MaterialSuite)
 
 BOOST_AUTO_TEST_CASE(construct_simple) {
   /// construct from material and thickness
-  Acts::MaterialSlab fromMaterial(
-      Acts::Material::fromMolarDensity(1., 2., 3., 4., 5.), 6.);
+  MaterialSlab fromMaterial(Material::fromMolarDensity(1., 2., 3., 4., 5.), 6.);
 
   CHECK_CLOSE_REL(fromMaterial.thickness(), 6., eps);
   CHECK_CLOSE_REL(fromMaterial.thicknessInX0(), 6., eps);
@@ -30,14 +33,11 @@ BOOST_AUTO_TEST_CASE(construct_simple) {
 }
 
 BOOST_AUTO_TEST_CASE(construct_compound) {
-  using Acts::Material;
-  using Acts::MaterialSlab;
-
   MaterialSlab a(Material::fromMolarDensity(1., 2., 3., 4., 5.), 1.);
   MaterialSlab b(Material::fromMolarDensity(2., 4., 6., 8., 10.), 2.);
   MaterialSlab c(Material::fromMolarDensity(4., 8., 12., 16., 20.), 3.);
   std::vector<MaterialSlab> components = {a, b, c};
-  MaterialSlab abc = MaterialSlab::averageLayers(components);
+  MaterialSlab abc = MaterialSlab::combineLayers(components);
 
   // consistency checks
   CHECK_CLOSE_REL(abc.thickness() / abc.material().X0(), abc.thicknessInX0(),
@@ -64,10 +64,10 @@ BOOST_AUTO_TEST_CASE(construct_compound) {
 }
 
 BOOST_AUTO_TEST_CASE(scale_thickness) {
-  const auto material = Acts::Material::fromMassDensity(1., 2., 3., 4., 5.);
-  const Acts::MaterialSlab mat(material, 0.1);
-  const Acts::MaterialSlab halfMat(material, 0.05);
-  Acts::MaterialSlab halfScaled = mat;
+  const auto material = Material::fromMassDensity(1., 2., 3., 4., 5.);
+  const MaterialSlab mat(material, 0.1);
+  const MaterialSlab halfMat(material, 0.05);
+  MaterialSlab halfScaled = mat;
   halfScaled.scaleThickness(0.5);
 
   BOOST_CHECK_NE(mat, halfMat);
@@ -80,3 +80,5 @@ BOOST_AUTO_TEST_CASE(scale_thickness) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

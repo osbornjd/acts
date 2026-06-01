@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -12,6 +12,7 @@
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
+#include "Acts/EventData/Types.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 
@@ -40,13 +41,13 @@ globalTrackParametersCovariance(const traj_t& multiTraj,
   using GainMatrix = CovMatrix;
 
   // The last smoothed state index
-  std::size_t lastSmoothedIndex = SIZE_MAX;
+  std::size_t lastSmoothedIndex = Acts::kTrackIndexInvalid;
   // The total number of smoothed states
   std::size_t nSmoothedStates = 0;
   // Visit all the states
   multiTraj.visitBackwards(entryIndex, [&](const auto& ts) {
     if (ts.hasSmoothed()) {
-      if (lastSmoothedIndex == SIZE_MAX) {
+      if (lastSmoothedIndex == Acts::kTrackIndexInvalid) {
         lastSmoothedIndex = ts.index();
       }
       nSmoothedStates++;
@@ -95,7 +96,7 @@ globalTrackParametersCovariance(const traj_t& multiTraj,
     prev_ts = ts;
   });
 
-  return std::make_pair(fullGlobalTrackParamsCov, stateRowIndices);
+  return {fullGlobalTrackParamsCov, stateRowIndices};
 }
 
 }  // namespace Acts::detail

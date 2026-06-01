@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -18,6 +18,8 @@
 
 namespace ActsExamples {
 
+struct IndexSourceLinkSurfaceAccessor;
+
 /// A source link that stores just an index.
 ///
 /// This is intentionally kept as barebones as possible. The source link
@@ -29,6 +31,8 @@ namespace ActsExamples {
 /// easily changed without having to also change the source link.
 class IndexSourceLink final {
  public:
+  using SurfaceAccessor = IndexSourceLinkSurfaceAccessor;
+
   /// Construct from geometry identifier and index.
   constexpr IndexSourceLink(Acts::GeometryIdentifier gid, Index idx)
       : m_geometryId(gid), m_index(idx) {}
@@ -46,15 +50,6 @@ class IndexSourceLink final {
 
   Acts::GeometryIdentifier geometryId() const { return m_geometryId; }
 
-  struct SurfaceAccessor {
-    const Acts::TrackingGeometry& trackingGeometry;
-
-    const Acts::Surface* operator()(const Acts::SourceLink& sourceLink) const {
-      const auto& indexSourceLink = sourceLink.get<IndexSourceLink>();
-      return trackingGeometry.findSurface(indexSourceLink.geometryId());
-    }
-  };
-
  private:
   Acts::GeometryIdentifier m_geometryId;
   Index m_index = 0;
@@ -64,17 +59,17 @@ class IndexSourceLink final {
     return (lhs.geometryId() == rhs.geometryId()) &&
            (lhs.m_index == rhs.m_index);
   }
-  friend bool operator!=(const IndexSourceLink& lhs,
-                         const IndexSourceLink& rhs) {
-    return !(lhs == rhs);
+};
+
+struct IndexSourceLinkSurfaceAccessor {
+  const Acts::TrackingGeometry& geometry;
+
+  const Acts::Surface* operator()(const Acts::SourceLink& sourceLink) const {
+    const auto& indexSourceLink = sourceLink.get<IndexSourceLink>();
+    return geometry.findSurface(indexSourceLink.geometryId());
   }
 };
 
-/// Container of index source links.
-///
-/// Since the source links provide a `.geometryId()` accessor, they can be
-/// stored in an ordered geometry container.
-using IndexSourceLinkContainer = GeometryIdMultiset<IndexSourceLink>;
 /// Accessor for the above source link container
 ///
 /// It wraps up a few lookup methods to be used in the Combinatorial Kalman
@@ -91,4 +86,5 @@ struct IndexSourceLinkAccessor : GeometryIdMultisetAccessor<IndexSourceLink> {
     return {Iterator{begin}, Iterator{end}};
   }
 };
+
 }  // namespace ActsExamples

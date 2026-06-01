@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -338,7 +338,7 @@ struct PtResidualAccessor {
       float p = 1. / std::abs(qop_value->at(entry));
       float theta = theta_value->at(entry);
       float pt_true = reference_pt->at(entry);
-      return (p * sin(theta) - pt_true);
+      return (p * std::sin(theta) - pt_true);
     }
     return std::numeric_limits<float>::infinity();
   }

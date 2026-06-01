@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -18,16 +18,15 @@
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Material/interface/IAssignmentFinder.hpp"
 #include "Acts/Material/interface/ISurfaceMaterialAccumulater.hpp"
-#include "Acts/Propagator/SurfaceCollector.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Utilities/Enumerate.hpp"
-#include "Acts/Utilities/VectorHelpers.hpp"
+#include "Acts/Utilities/Intersection.hpp"
 
-#include <limits>
+using namespace Acts;
 
-namespace Acts::Test {
+namespace ActsTests {
 
-auto tContext = GeometryContext();
+auto tContext = GeometryContext::dangerouslyDefaultConstruct();
 
 /// @brief Interface for the material mapping that seeks the possible
 /// assignment candidates for the material interactiosn
@@ -55,21 +54,20 @@ class IntersectSurfacesFinder : public IAssignmentFinder {
     // Intersect the surfaces
     for (auto& surface : surfaces) {
       // Get the intersection
-      auto sMultiIntersection = surface->intersect(gctx, position, direction,
-                                                   Acts::BoundaryCheck(true));
+      MultiIntersection3D multiIntersection = surface->intersect(
+          gctx, position, direction, BoundaryTolerance::None());
       // One solution, take it
-      if (sMultiIntersection.size() == 1u &&
-          sMultiIntersection[0u].status() >=
-              Acts::IntersectionStatus::reachable &&
-          sMultiIntersection[0u].pathLength() >= 0.0) {
+      if (multiIntersection.size() == 1u &&
+          multiIntersection.at(0).status() >= IntersectionStatus::reachable &&
+          multiIntersection.at(0).pathLength() >= 0.0) {
         surfaceAssignments.push_back(
-            {surface, sMultiIntersection[0u].position(), direction});
+            {surface, multiIntersection.at(0).position(), direction});
         continue;
       }
-      if (sMultiIntersection.size() > 1u) {
+      if (multiIntersection.size() > 1u) {
         // Multiple intersections, take the closest
-        auto closestForward = sMultiIntersection.closestForward();
-        if (closestForward.status() >= Acts::IntersectionStatus::reachable &&
+        Intersection3D closestForward = multiIntersection.closestForward();
+        if (closestForward.status() >= IntersectionStatus::reachable &&
             closestForward.pathLength() > 0.0) {
           surfaceAssignments.push_back(
               {surface, closestForward.position(), direction});
@@ -84,7 +82,8 @@ class IntersectSurfacesFinder : public IAssignmentFinder {
 /// @brief Interface for the material mapping, this is the accumulation step
 class MaterialBlender : public ISurfaceMaterialAccumulater {
  public:
-  MaterialBlender(const std::vector<std::shared_ptr<Surface>>& surfaces = {})
+  explicit MaterialBlender(
+      const std::vector<std::shared_ptr<Surface>>& surfaces = {})
       : m_surfaces(surfaces) {}
 
   /// The state of the material accumulater, this is used
@@ -157,7 +156,7 @@ class MaterialBlender : public ISurfaceMaterialAccumulater {
   std::vector<std::shared_ptr<Surface>> m_surfaces;
 };
 
-BOOST_AUTO_TEST_SUITE(MaterialMapperTestSuite)
+BOOST_AUTO_TEST_SUITE(MaterialSuite)
 
 /// @brief This test checks the data flow of the material mapper, it is not
 /// a test of the single components, which are tested individually
@@ -173,7 +172,7 @@ BOOST_AUTO_TEST_CASE(MaterialMapperFlowTest) {
                                            100.0)};
 
   for (auto [is, surface] : enumerate(surfaces)) {
-    surface->assignGeometryId(GeometryIdentifier().setSensitive(is + 1));
+    surface->assignGeometryId(GeometryIdentifier().withSensitive(is + 1));
   }
 
   // The assigner
@@ -251,4 +250,4 @@ BOOST_AUTO_TEST_CASE(MaterialMapperInvalidTest) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

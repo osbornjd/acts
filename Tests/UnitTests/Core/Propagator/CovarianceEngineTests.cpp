@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
@@ -25,11 +25,12 @@
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Result.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <random>
 #include <tuple>
@@ -39,7 +40,7 @@ namespace bdata = boost::unit_test::data;
 
 namespace Acts::Test {
 
-Acts::GeometryContext gctx;
+const auto gctx = Acts::GeometryContext::dangerouslyDefaultConstruct();
 Acts::MagneticFieldContext mctx;
 
 using namespace Acts::UnitLiterals;
@@ -52,14 +53,15 @@ using Jacobian = BoundMatrix;
 /// the numerical correctness is performed in the integration tests.
 BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   // Create a test context
-  GeometryContext tgContext = GeometryContext();
+  GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
   auto particleHypothesis = ParticleHypothesis::pion();
 
   // Build a start vector
   Vector3 position{1., 2., 3.};
   double time = 4.;
-  Vector3 direction{sqrt(5. / 22.), 3. * sqrt(2. / 55.), 7. / sqrt(110.)};
+  Vector3 direction{std::sqrt(5. / 22.), 3. * std::sqrt(2. / 55.),
+                    7. / std::sqrt(110.)};
   double qop = 0.125;
   FreeVector parameters, startParameters;
   parameters << position[0], position[1], position[2], time, direction[0],
@@ -73,11 +75,12 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   FreeVector derivatives;
   derivatives << 9., 10., 11., 12., 13., 14., 15., 16.;
   BoundToFreeMatrix boundToFreeJacobian = 4. * BoundToFreeMatrix::Identity();
+  std::optional<FreeMatrix> additionalFreeCovariance;
 
   // Covariance transport to curvilinear coordinates
-  detail::transportCovarianceToCurvilinear(covariance, jacobian,
-                                           transportJacobian, derivatives,
-                                           boundToFreeJacobian, direction);
+  detail::transportCovarianceToCurvilinear(
+      covariance, jacobian, transportJacobian, derivatives, boundToFreeJacobian,
+      additionalFreeCovariance, direction);
 
   // Tests to see that the right components are (un-)changed
   BOOST_CHECK_NE(covariance, Covariance::Identity());
@@ -85,8 +88,9 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   BOOST_CHECK_EQUAL(transportJacobian, FreeMatrix::Identity());
   BOOST_CHECK_EQUAL(derivatives, FreeVector::Zero());
   BOOST_CHECK_NE(boundToFreeJacobian, 4. * BoundToFreeMatrix::Identity());
-  BOOST_CHECK_EQUAL(
-      direction, Vector3(sqrt(5. / 22.), 3. * sqrt(2. / 55.), 7. / sqrt(110.)));
+  BOOST_CHECK_EQUAL(direction,
+                    Vector3(std::sqrt(5. / 22.), 3. * std::sqrt(2. / 55.),
+                            7. / std::sqrt(110.)));
 
   // Reset
   covariance = Covariance::Identity();
@@ -97,10 +101,12 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
 
   // Repeat transport to surface
   FreeToBoundCorrection freeToBoundCorrection(false);
-  auto surface = Surface::makeShared<PlaneSurface>(position, direction);
+  std::shared_ptr<PlaneSurface> surface =
+      CurvilinearSurface(position, direction).planeSurface();
   detail::transportCovarianceToBound(
       tgContext, *surface, covariance, jacobian, transportJacobian, derivatives,
-      boundToFreeJacobian, parameters, freeToBoundCorrection);
+      boundToFreeJacobian, additionalFreeCovariance, parameters,
+      freeToBoundCorrection);
 
   BOOST_CHECK_NE(covariance, Covariance::Identity());
   BOOST_CHECK_NE(jacobian, 2. * Jacobian::Identity());
@@ -112,7 +118,7 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   // Produce a curvilinear state without covariance matrix
   auto curvResult = detail::curvilinearState(
       covariance, jacobian, transportJacobian, derivatives, boundToFreeJacobian,
-      parameters, particleHypothesis, false, 1337.);
+      std::nullopt, parameters, particleHypothesis, false, 1337.);
   BOOST_CHECK(!std::get<0>(curvResult).covariance().has_value());
   BOOST_CHECK_EQUAL(std::get<2>(curvResult), 1337.);
 
@@ -126,7 +132,7 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   // Produce a curvilinear state with covariance matrix
   curvResult = detail::curvilinearState(
       covariance, jacobian, transportJacobian, derivatives, boundToFreeJacobian,
-      parameters, particleHypothesis, true, 1337.);
+      additionalFreeCovariance, parameters, particleHypothesis, true, 1337.);
   BOOST_CHECK(std::get<0>(curvResult).covariance().has_value());
   BOOST_CHECK_NE(*(std::get<0>(curvResult).covariance()),
                  Covariance::Identity());
@@ -136,10 +142,10 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   // Produce a bound state without covariance matrix
   auto covarianceBefore = covariance;
   auto boundResult =
-      detail::boundState(tgContext, *surface, covariance, jacobian,
-                         transportJacobian, derivatives, boundToFreeJacobian,
-                         parameters, particleHypothesis, false, 1337.,
-                         freeToBoundCorrection)
+      detail::boundState(
+          tgContext, *surface, covariance, jacobian, transportJacobian,
+          derivatives, boundToFreeJacobian, additionalFreeCovariance,
+          parameters, particleHypothesis, false, 1337., freeToBoundCorrection)
           .value();
   BOOST_CHECK(std::get<0>(curvResult).covariance().has_value());
   BOOST_CHECK_EQUAL(*(std::get<0>(curvResult).covariance()), covarianceBefore);
@@ -156,7 +162,8 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   boundResult =
       detail::boundState(tgContext, *surface, covariance, jacobian,
                          transportJacobian, derivatives, boundToFreeJacobian,
-                         parameters, ParticleHypothesis::pion(), true, 1337.,
+                         additionalFreeCovariance, parameters,
+                         ParticleHypothesis::pion(), true, 1337.,
                          freeToBoundCorrection)
           .value();
   BOOST_CHECK(std::get<0>(boundResult).covariance().has_value());
@@ -172,7 +179,8 @@ BOOST_AUTO_TEST_CASE(covariance_engine_test) {
   boundResult =
       detail::boundState(tgContext, *surface, covariance, jacobian,
                          transportJacobian, derivatives, boundToFreeJacobian,
-                         parameters, ParticleHypothesis::pion(), true, 1337.,
+                         additionalFreeCovariance, parameters,
+                         ParticleHypothesis::pion(), true, 1337.,
                          freeToBoundCorrection)
           .value();
   BOOST_CHECK(std::get<0>(boundResult).covariance().has_value());
@@ -198,8 +206,9 @@ using propagator_t = Propagator<EigenStepper<>, VoidNavigator>;
 
 BoundVector localToLocal(const propagator_t& prop, const BoundVector& local,
                          const Surface& src, const Surface& dst) {
-  PropagatorOptions<> options{gctx, mctx};
-  options.stepTolerance = 1e-10;
+  using PropagatorOptions = typename propagator_t::template Options<>;
+  PropagatorOptions options{gctx, mctx};
+  options.stepping.stepTolerance = 1e-10;
   options.surfaceTolerance = 1e-10;
 
   BoundTrackParameters start{src.getSharedPtr(), local, std::nullopt,
@@ -254,7 +263,7 @@ auto makeDist(double a, double b) {
 
 const auto locDist = makeDist(-5_mm, 5_mm);
 const auto bFieldDist = makeDist(0, 3_T);
-const auto angleDist = makeDist(-2 * M_PI, 2 * M_PI);
+const auto angleDist = makeDist(-2 * std::numbers::pi, 2 * std::numbers::pi);
 const auto posDist = makeDist(-50_mm, 50_mm);
 
 #define MAKE_SURFACE()                                    \
@@ -273,19 +282,20 @@ BOOST_DATA_TEST_CASE(CovarianceConversionSamePlane,
                       locDist ^ locDist) ^
                          bdata::xrange(100),
                      Bx, By, Bz, Rx, Ry, Rz, gx, gy, gz, l0, l1, index) {
-  (void)index;
+  static_cast<void>(index);
   const Vector3 bField{Bx, By, Bz};
 
   auto planeSurfaceA = MAKE_SURFACE();
-  auto planeSurfaceB =
-      Surface::makeShared<PlaneSurface>(planeSurfaceA->transform(gctx));
+  auto planeSurfaceB = Surface::makeShared<PlaneSurface>(
+      planeSurfaceA->localToGlobalTransform(gctx));
 
   BoundMatrix covA;
   covA.setZero();
   covA.diagonal() << 1, 2, 3, 4, 5, 6;
 
   BoundVector parA;
-  parA << l0, l1, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << l0, l1, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9,
+      -1 / 1_GeV, 5_ns;
 
   // identical surface, this should work
   auto [parB, covB] =
@@ -315,15 +325,16 @@ BOOST_DATA_TEST_CASE(CovarianceConversionRotatedPlane,
                       locDist ^ locDist ^ angleDist) ^
                          bdata::xrange(100),
                      Bx, By, Bz, Rx, Ry, Rz, gx, gy, gz, l0, l1, angle, index) {
-  (void)index;
+  static_cast<void>(index);
   const Vector3 bField{Bx, By, Bz};
 
   auto planeSurfaceA = MAKE_SURFACE();
 
   Transform3 transform;
-  transform = planeSurfaceA->transform(gctx).rotation();
+  transform = planeSurfaceA->localToGlobalTransform(gctx).rotation();
   transform = AngleAxis3(angle, planeSurfaceA->normal(gctx)) * transform;
-  transform.translation() = planeSurfaceA->transform(gctx).translation();
+  transform.translation() =
+      planeSurfaceA->localToGlobalTransform(gctx).translation();
   auto planeSurfaceB = Surface::makeShared<PlaneSurface>(transform);
 
   // sanity check that the normal didn't change
@@ -335,7 +346,8 @@ BOOST_DATA_TEST_CASE(CovarianceConversionRotatedPlane,
   covA.diagonal() << 1, 2, 3, 4, 5, 6;
 
   BoundVector parA;
-  parA << l0, l1, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << l0, l1, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9,
+      -1 / 1_GeV, 5_ns;
 
   auto [parB, covB] =
       boundToBound(parA, covA, *planeSurfaceA, *planeSurfaceB, bField);
@@ -364,26 +376,29 @@ BOOST_DATA_TEST_CASE(CovarianceConversionL0TiltedPlane,
                       locDist ^ angleDist) ^
                          bdata::xrange(100),
                      Bx, By, Bz, Rx, Ry, Rz, gx, gy, gz, l1, angle, index) {
-  (void)index;
+  static_cast<void>(index);
   const Vector3 bField{Bx, By, Bz};
 
   auto planeSurfaceA = MAKE_SURFACE();
 
   // make plane that is slightly rotated
   Transform3 transform;
-  transform = planeSurfaceA->transform(gctx).rotation();
+  transform = planeSurfaceA->localToGlobalTransform(gctx).rotation();
 
   // figure out rotation axis along local x
-  Vector3 axis = planeSurfaceA->transform(gctx).rotation() * Vector3::UnitY();
+  Vector3 axis =
+      planeSurfaceA->localToGlobalTransform(gctx).rotation() * Vector3::UnitY();
   transform = AngleAxis3(angle, axis) * transform;
 
-  transform.translation() = planeSurfaceA->transform(gctx).translation();
+  transform.translation() =
+      planeSurfaceA->localToGlobalTransform(gctx).translation();
 
   auto planeSurfaceB = Surface::makeShared<PlaneSurface>(transform);
 
   BoundVector parA;
   // loc 0 must be zero so we're on the intersection of both surfaces.
-  parA << 0, l1, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << 0, l1, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9, -1 / 1_GeV,
+      5_ns;
 
   BoundMatrix covA;
   covA.setZero();
@@ -413,25 +428,28 @@ BOOST_DATA_TEST_CASE(CovarianceConversionL1TiltedPlane,
                       locDist ^ angleDist) ^
                          bdata::xrange(100),
                      Bx, By, Bz, Rx, Ry, Rz, gx, gy, gz, l0, angle, index) {
-  (void)index;
+  static_cast<void>(index);
   const Vector3 bField{Bx, By, Bz};
 
   auto planeSurfaceA = MAKE_SURFACE();
 
   // make plane that is slightly rotated
   Transform3 transform;
-  transform = planeSurfaceA->transform(gctx).rotation();
+  transform = planeSurfaceA->localToGlobalTransform(gctx).rotation();
 
-  Vector3 axis = planeSurfaceA->transform(gctx).rotation() * Vector3::UnitX();
+  Vector3 axis =
+      planeSurfaceA->localToGlobalTransform(gctx).rotation() * Vector3::UnitX();
   transform = AngleAxis3(angle, axis) * transform;
 
-  transform.translation() = planeSurfaceA->transform(gctx).translation();
+  transform.translation() =
+      planeSurfaceA->localToGlobalTransform(gctx).translation();
 
   auto planeSurfaceB = Surface::makeShared<PlaneSurface>(transform);
 
   BoundVector parA;
   // loc 1 must be zero so we're on the intersection of both surfaces.
-  parA << l0, 0, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << l0, 0, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9, -1 / 1_GeV,
+      5_ns;
 
   BoundMatrix covA;
   covA.setZero();
@@ -463,13 +481,14 @@ BOOST_DATA_TEST_CASE(CovarianceConversionPerigee,
                          bdata::xrange(100),
                      Bx, By, Bz, Rx, Ry, Rz, gx, gy, gz, l0, l1, pRx, pRy, pRz,
                      index) {
-  (void)index;
+  static_cast<void>(index);
   const Vector3 bField{Bx, By, Bz};
 
   auto planeSurfaceA = MAKE_SURFACE();
 
   BoundVector parA;
-  parA << l0, l1, M_PI / 4., M_PI_2 * 0.9, -1 / 1_GeV, 5_ns;
+  parA << l0, l1, std::numbers::pi / 4., std::numbers::pi / 2. * 0.9,
+      -1 / 1_GeV, 5_ns;
 
   BoundMatrix covA;
   covA.setZero();

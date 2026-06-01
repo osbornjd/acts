@@ -1,21 +1,15 @@
-add_library(
-  ActsExamplesFrameworkML SHARED
-  src/NeuralCalibrator.cpp
-  )
+acts_add_library(
+    ExamplesFrameworkML
+    src/NeuralCalibrator.cpp
+    ACTS_INCLUDE_FOLDER include/ActsExamples
+)
 
 target_include_directories(
-  ActsExamplesFrameworkML
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    ActsExamplesFrameworkML
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 
 target_link_libraries(
-  ActsExamplesFrameworkML
-  PUBLIC ActsExamplesFramework ActsPluginOnnx
-  )
-
-install(
-  TARGETS ActsExamplesFrameworkML
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-install(
-  DIRECTORY include/ActsExamples 
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    ActsExamplesFrameworkML
+    PUBLIC Acts::ExamplesFramework Acts::PluginOnnx
+)

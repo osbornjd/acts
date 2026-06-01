@@ -1,22 +1,23 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Plugins/Json/UtilitiesJsonConverter.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinningType.hpp"
+#include "ActsPlugins/Json/UtilitiesJsonConverter.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <cmath>
 #include <fstream>
 #include <initializer_list>
+#include <numbers>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,10 +28,12 @@
 
 using namespace Acts;
 
-BOOST_AUTO_TEST_SUITE(UtilitiesJsonConverter)
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(JsonSuite)
 
 BOOST_AUTO_TEST_CASE(BinUtilityRoundTripTests) {
-  BinUtility reference(2, 0., 4., open, binR);
+  BinUtility reference(2, 0., 4., open, AxisDirection::AxisR);
 
   std::ofstream out;
 
@@ -54,7 +57,8 @@ BOOST_AUTO_TEST_CASE(BinUtilityRoundTripTests) {
   BOOST_CHECK(isEqual(reference, test, 0.0001));
 
   // Increase to two dimensions
-  reference += BinUtility(10., -M_PI, M_PI, closed, binPhi);
+  reference += BinUtility(10., -std::numbers::pi, std::numbers::pi, closed,
+                          AxisDirection::AxisPhi);
   nlohmann::json jtwoDimOut;
   to_json(jtwoDimOut, reference);
   out.open("BinUtility_2D.json");
@@ -75,7 +79,7 @@ BOOST_AUTO_TEST_CASE(BinUtilityRoundTripTests) {
 
   // Increase to three dimensions
   std::vector<float> boundaries = {-4., -1.5, 0., 10.};
-  reference += BinUtility(boundaries, open, binZ);
+  reference += BinUtility(boundaries, open, AxisDirection::AxisZ);
   nlohmann::json jthreeDimOut;
   to_json(jthreeDimOut, reference);
   out.open("BinUtility_3D.json");
@@ -123,15 +127,17 @@ BOOST_AUTO_TEST_CASE(BinUtilityRoundTripTests) {
 }
 
 BOOST_AUTO_TEST_CASE(Range1DRoundTrip) {
-  Range1D<ActsScalar> r(-10., 100.);
+  Range1D<double> r(-10., 100.);
 
   nlohmann::json jrange;
   jrange["range"] = r;
 
-  Range1D<ActsScalar> rIn = jrange["range"];
+  Range1D<double> rIn = jrange["range"];
 
   CHECK_CLOSE_ABS(rIn.min(), -10., 10e-5);
   CHECK_CLOSE_ABS(rIn.max(), 100., 10e-5);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

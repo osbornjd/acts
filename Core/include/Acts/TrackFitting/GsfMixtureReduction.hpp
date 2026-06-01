@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2021 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -18,6 +18,7 @@ namespace Acts {
 /// @param cmpCache the component collection
 /// @param maxCmpsAfterMerge the number of components we want to reach
 /// @param surface the surface type on which the components are (unused here)
+/// @ingroup track_fitting
 void reduceMixtureLargestWeights(std::vector<Acts::GsfComponent> &cmpCache,
                                  std::size_t maxCmpsAfterMerge,
                                  const Surface &surface);
@@ -28,6 +29,7 @@ void reduceMixtureLargestWeights(std::vector<Acts::GsfComponent> &cmpCache,
 /// @param cmpCache the component collection
 /// @param maxCmpsAfterMerge the number of components we want to reach
 /// @param surface the surface type on which the components are
+/// @ingroup track_fitting
 void reduceMixtureWithKLDistance(std::vector<GsfComponent> &cmpCache,
                                  std::size_t maxCmpsAfterMerge,
                                  const Surface &surface);

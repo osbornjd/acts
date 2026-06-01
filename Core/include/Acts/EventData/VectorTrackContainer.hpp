@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -15,7 +15,6 @@
 #include "Acts/EventData/TrackContainerBackendConcept.hpp"
 #include "Acts/EventData/detail/DynamicColumn.hpp"
 #include "Acts/EventData/detail/DynamicKeyIterator.hpp"
-#include "Acts/Utilities/Concepts.hpp"
 #include "Acts/Utilities/HashedString.hpp"
 
 #include <any>
@@ -38,20 +37,18 @@ namespace detail_vtc {
 
 class VectorTrackContainerBase {
  public:
-  using IndexType = MultiTrajectoryTraits::IndexType;
-  static constexpr auto kInvalid = MultiTrajectoryTraits::kInvalid;
-  static constexpr auto MeasurementSizeMax =
-      MultiTrajectoryTraits::MeasurementSizeMax;
+  using IndexType = TrackIndexType;
+  static constexpr auto kInvalid = kTrackIndexInvalid;
 
   using Parameters =
-      typename detail_lt::Types<eBoundSize, false>::CoefficientsMap;
+      typename detail_tsp::FixedSizeTypes<eBoundSize, false>::CoefficientsMap;
   using Covariance =
-      typename detail_lt::Types<eBoundSize, false>::CovarianceMap;
+      typename detail_tsp::FixedSizeTypes<eBoundSize, false>::CovarianceMap;
 
   using ConstParameters =
-      typename detail_lt::Types<eBoundSize, true>::CoefficientsMap;
+      typename detail_tsp::FixedSizeTypes<eBoundSize, true>::CoefficientsMap;
   using ConstCovariance =
-      typename detail_lt::Types<eBoundSize, true>::CovarianceMap;
+      typename detail_tsp::FixedSizeTypes<eBoundSize, true>::CovarianceMap;
 
  protected:
   VectorTrackContainerBase() = default;
@@ -136,7 +133,7 @@ class VectorTrackContainerBase {
     result = result && m_nSharedHits.size() == size;
 
     for (const auto& [key, col] : m_dynamic) {
-      (void)key;
+      static_cast<void>(key);
       result = result && col->size() == size;
     }
 
@@ -147,8 +144,19 @@ class VectorTrackContainerBase {
   constexpr bool hasColumn_impl(HashedString key) const {
     using namespace Acts::HashedStringLiteral;
     switch (key) {
+      case "tipIndex"_hash:
+      case "stemIndex"_hash:
+      case "params"_hash:
+      case "cov"_hash:
+      case "nMeasurements"_hash:
+      case "nHoles"_hash:
+      case "chi2"_hash:
+      case "ndf"_hash:
+      case "nOutliers"_hash:
+      case "nSharedHits"_hash:
+        return true;
       default:
-        return m_dynamic.find(key) != m_dynamic.end();
+        return m_dynamic.contains(key);
     }
   }
 
@@ -174,8 +182,10 @@ class VectorTrackContainerBase {
   std::vector<IndexType> m_tipIndex;
   std::vector<IndexType> m_stemIndex;
   std::vector<ParticleHypothesis> m_particleHypothesis;
-  std::vector<typename detail_lt::Types<eBoundSize>::Coefficients> m_params;
-  std::vector<typename detail_lt::Types<eBoundSize>::Covariance> m_cov;
+  std::vector<typename detail_tsp::FixedSizeTypes<eBoundSize>::Coefficients>
+      m_params;
+  std::vector<typename detail_tsp::FixedSizeTypes<eBoundSize>::Covariance>
+      m_cov;
   std::vector<std::shared_ptr<const Surface>> m_referenceSurfaces;
 
   std::vector<unsigned int> m_nMeasurements;
@@ -204,7 +214,7 @@ class VectorTrackContainer final : public detail_vtc::VectorTrackContainerBase {
   VectorTrackContainer(const VectorTrackContainer& other) = default;
   VectorTrackContainer(VectorTrackContainer&&) = default;
 
-  VectorTrackContainer(const ConstVectorTrackContainer& other);
+  explicit VectorTrackContainer(const ConstVectorTrackContainer& other);
 
  public:
   // BEGIN INTERFACE
@@ -224,8 +234,8 @@ class VectorTrackContainer final : public detail_vtc::VectorTrackContainerBase {
   void removeTrack_impl(IndexType itrack);
 
   template <typename T>
-  constexpr void addColumn_impl(const std::string& key) {
-    Acts::HashedString hashedKey = hashString(key);
+  constexpr void addColumn_impl(const std::string_view& key) {
+    HashedString hashedKey = hashStringDynamic(key);
     m_dynamic.insert({hashedKey, std::make_unique<detail::DynamicColumn<T>>()});
   }
 
@@ -253,6 +263,7 @@ class VectorTrackContainer final : public detail_vtc::VectorTrackContainerBase {
 
   void reserve(IndexType size);
   void clear();
+  std::size_t size() const;
 
   void setReferenceSurface_impl(IndexType itrack,
                                 std::shared_ptr<const Surface> surface) {
@@ -267,7 +278,8 @@ class VectorTrackContainer final : public detail_vtc::VectorTrackContainerBase {
   // END INTERFACE
 };
 
-ACTS_STATIC_CHECK_CONCEPT(TrackContainerBackend, VectorTrackContainer);
+static_assert(TrackContainerBackend<VectorTrackContainer>,
+              "VectorTrackContainer does not fulfill TrackContainerBackend");
 
 class ConstVectorTrackContainer;
 
@@ -280,13 +292,13 @@ class ConstVectorTrackContainer final
   ConstVectorTrackContainer() : VectorTrackContainerBase{} {}
 
   ConstVectorTrackContainer(const ConstVectorTrackContainer& other) = default;
-  ConstVectorTrackContainer(const VectorTrackContainer& other)
+  explicit ConstVectorTrackContainer(const VectorTrackContainer& other)
       : VectorTrackContainerBase{other} {
     assert(checkConsistency());
   }
 
   ConstVectorTrackContainer(ConstVectorTrackContainer&&) = default;
-  ConstVectorTrackContainer(VectorTrackContainer&& other)
+  explicit ConstVectorTrackContainer(VectorTrackContainer&& other)
       : VectorTrackContainerBase{std::move(other)} {
     assert(checkConsistency());
   }
@@ -310,8 +322,9 @@ class ConstVectorTrackContainer final
   // END INTERFACE
 };
 
-ACTS_STATIC_CHECK_CONCEPT(ConstTrackContainerBackend,
-                          ConstVectorTrackContainer);
+static_assert(
+    TrackContainerBackend<ConstVectorTrackContainer>,
+    "ConstVectorTrackContainer does not fulfill TrackContainerBackend");
 
 inline VectorTrackContainer::VectorTrackContainer(
     const ConstVectorTrackContainer& other)

@@ -1,12 +1,13 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
+
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Utilities/Result.hpp"
@@ -23,7 +24,9 @@ namespace Acts {
 /// Single tracks can be cached and removed from the overall density.
 class GaussianGridTrackDensity {
  public:
+  /// Type alias for main grid vector storing density values along z-axis
   using MainGridVector = Eigen::Matrix<float, Eigen::Dynamic, 1>;
+  /// Type alias for track grid vector storing single track density distribution
   using TrackGridVector = Eigen::Matrix<float, Eigen::Dynamic, 1>;
 
   /// The configuration struct
@@ -37,8 +40,8 @@ class GaussianGridTrackDensity {
     /// in the d0-z0 plane. Note: trkGridSize has to be an odd value.
     /// @note The value of @p zMinMax_ together with @p mainGridSize_ determines the
     /// overall bin size to be used as seen below
-    Config(float zMinMax_ = 100, int mainGridSize_ = 2000,
-           int trkGridSize_ = 15)
+    explicit Config(float zMinMax_ = 100, int mainGridSize_ = 2000,
+                    int trkGridSize_ = 15)
         : mainGridSize(mainGridSize_),
           trkGridSize(trkGridSize_),
           zMinMax(zMinMax_) {
@@ -55,30 +58,30 @@ class GaussianGridTrackDensity {
       }
     }
 
+    /// Size of the main 1-dim density grid along z-axis
     int mainGridSize;
+    /// Size of the 2-dim grid for a single track (must be odd)
     int trkGridSize;
 
-    // Min and max z value of big grid
+    /// Minimum and maximum z-value covered by the main density grid [mm]
     float zMinMax;  // mm
 
-    // Z size of one single bin in grid
+    /// Z size of one single bin in the grid [mm]
     float binSize;  // mm
 
-    // Do NOT use just the z-bin with the highest
-    // track density, but instead check the (up to)
-    // first three density maxima (only those that have
-    // a maximum relative deviation of 'relativeDensityDev'
-    // from the main maximum) and take the z-bin of the
-    // maximum with the highest surrounding density sum
+    /// Flag to use highest surrounding density sum instead of simple maximum
+    /// If true, check up to first three density maxima with relative deviation
+    /// less than maxRelativeDensityDev and take the z-bin with highest sum
     bool useHighestSumZPosition = false;
 
-    // The maximum relative density deviation from the main
-    // maximum to consider the second and third maximum for
-    // the highest-sum approach from above
+    /// Maximum relative density deviation from main maximum to consider
+    /// secondary maxima for the highest-sum approach
     float maxRelativeDensityDev = 0.01;
   };
 
-  GaussianGridTrackDensity(const Config& cfg) : m_cfg(cfg) {}
+  /// Constructor with configuration
+  /// @param cfg Configuration for track density calculation
+  explicit GaussianGridTrackDensity(const Config& cfg) : m_cfg(cfg) {}
 
   /// @brief Returns the z position of maximum track density
   ///
@@ -116,6 +119,8 @@ class GaussianGridTrackDensity {
   void removeTrackGridFromMainGrid(int zBin, const TrackGridVector& trkGrid,
                                    MainGridVector& mainGrid) const;
 
+  /// Get the configuration object
+  /// @return Reference to the configuration
   const Config& config() const { return m_cfg; }
 
  private:
@@ -185,6 +190,7 @@ class GaussianGridTrackDensity {
   /// @return The sum
   double getDensitySum(const MainGridVector& mainGrid, int pos) const;
 
+  /// Configuration object for the track density grid
   Config m_cfg;
 };
 

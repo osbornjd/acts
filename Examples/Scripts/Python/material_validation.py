@@ -4,17 +4,19 @@ import os
 import argparse
 
 import acts
-from acts.examples import Sequencer, RootMaterialTrackWriter
+from acts.examples import Sequencer
 from acts.examples.odd import getOpenDataDetector
+from acts.examples.simulation import addParticleGun, EtaConfig, ParticleConfig
+from acts.examples.root import RootMaterialTrackWriter
 
 
 def runMaterialValidation(
+    nevents,
+    ntracks,
     trackingGeometry,
     decorators,
     field,
     outputDir,
-    nevents=1000,
-    ntracks=1000,
     outputName="propagation-material",
     s=None,
 ):
@@ -25,7 +27,6 @@ def runMaterialValidation(
         s.addContextDecorator(decorator)
 
     nav = acts.Navigator(trackingGeometry=trackingGeometry)
-
     stepper = acts.StraightLineStepper()
     # stepper = acts.EigenStepper(field)
 
@@ -33,24 +34,35 @@ def runMaterialValidation(
 
     rnd = acts.examples.RandomNumbers(seed=42)
 
+    addParticleGun(
+        s,
+        ParticleConfig(num=ntracks, pdg=acts.PdgParticle.eMuon, randomizeCharge=True),
+        EtaConfig(-4.0, 4.0),
+        rnd=rnd,
+    )
+
+    trkParamExtractor = acts.examples.ParticleTrackParamExtractor(
+        level=acts.logging.INFO,
+        inputParticles="particles_generated",
+        outputTrackParameters="params_particles_generated",
+    )
+    s.addAlgorithm(trkParamExtractor)
+
     alg = acts.examples.PropagationAlgorithm(
         propagatorImpl=prop,
         level=acts.logging.INFO,
-        randomNumberSvc=rnd,
-        ntests=ntracks,
         sterileLogger=True,
-        propagationStepCollection="propagation-steps",
         recordMaterialInteractions=True,
-        d0Sigma=0,
-        z0Sigma=0,
+        inputTrackParameters="params_particles_generated",
+        outputSummaryCollection="propagation_summary",
+        outputMaterialCollection="material_tracks",
     )
-
     s.addAlgorithm(alg)
 
     s.addWriter(
         RootMaterialTrackWriter(
             level=acts.logging.INFO,
-            inputMaterialTracks=alg.config.propagationMaterialCollection,
+            inputMaterialTracks=alg.config.outputMaterialCollection,
             filePath=os.path.join(outputDir, (outputName + ".root")),
             storeSurface=True,
             storeVolume=True,
@@ -70,24 +82,34 @@ if "__main__" == __name__:
         "-t", "--tracks", type=int, default=1000, help="Number of tracks per event"
     )
     p.add_argument(
-        "-m", "--map", type=str, default="", help="Input file for the material map"
+        "-m", "--map", type=str, help="Input file (optional) for the material map"
     )
-    p.add_argument("-o", "--output", type=str, default="", help="Output file name")
+    p.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default="propagation-material",
+        help="Output file name",
+    )
 
     args = p.parse_args()
 
-    matDeco = acts.IMaterialDecorator.fromFile(args.map)
+    materialDecorator = (
+        acts.IMaterialDecorator.fromFile(args.map) if args.map != None else None
+    )
 
-    detector, trackingGeometry, decorators = getOpenDataDetector(mdecorator=matDeco)
+    detector = getOpenDataDetector(materialDecorator)
+    trackingGeometry = detector.trackingGeometry()
+    decorators = detector.contextDecorators()
 
     field = acts.ConstantBField(acts.Vector3(0, 0, 0 * acts.UnitConstants.T))
 
     runMaterialValidation(
+        args.events,
+        args.tracks,
         trackingGeometry,
         decorators,
         field,
-        nevents=args.events,
-        ntracks=args.tracks,
         outputDir=os.getcwd(),
         outputName=args.output,
     ).run()

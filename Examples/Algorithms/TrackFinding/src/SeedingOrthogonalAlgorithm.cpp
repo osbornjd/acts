@@ -1,38 +1,30 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "ActsExamples/TrackFinding/SeedingOrthogonalAlgorithm.hpp"
 
 #include "Acts/Definitions/Algebra.hpp"
+#include "Acts/EventData/Seed.hpp"
 #include "Acts/Seeding/SeedFilter.hpp"
 #include "ActsExamples/EventData/SimSeed.hpp"
 
-#include <cmath>
-#include <functional>
 #include <ostream>
 #include <stdexcept>
-#include <type_traits>
 #include <utility>
 
 namespace ActsExamples {
-struct AlgorithmContext;
-}  // namespace ActsExamples
 
-ActsExamples::SeedingOrthogonalAlgorithm::SeedingOrthogonalAlgorithm(
-    ActsExamples::SeedingOrthogonalAlgorithm::Config cfg,
-    Acts::Logging::Level lvl)
-    : ActsExamples::IAlgorithm("SeedingAlgorithm", lvl), m_cfg(std::move(cfg)) {
-  m_cfg.seedFilterConfig = m_cfg.seedFilterConfig.toInternalUnits();
-  m_cfg.seedFinderConfig =
-      m_cfg.seedFinderConfig.toInternalUnits().calculateDerivedQuantities();
-  m_cfg.seedFinderOptions =
-      m_cfg.seedFinderOptions.toInternalUnits().calculateDerivedQuantities(
-          m_cfg.seedFinderConfig);
+SeedingOrthogonalAlgorithm::SeedingOrthogonalAlgorithm(
+    SeedingOrthogonalAlgorithm::Config cfg, Acts::Logging::Level lvl)
+    : IAlgorithm("SeedingAlgorithm", lvl), m_cfg(std::move(cfg)) {
+  m_cfg.seedFinderConfig = m_cfg.seedFinderConfig.calculateDerivedQuantities();
+  m_cfg.seedFinderOptions = m_cfg.seedFinderOptions.calculateDerivedQuantities(
+      m_cfg.seedFinderConfig);
 
   printOptions();
   printConfig<SimSpacePoint>();
@@ -66,13 +58,14 @@ ActsExamples::SeedingOrthogonalAlgorithm::SeedingOrthogonalAlgorithm(
 
   // construct seed filter
   m_cfg.seedFinderConfig.seedFilter =
-      std::make_unique<Acts::SeedFilter<SimSpacePoint>>(
-          Acts::SeedFilter<SimSpacePoint>(m_cfg.seedFilterConfig));
+      std::make_unique<Acts::SeedFilter<proxy_type>>(
+          m_cfg.seedFilterConfig, logger().cloneWithSuffix("Filter"));
 
-  m_finder = Acts::SeedFinderOrthogonal<SimSpacePoint>(m_cfg.seedFinderConfig);
+  m_finder = std::make_unique<Acts::SeedFinderOrthogonal<proxy_type>>(
+      m_cfg.seedFinderConfig, logger().cloneWithSuffix("Finder"));
 }
 
-ActsExamples::ProcessCode ActsExamples::SeedingOrthogonalAlgorithm::execute(
+ProcessCode SeedingOrthogonalAlgorithm::execute(
     const AlgorithmContext &ctx) const {
   std::vector<const SimSpacePoint *> spacePoints;
 
@@ -82,30 +75,45 @@ ActsExamples::ProcessCode ActsExamples::SeedingOrthogonalAlgorithm::execute(
     }
   }
 
-  Acts::SeedFinderOrthogonal<SimSpacePoint> finder(m_cfg.seedFinderConfig);
+  // Config
+  Acts::SpacePointContainerConfig spConfig;
 
-  std::function<
-      std::tuple<Acts::Vector3, Acts::Vector2, std::optional<Acts::ActsScalar>>(
-          const SimSpacePoint *sp)>
-      create_coordinates = [](const SimSpacePoint *sp) {
-        Acts::Vector3 position(sp->x(), sp->y(), sp->z());
-        Acts::Vector2 variance(sp->varianceR(), sp->varianceZ());
-        return std::make_tuple(position, variance, sp->t());
-      };
+  // Options
+  Acts::SpacePointContainerOptions spOptions;
+  spOptions.beamPos = {0., 0.};
 
-  SimSeedContainer seeds = finder.createSeeds(m_cfg.seedFinderOptions,
-                                              spacePoints, create_coordinates);
+  SpacePointContainer container(spacePoints);
+  Acts::SpacePointContainer<decltype(container), Acts::detail::RefHolder>
+      spContainer(spConfig, spOptions, container);
+
+  ACTS_DEBUG("About to process " << spContainer.size() << " space points ...");
+
+  std::vector<Acts::Seed<proxy_type>> seeds =
+      m_finder->createSeeds(m_cfg.seedFinderOptions, spContainer);
 
   ACTS_DEBUG("Created " << seeds.size() << " track seeds from "
                         << spacePoints.size() << " space points");
 
-  m_outputSeeds(ctx, std::move(seeds));
+  // need to convert here from seed of proxies to seed of sps
+  SimSeedContainer seedsToAdd;
+  seedsToAdd.reserve(seeds.size());
 
-  return ActsExamples::ProcessCode::SUCCESS;
+  for (const auto &seed : seeds) {
+    const auto &sps = seed.sp();
+    seedsToAdd.emplace_back(*sps[0]->externalSpacePoint(),
+                            *sps[1]->externalSpacePoint(),
+                            *sps[2]->externalSpacePoint());
+    seedsToAdd.back().setVertexZ(seed.z());
+    seedsToAdd.back().setQuality(seed.seedQuality());
+  }
+
+  m_outputSeeds(ctx, std::move(seedsToAdd));
+
+  return ProcessCode::SUCCESS;
 }
 
-void ActsExamples::SeedingOrthogonalAlgorithm::printOptions() const {
-  ACTS_DEBUG("SeedFinderOptions")
+void SeedingOrthogonalAlgorithm::printOptions() const {
+  ACTS_DEBUG("SeedFinderOptions");
   ACTS_DEBUG("beamPos           " << m_cfg.seedFinderOptions.beamPos);
   // field induction
   ACTS_DEBUG("bFieldInZ         " << m_cfg.seedFinderOptions.bFieldInZ);
@@ -114,12 +122,12 @@ void ActsExamples::SeedingOrthogonalAlgorithm::printOptions() const {
   ACTS_DEBUG("minHelixDiameter2 " << m_cfg.seedFinderOptions.minHelixDiameter2);
   ACTS_DEBUG("pT2perRadius      " << m_cfg.seedFinderOptions.pT2perRadius);
   ACTS_DEBUG("sigmapT2perRadius " << m_cfg.seedFinderOptions.sigmapT2perRadius);
-  ACTS_DEBUG("...\n")
+  ACTS_DEBUG("...\n");
 }
 
 template <typename sp>
-void ActsExamples::SeedingOrthogonalAlgorithm::printConfig() const {
-  ACTS_DEBUG("SeedFinderOrthogonalConfig")
+void SeedingOrthogonalAlgorithm::printConfig() const {
+  ACTS_DEBUG("SeedFinderOrthogonalConfig");
   ACTS_DEBUG("minPt                 " << m_cfg.seedFinderConfig.minPt);
   ACTS_DEBUG("deltaRMinTopSP        " << m_cfg.seedFinderConfig.deltaRMinTopSP);
   ACTS_DEBUG("deltaRMaxTopSP        " << m_cfg.seedFinderConfig.deltaRMaxTopSP);
@@ -141,5 +149,7 @@ void ActsExamples::SeedingOrthogonalAlgorithm::printConfig() const {
   ACTS_DEBUG("highland              " << m_cfg.seedFinderConfig.highland);
   ACTS_DEBUG("maxScatteringAngle2   "
              << m_cfg.seedFinderConfig.maxScatteringAngle2);
-  ACTS_DEBUG("...\n")
+  ACTS_DEBUG("...\n");
 }
+
+}  // namespace ActsExamples

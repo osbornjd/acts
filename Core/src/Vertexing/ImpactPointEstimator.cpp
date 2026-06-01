@@ -1,17 +1,20 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Vertexing/ImpactPointEstimator.hpp"
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Propagator/Propagator.hpp"
+#include "Acts/Propagator/PropagatorOptions.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
+#include "Acts/Utilities/AngleHelpers.hpp"
+#include "Acts/Utilities/Intersection.hpp"
+#include "Acts/Utilities/MathHelpers.hpp"
 #include "Acts/Vertexing/VertexingError.hpp"
 
 namespace Acts {
@@ -48,10 +51,10 @@ Result<double> getVertexCompatibilityImpl(const GeometryContext& gctx,
   // Orientation of the surface (i.e., axes of the corresponding coordinate
   // system)
   RotationMatrix3 surfaceAxes =
-      trkParams->referenceSurface().transform(gctx).rotation();
+      trkParams->referenceSurface().localToGlobalTransform(gctx).rotation();
   // Origin of the surface coordinate system
   Vector3 surfaceOrigin =
-      trkParams->referenceSurface().transform(gctx).translation();
+      trkParams->referenceSurface().localToGlobalTransform(gctx).translation();
 
   // x- and y-axis of the surface coordinate system
   Vector3 xAxis = surfaceAxes.col(0);
@@ -191,7 +194,7 @@ Result<std::pair<Vector4, Vector3>> getDistanceAndMomentumImpl(
     Vector3 positionOnTrack = trkParams.position(gctx);
 
     // Distance between positionOnTrack and the 3D PCA
-    ActsScalar distanceToPca =
+    double distanceToPca =
         (vtxPos.template head<3>() - positionOnTrack).dot(momDirStraightTrack);
 
     // 3D PCA
@@ -202,11 +205,11 @@ Result<std::pair<Vector4, Vector3>> getDistanceAndMomentumImpl(
       // Track time at positionOnTrack
       double timeOnTrack = trkParams.parameters()[BoundIndices::eBoundTime];
 
-      ActsScalar m0 = trkParams.particleHypothesis().mass();
-      ActsScalar p = trkParams.particleHypothesis().extractMomentum(qOvP);
+      double m0 = trkParams.particleHypothesis().mass();
+      double p = trkParams.particleHypothesis().extractMomentum(qOvP);
 
       // Speed in units of c
-      ActsScalar beta = p / std::hypot(p, m0);
+      double beta = p / fastHypot(p, m0);
 
       pcaStraightTrack[3] = timeOnTrack + distanceToPca / beta;
     }
@@ -215,7 +218,7 @@ Result<std::pair<Vector4, Vector3>> getDistanceAndMomentumImpl(
     Vector4 deltaRStraightTrack{Vector4::Zero()};
     deltaRStraightTrack.head<nDim>() = pcaStraightTrack - vtxPos;
 
-    return std::make_pair(deltaRStraightTrack, momDirStraightTrack);
+    return std::pair(deltaRStraightTrack, momDirStraightTrack);
   }
 
   // Charged particles in a constant B field follow a helical trajectory. In
@@ -277,11 +280,11 @@ Result<std::pair<Vector4, Vector3>> getDistanceAndMomentumImpl(
     // Time at the 2D PCA P
     double tP = trkParams.parameters()[BoundIndices::eBoundTime];
 
-    ActsScalar m0 = trkParams.particleHypothesis().mass();
-    ActsScalar p = trkParams.particleHypothesis().extractMomentum(qOvP);
+    double m0 = trkParams.particleHypothesis().mass();
+    double p = trkParams.particleHypothesis().extractMomentum(qOvP);
 
     // Speed in units of c
-    ActsScalar beta = p / std::hypot(p, m0);
+    double beta = p / fastHypot(p, m0);
 
     pca[3] = tP - rho / (beta * sinTheta) * (phi - phiP);
   }
@@ -289,7 +292,7 @@ Result<std::pair<Vector4, Vector3>> getDistanceAndMomentumImpl(
   Vector4 deltaR{Vector4::Zero()};
   deltaR.head<nDim>() = pca - vtxPos;
 
-  return std::make_pair(deltaR, momDir);
+  return std::pair(deltaR, momDir);
 }
 
 }  // namespace
@@ -359,14 +362,14 @@ Result<BoundTrackParameters> ImpactPointEstimator::estimate3DImpactParameters(
   std::shared_ptr<PlaneSurface> planeSurface =
       Surface::makeShared<PlaneSurface>(coordinateSystem);
 
-  auto intersection =
+  Intersection3D intersection =
       planeSurface
           ->intersect(gctx, trkParams.position(gctx), trkParams.direction(),
-                      BoundaryCheck(false))
+                      BoundaryTolerance::Infinite())
           .closest();
 
   // Create propagator options
-  PropagatorOptions<> pOptions(gctx, mctx);
+  PropagatorPlainOptions pOptions(gctx, mctx);
   pOptions.direction =
       Direction::fromScalarZeroAsPositive(intersection.pathLength());
 
@@ -422,11 +425,12 @@ Result<ImpactParametersAndSigma> ImpactPointEstimator::getImpactParameters(
       Surface::makeShared<PerigeeSurface>(vtx.position());
 
   // Create propagator options
-  PropagatorOptions<> pOptions(gctx, mctx);
-  auto intersection = perigeeSurface
-                          ->intersect(gctx, track.position(gctx),
-                                      track.direction(), BoundaryCheck(false))
-                          .closest();
+  PropagatorPlainOptions pOptions(gctx, mctx);
+  Intersection3D intersection =
+      perigeeSurface
+          ->intersect(gctx, track.position(gctx), track.direction(),
+                      BoundaryTolerance::Infinite())
+          .closest();
   pOptions.direction =
       Direction::fromScalarZeroAsPositive(intersection.pathLength());
 
@@ -505,8 +509,8 @@ Result<std::pair<double, double>> ImpactPointEstimator::getLifetimeSignOfTrack(
       Surface::makeShared<PerigeeSurface>(vtx.position());
 
   // Create propagator options
-  PropagatorOptions<> pOptions(gctx, mctx);
-  pOptions.direction = Direction::Backward;
+  PropagatorPlainOptions pOptions(gctx, mctx);
+  pOptions.direction = Direction::Backward();
 
   // Do the propagation to the perigeee
   auto result =
@@ -523,7 +527,7 @@ Result<std::pair<double, double>> ImpactPointEstimator::getLifetimeSignOfTrack(
   const double theta = params[BoundIndices::eBoundTheta];
 
   double vs = std::sin(std::atan2(direction[1], direction[0]) - phi) * d0;
-  double eta = -std::log(std::tan(theta / 2.));
+  double eta = AngleHelpers::etaFromTheta(theta);
   double dir_eta = VectorHelpers::eta(direction);
 
   double zs = (dir_eta - eta) * z0;
@@ -544,8 +548,8 @@ Result<double> ImpactPointEstimator::get3DLifetimeSignOfTrack(
       Surface::makeShared<PerigeeSurface>(vtx.position());
 
   // Create propagator options
-  PropagatorOptions<> pOptions(gctx, mctx);
-  pOptions.direction = Direction::Backward;
+  PropagatorPlainOptions pOptions(gctx, mctx);
+  pOptions.direction = Direction::Backward();
 
   // Do the propagation to the perigeee
   auto result =

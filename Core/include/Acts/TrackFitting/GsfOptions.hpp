@@ -1,24 +1,27 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2022 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
+#include "Acts/EventData/MultiComponentTrackParameters.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
-#include "Acts/Propagator/MultiEigenStepperLoop.hpp"
-#include "Acts/Propagator/Propagator.hpp"
+#include "Acts/Propagator/PropagatorOptions.hpp"
 #include "Acts/TrackFitting/detail/VoidFitterComponents.hpp"
 #include "Acts/Utilities/CalibrationContext.hpp"
 #include "Acts/Utilities/Delegate.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
 namespace Acts {
+
+/// @addtogroup track_fitting
+/// @{
 
 /// @enum ComponentMergeMethod
 ///
@@ -29,8 +32,11 @@ enum class ComponentMergeMethod { eMean, eMaxWeight };
 ///
 /// Encapsulates a component of a Gaussian mixture as used by the GSF
 struct GsfComponent {
-  ActsScalar weight = 0;
+  /// Weight of this component in the Gaussian mixture
+  double weight = 0;
+  /// Bound track parameters for this component
   BoundVector boundPars = BoundVector::Zero();
+  /// Covariance matrix for the bound track parameters
   BoundSquareMatrix boundCov = BoundSquareMatrix::Identity();
 };
 
@@ -38,7 +44,7 @@ namespace GsfConstants {
 constexpr std::string_view kFinalMultiComponentStateColumn =
     "gsf-final-multi-component-state";
 using FinalMultiComponentState =
-    std::optional<Acts::MultiComponentBoundTrackParameters>;
+    std::optional<MultiComponentBoundTrackParameters>;
 constexpr std::string_view kFwdSumMaterialXOverX0 =
     "gsf-fwd-sum-material-x-over-x0";
 constexpr std::string_view kFwdMaxMaterialXOverX0 =
@@ -48,18 +54,24 @@ constexpr std::string_view kFwdMaxMaterialXOverX0 =
 /// The extensions needed for the GSF
 template <typename traj_t>
 struct GsfExtensions {
+  /// Type alias for mutable track state proxy
   using TrackStateProxy = typename traj_t::TrackStateProxy;
+  /// Type alias for const track state proxy
   using ConstTrackStateProxy = typename traj_t::ConstTrackStateProxy;
 
+  /// Type alias for calibrator delegate function
   using Calibrator =
       Delegate<void(const GeometryContext &, const CalibrationContext &,
                     const SourceLink &, TrackStateProxy)>;
 
-  using Updater = Delegate<Result<void>(
-      const GeometryContext &, TrackStateProxy, Direction, const Logger &)>;
+  /// Type alias for updater delegate function
+  using Updater = Delegate<Result<void>(const GeometryContext &,
+                                        TrackStateProxy, const Logger &)>;
 
+  /// Type alias for outlier finder delegate function
   using OutlierFinder = Delegate<bool(ConstTrackStateProxy)>;
 
+  /// Type alias for component reducer delegate function
   using ComponentReducer =
       Delegate<void(std::vector<GsfComponent> &, std::size_t, const Surface &)>;
 
@@ -112,13 +124,28 @@ struct GsfOptions {
 
   bool disableAllMaterialHandling = false;
 
+  /// Scaling factor for the covariance matrix before reverse filtering.
+  /// Note that the default value is not tuned and might need adjustment for
+  /// different use cases.
+  double reverseFilteringCovarianceScaling = 100.0;
+
+  /// Whether to use the external-surfaces mechanism of the navigator which
+  /// switches off the boundary-check for measurement surfaces.
+  bool useExternalSurfaces = true;
+
   std::string_view finalMultiComponentStateColumn = "";
 
   ComponentMergeMethod componentMergeMethod = ComponentMergeMethod::eMaxWeight;
 
-#if __cplusplus < 202002L
-  GsfOptions() = delete;
-#endif
+  GsfOptions(const GeometryContext &geoCtxt,
+             const MagneticFieldContext &magFieldCtxt,
+             const CalibrationContext &calibCtxt)
+      : geoContext(geoCtxt),
+        magFieldContext(magFieldCtxt),
+        calibrationContext(calibCtxt),
+        propagatorPlainOptions(geoCtxt, magFieldCtxt) {}
 };
+
+/// @}
 
 }  // namespace Acts

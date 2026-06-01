@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023-2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -24,10 +24,14 @@ class PlaneSurface;
 ///
 class CurvilinearSurface final {
  public:
+  /// Constructor with direction vector
+  /// @param direction The direction vector of the curvilinear surface
   explicit CurvilinearSurface(const Vector3& direction)
       : m_direction{direction} {}
 
   /// Constructor with direction vector
+  /// @param position The position of the curvilinear surface
+  /// @param direction The direction vector of the curvilinear surface
   CurvilinearSurface(const Vector3& position, const Vector3& direction)
       : m_position{position}, m_direction{direction} {}
 
@@ -43,6 +47,8 @@ class CurvilinearSurface final {
   /// @return The normal vector at the given position and direction
   Vector3 normal() const { return m_direction; }
 
+  /// Check if this curvilinear surface uses standard representation
+  /// @return True if using standard representation, false otherwise
   bool isStandardRepresentation() const;
 
   /// Return method for the reference frame
@@ -84,6 +90,7 @@ class CurvilinearSurface final {
   /// Output Method for std::ostream
   ///
   /// @param sl is the ostream to be dumped into
+  /// @return Reference to the output stream after writing
   std::ostream& toStream(std::ostream& sl) const;
 
   /// Output into a std::string

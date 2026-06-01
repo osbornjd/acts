@@ -1,20 +1,23 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/Extent.hpp"
+#include "Acts/Visualization/ViewConfig.hpp"
 
 #include <cstddef>
 #include <vector>
 
 namespace Acts {
+
+class IVisualization3D;
 
 /// @class Polyhedron
 ///
@@ -26,6 +29,7 @@ namespace Acts {
 /// that need to be connected to form a face.
 /// This allows the @c objString method to produce a ready-to-go obj output.
 struct Polyhedron {
+  /// Type alias for face definition as vertex indices
   using FaceType = std::vector<std::size_t>;
 
   /// Default constructor
@@ -36,6 +40,7 @@ struct Polyhedron {
   /// @param facesIn List of lists of indices for faces.
   /// @param triangularMeshIn List of lists of indices for a triangular mesh
   /// @param isExact A dedicated flag if this is exact or not
+  ///
   /// @note This creates copies of the input vectors
   Polyhedron(const std::vector<Vector3>& verticesIn,
              const std::vector<FaceType>& facesIn,
@@ -79,5 +84,11 @@ struct Polyhedron {
   ///
   /// @return ranges that describe the space taken by this surface
   Extent extent(const Transform3& transform = Transform3::Identity()) const;
+
+  /// Visualize the polyhedron using a visualization helper
+  /// @param helper The visualization interface to use for rendering
+  /// @param viewConfig Configuration options for visualization appearance
+  void visualize(IVisualization3D& helper,
+                 const ViewConfig& viewConfig = {}) const;
 };
 }  // namespace Acts

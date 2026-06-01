@@ -1,13 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -22,7 +20,6 @@
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/AnnealingUtility.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/Result.hpp"
@@ -38,6 +35,7 @@
 #include "Acts/Vertexing/TrackDensityVertexFinder.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <algorithm>
 #include <array>
@@ -47,6 +45,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <system_error>
 #include <tuple>
@@ -55,19 +54,22 @@
 
 #include "VertexingDataHelper.hpp"
 
-namespace Acts::Test {
-
+using namespace Acts;
 using namespace Acts::UnitLiterals;
+
+namespace ActsTests {
 
 using Covariance = BoundSquareMatrix;
 using Propagator = Acts::Propagator<EigenStepper<>>;
 using Linearizer = HelicalTrackLinearizer;
 
 // Create a test context
-GeometryContext geoContext = GeometryContext();
+GeometryContext geoContext = GeometryContext::dangerouslyDefaultConstruct();
 MagneticFieldContext magFieldContext = MagneticFieldContext();
 
 const std::string toolString = "AMVF";
+
+BOOST_AUTO_TEST_SUITE(VertexingSuite)
 
 /// @brief AMVF test with Gaussian seed finder
 BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_test) {
@@ -87,7 +89,8 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_test) {
   ImpactPointEstimator::Config ipEstimatorCfg(bField, propagator);
   ImpactPointEstimator ipEstimator(ipEstimatorCfg);
 
-  std::vector<double> temperatures{8.0, 4.0, 2.0, 1.4142136, 1.2247449, 1.0};
+  std::vector<double> temperatures{
+      8., 4., 2., std::numbers::sqrt2, std::sqrt(3. / 2.), 1.};
   AnnealingUtility::Config annealingConfig;
   annealingConfig.setOfTemperatures = temperatures;
   AnnealingUtility annealingUtility(annealingConfig);
@@ -114,7 +117,7 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_test) {
   GaussianTrackDensity::Config densityCfg;
   densityCfg.extractParameters.connect<&InputTrack::extractParameters>();
   auto seedFinder = std::make_shared<TrackDensityVertexFinder>(
-      TrackDensityVertexFinder::Config{densityCfg});
+      TrackDensityVertexFinder::Config{Acts::GaussianTrackDensity(densityCfg)});
 
   AdaptiveMultiVertexFinder::Config finderConfig(std::move(fitter), seedFinder,
                                                  ipEstimator, bField);
@@ -245,7 +248,8 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_usertype_test) {
   ImpactPointEstimator::Config ipEstimatorCfg(bField, propagator);
   ImpactPointEstimator ipEstimator(ipEstimatorCfg);
 
-  std::vector<double> temperatures{8.0, 4.0, 2.0, 1.4142136, 1.2247449, 1.0};
+  std::vector<double> temperatures{
+      8., 4., 2., std::numbers::sqrt2, std::sqrt(3. / 2.), 1.};
   AnnealingUtility::Config annealingConfig;
   annealingConfig.setOfTemperatures = temperatures;
   AnnealingUtility annealingUtility(annealingConfig);
@@ -272,7 +276,7 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_usertype_test) {
   GaussianTrackDensity::Config densityCfg;
   densityCfg.extractParameters.connect(extractParameters);
   auto seedFinder = std::make_shared<TrackDensityVertexFinder>(
-      TrackDensityVertexFinder::Config{densityCfg});
+      TrackDensityVertexFinder::Config{Acts::GaussianTrackDensity(densityCfg)});
 
   AdaptiveMultiVertexFinder::Config finderConfig(
       std::move(fitter), std::move(seedFinder), ipEstimator, bField);
@@ -388,7 +392,8 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_grid_seed_finder_test) {
   ImpactPointEstimator::Config ipEstCfg(bField, propagator);
   ImpactPointEstimator ipEst(ipEstCfg);
 
-  std::vector<double> temperatures{8.0, 4.0, 2.0, 1.4142136, 1.2247449, 1.0};
+  std::vector<double> temperatures{
+      8., 4., 2., std::numbers::sqrt2, std::sqrt(3. / 2.), 1.};
   AnnealingUtility::Config annealingConfig;
   annealingConfig.setOfTemperatures = temperatures;
   AnnealingUtility annealingUtility(annealingConfig);
@@ -413,7 +418,9 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_grid_seed_finder_test) {
   Fitter fitter(fitterCfg);
 
   using SeedFinder = GridDensityVertexFinder;
-  SeedFinder::Config seedFinderCfg{{{250, 4000, 55}}};
+  GaussianGridTrackDensity::Config gDensityConfig(250, 4000, 55);
+  GaussianGridTrackDensity gDensity(gDensityConfig);
+  SeedFinder::Config seedFinderCfg(gDensity);
   seedFinderCfg.cacheGridStateForTrackRemoval = true;
   seedFinderCfg.extractParameters.connect<&InputTrack::extractParameters>();
 
@@ -537,7 +544,8 @@ BOOST_AUTO_TEST_CASE(
   ImpactPointEstimator::Config ipEstCfg(bField, propagator);
   ImpactPointEstimator ipEst(ipEstCfg);
 
-  std::vector<double> temperatures{8.0, 4.0, 2.0, 1.4142136, 1.2247449, 1.0};
+  std::vector<double> temperatures{
+      8., 4., 2., std::numbers::sqrt2, std::sqrt(3. / 2.), 1.};
   AnnealingUtility::Config annealingConfig;
   annealingConfig.setOfTemperatures = temperatures;
   AnnealingUtility annealingUtility(annealingConfig);
@@ -670,4 +678,6 @@ BOOST_AUTO_TEST_CASE(
   }
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

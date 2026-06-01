@@ -1,19 +1,26 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
+
 #include <memory>
 #include <vector>
 
 namespace Acts {
 
 class TrackingVolume;
+
+/// @typedef MutableTrackingVolumePtr
+/// Shared pointer to a mutable TrackingVolume.
 using MutableTrackingVolumePtr = std::shared_ptr<TrackingVolume>;
+
+/// @typedef MutableTrackingVolumeVector
+/// Vector of shared pointers to mutable TrackingVolumes.
 using MutableTrackingVolumeVector = std::vector<MutableTrackingVolumePtr>;
 
 /// @brief This is an interface class for constructing TrackingVolumes whose are
@@ -24,9 +31,11 @@ class IConfinedTrackingVolumeBuilder {
   virtual ~IConfinedTrackingVolumeBuilder() = default;
 
   /// Interface for constructing a vector of confined TrackingVolumes
+  /// @return Vector of shared pointers to the constructed confined tracking volumes
   virtual MutableTrackingVolumeVector centralVolumes() const = 0;
 
   /// Interface for retrieving the identification string of the confined volumes
+  /// @return Const reference to the identification string
   virtual const std::string& identification() const = 0;
 };
 

@@ -1,35 +1,32 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/ProtoLayer.hpp"
 #include "Acts/Geometry/SurfaceArrayCreator.hpp"
+#include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/SurfaceArray.hpp"
-#include "Acts/Surfaces/SurfaceBounds.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
+#include "Acts/Utilities/Axis.hpp"
+#include "Acts/Utilities/AxisDefinitions.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Grid.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/IAxis.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/detail/Axis.hpp"
-#include "Acts/Utilities/detail/AxisFwd.hpp"
-#include "Acts/Utilities/detail/grid_helper.hpp"
 #include "Acts/Visualization/GeometryView3D.hpp"
 #include "Acts/Visualization/ObjVisualization3D.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -38,6 +35,7 @@
 #include <iomanip>
 #include <iterator>
 #include <memory>
+#include <numbers>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -47,13 +45,14 @@
 
 #include <boost/format.hpp>
 
+using namespace Acts;
 using Acts::VectorHelpers::perp;
 using Acts::VectorHelpers::phi;
 
-namespace Acts::Test {
+namespace ActsTests {
 
 // Create a test context
-GeometryContext tgContext = GeometryContext();
+GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
 using SrfVec = std::vector<std::shared_ptr<const Surface>>;
 
@@ -63,8 +62,7 @@ struct SurfaceArrayCreatorFixture {
 
   SurfaceArrayCreatorFixture()
       : m_SAC(SurfaceArrayCreator::Config(),
-              Acts::getDefaultLogger("SurfaceArrayCreator",
-                                     Acts::Logging::VERBOSE)) {
+              getDefaultLogger("SurfaceArrayCreator", Logging::VERBOSE)) {
     BOOST_TEST_MESSAGE("setup fixture");
   }
   ~SurfaceArrayCreatorFixture() { BOOST_TEST_MESSAGE("teardown fixture"); }
@@ -79,8 +77,7 @@ struct SurfaceArrayCreatorFixture {
     return m_SAC.createVariableAxis(std::forward<Args>(args)...);
   }
 
-  template <detail::AxisBoundaryType bdtA, detail::AxisBoundaryType bdtB,
-            typename... Args>
+  template <AxisBoundaryType bdtA, AxisBoundaryType bdtB, typename... Args>
   std::unique_ptr<SurfaceArray::ISurfaceGridLookup> makeSurfaceGridLookup2D(
       Args&&... args) {
     return m_SAC.makeSurfaceGridLookup2D<bdtA, bdtB>(
@@ -93,7 +90,7 @@ struct SurfaceArrayCreatorFixture {
     SrfVec res;
     // TODO: The test is extremely numerically unstable in the face of upward
     //       rounding in this multiplication and division. Find out why.
-    double phiStep = 2 * M_PI / n;
+    double phiStep = 2 * std::numbers::pi / n;
     for (std::size_t i = 0; i < n; ++i) {
       double z = zbase + ((i % 2 == 0) ? 1 : -1) * 0.2;
       double phi = std::fma(i, phiStep, shift);
@@ -117,12 +114,13 @@ struct SurfaceArrayCreatorFixture {
   }
 
   SrfVec fullPhiTestSurfacesBRL(std::size_t n = 10, double shift = 0,
-                                double zbase = 0, double incl = M_PI / 9.,
+                                double zbase = 0,
+                                double incl = std::numbers::pi / 9.,
                                 double w = 2, double h = 1.5) {
     SrfVec res;
     // TODO: The test is extremely numerically unstable in the face of upward
     //       rounding in this multiplication and division. Find out why.
-    double phiStep = 2 * M_PI / n;
+    double phiStep = 2 * std::numbers::pi / n;
     for (std::size_t i = 0; i < n; ++i) {
       double z = zbase;
       double phi = std::fma(i, phiStep, shift);
@@ -132,7 +130,7 @@ struct SurfaceArrayCreatorFixture {
       trans.rotate(Eigen::AngleAxisd(phi, Vector3(0, 0, 1)));
       trans.translate(Vector3(10, 0, z));
       trans.rotate(Eigen::AngleAxisd(incl, Vector3(0, 0, 1)));
-      trans.rotate(Eigen::AngleAxisd(M_PI / 2., Vector3(0, 1, 0)));
+      trans.rotate(Eigen::AngleAxisd(std::numbers::pi / 2., Vector3(0, 1, 0)));
 
       auto bounds = std::make_shared<const RectangleBounds>(w, h);
       std::shared_ptr<Surface> srf =
@@ -155,8 +153,8 @@ struct SurfaceArrayCreatorFixture {
       Transform3 trans;
       trans.setIdentity();
       trans.translate(origin + dir * step * i);
-      // trans.rotate(AngleAxis3(M_PI/9., Vector3(0, 0, 1)));
-      trans.rotate(AngleAxis3(M_PI / 2., Vector3(1, 0, 0)));
+      // trans.rotate(AngleAxis3(std::numbers::pi / 9., Vector3(0, 0, 1)));
+      trans.rotate(AngleAxis3(std::numbers::pi / 2., Vector3(1, 0, 0)));
       trans = trans * pretrans;
 
       auto bounds = std::make_shared<const RectangleBounds>(2, 1.5);
@@ -179,7 +177,8 @@ struct SurfaceArrayCreatorFixture {
     for (int i = 0; i < nZ; i++) {
       double z = i * w * 2 + z0;
       // std::cout << "z=" << z << std::endl;
-      SrfVec ring = fullPhiTestSurfacesBRL(nPhi, 0, z, M_PI / 9., w, h);
+      SrfVec ring =
+          fullPhiTestSurfacesBRL(nPhi, 0, z, std::numbers::pi / 9., w, h);
       res.insert(res.end(), ring.begin(), ring.end());
     }
 
@@ -187,14 +186,15 @@ struct SurfaceArrayCreatorFixture {
   }
 
   std::pair<SrfVec, std::vector<std::pair<const Surface*, const Surface*>>>
-  makeBarrelStagger(int nPhi, int nZ, double shift = 0, double incl = M_PI / 9.,
-                    double w = 2, double h = 1.5) {
+  makeBarrelStagger(int nPhi, int nZ, double shift = 0,
+                    double incl = std::numbers::pi / 9., double w = 2,
+                    double h = 1.5) {
     double z0 = -(nZ - 1) * w;
     SrfVec res;
     std::vector<std::pair<const Surface*, const Surface*>> pairs;
     // TODO: The test is extremely numerically unstable in the face of upward
     //       rounding in this multiplication and division. Find out why.
-    double phiStep = 2 * M_PI / nPhi;
+    double phiStep = 2 * std::numbers::pi / nPhi;
     for (int i = 0; i < nZ; i++) {
       double z = i * w * 2 + z0;
       for (int j = 0; j < nPhi; ++j) {
@@ -204,7 +204,8 @@ struct SurfaceArrayCreatorFixture {
         trans.rotate(Eigen::AngleAxisd(phi, Vector3(0, 0, 1)));
         trans.translate(Vector3(10, 0, z));
         trans.rotate(Eigen::AngleAxisd(incl, Vector3(0, 0, 1)));
-        trans.rotate(Eigen::AngleAxisd(M_PI / 2., Vector3(0, 1, 0)));
+        trans.rotate(
+            Eigen::AngleAxisd(std::numbers::pi / 2., Vector3(0, 1, 0)));
 
         auto bounds = std::make_shared<const RectangleBounds>(w, h);
         std::shared_ptr<PlaneSurface> srfA =
@@ -225,7 +226,7 @@ struct SurfaceArrayCreatorFixture {
       }
     }
 
-    return std::make_pair(res, pairs);
+    return {res, pairs};
   }
 };
 
@@ -243,8 +244,8 @@ void draw_surfaces(const SrfVec& surfaces, const std::string& fname) {
         dynamic_cast<const PlanarBounds*>(&srf->bounds());
 
     for (const auto& vtxloc : bounds->vertices()) {
-      Vector3 vtx =
-          srf->transform(tgContext) * Vector3(vtxloc.x(), vtxloc.y(), 0);
+      Vector3 vtx = srf->localToGlobalTransform(tgContext) *
+                    Vector3(vtxloc.x(), vtxloc.y(), 0);
       os << "v " << vtx.x() << " " << vtx.y() << " " << vtx.z() << "\n";
     }
 
@@ -261,7 +262,7 @@ void draw_surfaces(const SrfVec& surfaces, const std::string& fname) {
   os.close();
 }
 
-BOOST_AUTO_TEST_SUITE(Tools)
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Phi,
                         SurfaceArrayCreatorFixture) {
@@ -269,9 +270,9 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Phi,
   std::vector<const Surface*> emptyRaw;
   ProtoLayer pl(tgContext, emptyRaw);
   auto tr = Transform3::Identity();
-  BOOST_CHECK_THROW(
-      createEquidistantAxis(tgContext, emptyRaw, BinningValue::binPhi, pl, tr),
-      std::logic_error);
+  BOOST_CHECK_THROW(createEquidistantAxis(tgContext, emptyRaw,
+                                          AxisDirection::AxisPhi, pl, tr),
+                    std::logic_error);
 
   std::vector<float> bdExp = {
       -3.14159, -2.93215, -2.72271, -2.51327, -2.30383,  -2.0944,   -1.88496,
@@ -280,7 +281,7 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Phi,
       1.25664,  1.46608,  1.67552,  1.88496,  2.09439,   2.30383,   2.51327,
       2.72271,  2.93215,  3.14159};
 
-  double step = 2 * M_PI / 30.;
+  double step = 2 * std::numbers::pi / 30.;
 
   // endcap style modules
 
@@ -289,65 +290,65 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Phi,
     // case 1: one module sits at pi / -pi
     double angleShift = step / 2.;
     auto surfaces = fullPhiTestSurfacesEC(30, angleShift, z);
-    std::vector<const Surface*> surfacesRaw = unpack_shared_vector(surfaces);
+    std::vector<const Surface*> surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfacesRaw);
     tr = Transform3::Identity();
     auto axis = createEquidistantAxis(tgContext, surfacesRaw,
-                                      BinningValue::binPhi, pl, tr);
+                                      AxisDirection::AxisPhi, pl, tr);
 
     BOOST_CHECK_EQUAL(axis.nBins, 30u);
-    CHECK_CLOSE_REL(axis.max, M_PI, 1e-6);
-    CHECK_CLOSE_REL(axis.min, -M_PI, 1e-6);
+    CHECK_CLOSE_REL(axis.max, std::numbers::pi, 1e-6);
+    CHECK_CLOSE_REL(axis.min, -std::numbers::pi, 1e-6);
     BOOST_CHECK_EQUAL(axis.bType, equidistant);
     CHECK_SMALL(phi(tr * Vector3::UnitX()), 1e-6);
 
     // case 2: two modules sit symmetrically around pi / -pi
     angleShift = 0.;
     surfaces = fullPhiTestSurfacesEC(30, angleShift, z);
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfacesRaw);
     tr = Transform3::Identity();
-    axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binPhi,
+    axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisPhi,
                                  pl, tr);
     draw_surfaces(surfaces,
                   "SurfaceArrayCreator_createEquidistantAxis_EC_2.obj");
     BOOST_CHECK_EQUAL(axis.nBins, 30u);
-    CHECK_CLOSE_REL(axis.max, M_PI, 1e-6);
-    CHECK_CLOSE_REL(axis.min, -M_PI, 1e-6);
+    CHECK_CLOSE_REL(axis.max, std::numbers::pi, 1e-6);
+    CHECK_CLOSE_REL(axis.min, -std::numbers::pi, 1e-6);
     BOOST_CHECK_EQUAL(axis.bType, equidistant);
     // CHECK_CLOSE_REL(bdExp, axis.binEdges, 0.001);
     CHECK_CLOSE_REL(phi(tr * Vector3::UnitX()), -0.5 * step, 1e-3);
     // case 3: two modules sit asymmetrically around pi / -pi shifted up
     angleShift = step / -4.;
     surfaces = fullPhiTestSurfacesEC(30, angleShift, z);
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfacesRaw);
     tr = Transform3::Identity();
-    axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binPhi,
+    axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisPhi,
                                  pl, tr);
     draw_surfaces(surfaces,
                   "SurfaceArrayCreator_createEquidistantAxis_EC_3.obj");
     BOOST_CHECK_EQUAL(axis.nBins, 30u);
-    CHECK_CLOSE_REL(axis.max, M_PI, 1e-6);
-    CHECK_CLOSE_REL(axis.min, -M_PI, 1e-6);
+    CHECK_CLOSE_REL(axis.max, std::numbers::pi, 1e-6);
+    CHECK_CLOSE_REL(axis.min, -std::numbers::pi, 1e-6);
     BOOST_CHECK_EQUAL(axis.bType, equidistant);
     CHECK_CLOSE_REL(phi(tr * Vector3::UnitX()), step / -4., 1e-3);
 
     // case 4: two modules sit asymmetrically around pi / -pi shifted down
     angleShift = step / 4.;
     surfaces = fullPhiTestSurfacesEC(30, angleShift, z);
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfaces);
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     tr = Transform3::Identity();
-    axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binPhi,
+    axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisPhi,
                                  pl, tr);
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     draw_surfaces(surfaces,
                   "SurfaceArrayCreator_createEquidistantAxis_EC_4.obj");
     BOOST_CHECK_EQUAL(axis.nBins, 30u);
-    CHECK_CLOSE_REL(axis.max, M_PI, 1e-6);
-    CHECK_CLOSE_REL(axis.min, -M_PI, 1e-6);
+    CHECK_CLOSE_REL(axis.max, std::numbers::pi, 1e-6);
+    CHECK_CLOSE_REL(axis.min, -std::numbers::pi, 1e-6);
     BOOST_CHECK_EQUAL(axis.bType, equidistant);
     CHECK_CLOSE_REL(phi(tr * Vector3::UnitX()), step / 4., 1e-3);
   }
@@ -357,32 +358,32 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Phi,
     // case 1: one module sits at pi / -pi
     double angleShift = step / 2.;
     auto surfaces = fullPhiTestSurfacesBRL(30, angleShift, z);
-    auto surfacesRaw = unpack_shared_vector(surfaces);
+    auto surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfacesRaw);
     tr = Transform3::Identity();
     auto axis = createEquidistantAxis(tgContext, surfacesRaw,
-                                      BinningValue::binPhi, pl, tr);
+                                      AxisDirection::AxisPhi, pl, tr);
     draw_surfaces(surfaces,
                   "SurfaceArrayCreator_createEquidistantAxis_BRL_1.obj");
     BOOST_CHECK_EQUAL(axis.nBins, 30u);
-    CHECK_CLOSE_REL(axis.max, M_PI, 1e-6);
-    CHECK_CLOSE_REL(axis.min, -M_PI, 1e-6);
+    CHECK_CLOSE_REL(axis.max, std::numbers::pi, 1e-6);
+    CHECK_CLOSE_REL(axis.min, -std::numbers::pi, 1e-6);
     BOOST_CHECK_EQUAL(axis.bType, equidistant);
     CHECK_SMALL(phi(tr * Vector3::UnitX()), 1e-6);
 
     // case 2: two modules sit symmetrically around pi / -pi
     angleShift = 0.;
     surfaces = fullPhiTestSurfacesBRL(30, angleShift, z);
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfacesRaw);
     tr = Transform3::Identity();
-    axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binPhi,
+    axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisPhi,
                                  pl, tr);
     draw_surfaces(surfaces,
                   "SurfaceArrayCreator_createEquidistantAxis_BRL_2.obj");
     BOOST_CHECK_EQUAL(axis.nBins, 30u);
-    CHECK_CLOSE_REL(axis.max, M_PI, 1e-6);
-    CHECK_CLOSE_REL(axis.min, -M_PI, 1e-6);
+    CHECK_CLOSE_REL(axis.max, std::numbers::pi, 1e-6);
+    CHECK_CLOSE_REL(axis.min, -std::numbers::pi, 1e-6);
     BOOST_CHECK_EQUAL(axis.bType, equidistant);
     // CHECK_CLOSE_REL(bdExp, axis.binEdges, 0.001);
     CHECK_CLOSE_REL(phi(tr * Vector3::UnitX()), -0.5 * step, 1e-3);
@@ -390,16 +391,16 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Phi,
     // case 3: two modules sit asymmetrically around pi / -pi shifted up
     angleShift = step / -4.;
     surfaces = fullPhiTestSurfacesBRL(30, angleShift, z);
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfacesRaw);
     tr = Transform3::Identity();
-    axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binPhi,
+    axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisPhi,
                                  pl, tr);
     draw_surfaces(surfaces,
                   "SurfaceArrayCreator_createEquidistantAxis_BRL_3.obj");
     BOOST_CHECK_EQUAL(axis.nBins, 30u);
-    CHECK_CLOSE_REL(axis.max, M_PI, 1e-6);
-    CHECK_CLOSE_REL(axis.min, -M_PI, 1e-6);
+    CHECK_CLOSE_REL(axis.max, std::numbers::pi, 1e-6);
+    CHECK_CLOSE_REL(axis.min, -std::numbers::pi, 1e-6);
     BOOST_CHECK_EQUAL(axis.bType, equidistant);
     // CHECK_CLOSE_REL(bdExp, axis.binEdges, 0.001);
     CHECK_CLOSE_REL(phi(tr * Vector3::UnitX()), step / -4., 1e-3);
@@ -407,16 +408,16 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Phi,
     // case 4: two modules sit asymmetrically around pi / -pi shifted down
     angleShift = step / 4.;
     surfaces = fullPhiTestSurfacesBRL(30, angleShift, z);
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfacesRaw);
     tr = Transform3::Identity();
-    axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binPhi,
+    axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisPhi,
                                  pl, tr);
     draw_surfaces(surfaces,
                   "SurfaceArrayCreator_createEquidistantAxis_BRL_4.obj");
     BOOST_CHECK_EQUAL(axis.nBins, 30u);
-    CHECK_CLOSE_REL(axis.max, M_PI, 1e-6);
-    CHECK_CLOSE_REL(axis.min, -M_PI, 1e-6);
+    CHECK_CLOSE_REL(axis.max, std::numbers::pi, 1e-6);
+    CHECK_CLOSE_REL(axis.min, -std::numbers::pi, 1e-6);
     BOOST_CHECK_EQUAL(axis.bType, equidistant);
     // CHECK_CLOSE_REL(bdExp, axis.binEdges, 0.001);
     CHECK_CLOSE_REL(phi(tr * Vector3::UnitX()), step / 4., 1e-3);
@@ -426,18 +427,18 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Phi,
 
   // single element in phi
   surfaces = fullPhiTestSurfacesEC(1);
-  auto surfacesRaw = unpack_shared_vector(surfaces);
+  auto surfacesRaw = unpackSmartPointers(surfaces);
   draw_surfaces(surfaces,
                 "SurfaceArrayCreator_createEquidistantAxis_EC_Single.obj");
 
   pl = ProtoLayer(tgContext, surfacesRaw);
   tr = Transform3::Identity();
   auto axis = createEquidistantAxis(tgContext, surfacesRaw,
-                                    BinningValue::binPhi, pl, tr);
+                                    AxisDirection::AxisPhi, pl, tr);
   BOOST_CHECK_EQUAL(axis.nBins, 1u);
 
-  CHECK_CLOSE_ABS(axis.max, phi(Vector3(8, 1, 0)), 1e-3);
-  CHECK_CLOSE_ABS(axis.min, phi(Vector3(8, -1, 0)), 1e-3);
+  CHECK_CLOSE_ABS(axis.max, std::numbers::pi, 1e-3);
+  CHECK_CLOSE_ABS(axis.min, -std::numbers::pi, 1e-3);
   BOOST_CHECK_EQUAL(axis.bType, equidistant);
 }
 
@@ -445,11 +446,11 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Z,
                         SurfaceArrayCreatorFixture) {
   // single element in z
   auto surfaces = straightLineSurfaces(1);
-  auto surfacesRaw = unpack_shared_vector(surfaces);
+  auto surfacesRaw = unpackSmartPointers(surfaces);
   ProtoLayer pl = ProtoLayer(tgContext, surfacesRaw);
   auto trf = Transform3::Identity();
-  auto axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binZ,
-                                    pl, trf);
+  auto axis = createEquidistantAxis(tgContext, surfacesRaw,
+                                    AxisDirection::AxisZ, pl, trf);
   draw_surfaces(surfaces, "SurfaceArrayCreator_createEquidistantAxis_Z_1.obj");
   BOOST_CHECK_EQUAL(axis.nBins, 1u);
   CHECK_CLOSE_ABS(axis.max, 3, 1e-6);
@@ -460,11 +461,11 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Z,
   for (std::size_t i = 0; i <= 20; i++) {
     double z0 = -10 + 1. * i;
     surfaces = straightLineSurfaces(10, 3, Vector3(0, 0, z0 + 1.5));
-    surfacesRaw = unpack_shared_vector(surfaces);
+    surfacesRaw = unpackSmartPointers(surfaces);
     pl = ProtoLayer(tgContext, surfacesRaw);
     trf = Transform3::Identity();
-    axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binZ, pl,
-                                 trf);
+    axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisZ,
+                                 pl, trf);
     draw_surfaces(
         surfaces,
         (boost::format(
@@ -479,12 +480,12 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_Z,
 
   // z row where elements are rotated around y
   Transform3 tr = Transform3::Identity();
-  tr.rotate(AngleAxis3(M_PI / 4., Vector3(0, 0, 1)));
+  tr.rotate(AngleAxis3(std::numbers::pi / 4., Vector3(0, 0, 1)));
   surfaces = straightLineSurfaces(10, 3, Vector3(0, 0, 0 + 1.5), tr);
-  surfacesRaw = unpack_shared_vector(surfaces);
+  surfacesRaw = unpackSmartPointers(surfaces);
   pl = ProtoLayer(tgContext, surfacesRaw);
   trf = Transform3::Identity();
-  axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binZ, pl,
+  axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisZ, pl,
                                trf);
   draw_surfaces(surfaces, "SurfaceArrayCreator_createEquidistantAxis_Z_3.obj");
   BOOST_CHECK_EQUAL(axis.nBins, 10u);
@@ -497,12 +498,12 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_R,
                         SurfaceArrayCreatorFixture) {
   // single element in r
   auto surfaces = fullPhiTestSurfacesEC(1, 0, 0, 15);
-  auto surfacesRaw = unpack_shared_vector(surfaces);
+  auto surfacesRaw = unpackSmartPointers(surfaces);
   draw_surfaces(surfaces, "SurfaceArrayCreator_createEquidistantAxis_R_1.obj");
   auto trf = Transform3::Identity();
   ProtoLayer pl = ProtoLayer(tgContext, surfacesRaw);
-  auto axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binR,
-                                    pl, trf);
+  auto axis = createEquidistantAxis(tgContext, surfacesRaw,
+                                    AxisDirection::AxisR, pl, trf);
   BOOST_CHECK_EQUAL(axis.nBins, 1u);
   CHECK_CLOSE_ABS(axis.max, perp(Vector3(17, 1, 0)), 1e-3);
   CHECK_CLOSE_ABS(axis.min, 13, 1e-3);
@@ -518,10 +519,10 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_createEquidistantAxis_R,
   surfaces.insert(surfaces.end(), ringc.begin(), ringc.end());
   draw_surfaces(surfaces, "SurfaceArrayCreator_createEquidistantAxis_R_2.obj");
 
-  surfacesRaw = unpack_shared_vector(surfaces);
+  surfacesRaw = unpackSmartPointers(surfaces);
   pl = ProtoLayer(tgContext, surfacesRaw);
   trf = Transform3::Identity();
-  axis = createEquidistantAxis(tgContext, surfacesRaw, BinningValue::binR, pl,
+  axis = createEquidistantAxis(tgContext, surfacesRaw, AxisDirection::AxisR, pl,
                                trf);
 
   BOOST_CHECK_EQUAL(axis.nBins, 3u);
@@ -562,27 +563,20 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_dependentBinCounts,
 BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_completeBinning,
                         SurfaceArrayCreatorFixture) {
   SrfVec brl = makeBarrel(30, 7, 2, 1);
-  std::vector<const Surface*> brlRaw = unpack_shared_vector(brl);
+  std::vector<const Surface*> brlRaw = unpackSmartPointers(brl);
   draw_surfaces(brl, "SurfaceArrayCreator_completeBinning_BRL.obj");
 
-  detail::Axis<detail::AxisType::Equidistant, detail::AxisBoundaryType::Closed>
-      phiAxis(-M_PI, M_PI, 30u);
-  detail::Axis<detail::AxisType::Equidistant, detail::AxisBoundaryType::Bound>
-      zAxis(-14, 14, 7u);
+  Axis<AxisType::Equidistant, AxisBoundaryType::Closed> phiAxis(
+      -std::numbers::pi, std::numbers::pi, 30u);
+  Axis<AxisType::Equidistant, AxisBoundaryType::Bound> zAxis(-14, 14, 7u);
 
   double R = 10.;
-  auto globalToLocal = [](const Vector3& pos) {
-    return Vector2(phi(pos) + 2 * M_PI / 30 / 2, pos.z());
-  };
-  auto localToGlobal = [R](const Vector2& loc) {
-    double phi = loc[0] - 2 * M_PI / 30 / 2;
-    return Vector3(R * std::cos(phi), R * std::sin(phi), loc[1]);
-  };
 
+  auto cylinder =
+      Surface::makeShared<CylinderSurface>(Transform3::Identity(), R, 100);
   auto sl = std::make_unique<
       SurfaceArray::SurfaceGridLookup<decltype(phiAxis), decltype(zAxis)>>(
-      globalToLocal, localToGlobal,
-      std::make_tuple(std::move(phiAxis), std::move(zAxis)));
+      cylinder, 1., std::make_tuple(std::move(phiAxis), std::move(zAxis)));
   sl->fill(tgContext, brlRaw);
   SurfaceArray sa(std::move(sl), brl);
 
@@ -593,19 +587,18 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_completeBinning,
 
   // actually filled SA
   for (const auto& srf : brl) {
-    Vector3 ctr = srf->binningPosition(tgContext, binR);
-    auto binContent = sa.at(ctr);
+    Vector3 ctr = srf->referencePosition(tgContext, AxisDirection::AxisR);
+    auto binContent = sa.at(ctr, ctr.normalized());
 
-    BOOST_CHECK_EQUAL(binContent.size(), 1u);
-    BOOST_CHECK_EQUAL(srf.get(), binContent.at(0));
+    BOOST_CHECK(binContent.size() <= 2u);
   }
 }
 
 BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_barrelStagger,
                         SurfaceArrayCreatorFixture) {
-  auto barrel = makeBarrelStagger(30, 7, 0, M_PI / 9.);
+  auto barrel = makeBarrelStagger(30, 7, 0, std::numbers::pi / 9.);
   auto brl = barrel.first;
-  std::vector<const Surface*> brlRaw = unpack_shared_vector(brl);
+  std::vector<const Surface*> brlRaw = unpackSmartPointers(brl);
   draw_surfaces(brl, "SurfaceArrayCreator_barrelStagger.obj");
 
   ProtoLayer pl(tgContext, brl);
@@ -614,24 +607,18 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_barrelStagger,
   Transform3 tr = Transform3::Identity();
 
   auto pAxisPhi =
-      createEquidistantAxis(tgContext, brlRaw, BinningValue::binPhi, pl, tr);
+      createEquidistantAxis(tgContext, brlRaw, AxisDirection::AxisPhi, pl, tr);
   auto pAxisZ =
-      createEquidistantAxis(tgContext, brlRaw, BinningValue::binZ, pl, tr);
+      createEquidistantAxis(tgContext, brlRaw, AxisDirection::AxisZ, pl, tr);
 
   double R = 10.;
   Transform3 itr = tr.inverse();
 
-  auto globalToLocal = [tr](const Vector3& pos) {
-    Vector3 rot = tr * pos;
-    return Vector2(phi(rot), rot.z());
-  };
-  auto localToGlobal = [R, itr](const Vector2& loc) {
-    return itr * Vector3(R * std::cos(loc[0]), R * std::sin(loc[0]), loc[1]);
-  };
-
-  auto sl = makeSurfaceGridLookup2D<detail::AxisBoundaryType::Closed,
-                                    detail::AxisBoundaryType::Bound>(
-      globalToLocal, localToGlobal, pAxisPhi, pAxisZ);
+  auto cylinder =
+      Surface::makeShared<CylinderSurface>(Transform3::Identity(), R, 100);
+  auto sl = makeSurfaceGridLookup2D<AxisBoundaryType::Closed,
+                                    AxisBoundaryType::Bound>(cylinder, 1.,
+                                                             pAxisPhi, pAxisZ);
 
   sl->fill(tgContext, brlRaw);
   SurfaceArray sa(std::move(sl), brl);
@@ -643,18 +630,13 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_barrelStagger,
     auto A = pr.first;
     auto B = pr.second;
 
-    Vector3 ctr = A->binningPosition(tgContext, binR);
-    auto binContent = sa.at(ctr);
-    BOOST_CHECK_EQUAL(binContent.size(), 2u);
-    std::set<const Surface*> act;
-    act.insert(binContent[0]);
-    act.insert(binContent[1]);
+    Vector3 ctr = A->referencePosition(tgContext, AxisDirection::AxisR);
+    auto binContent = sa.at(ctr, ctr.normalized());
+    BOOST_CHECK_EQUAL(binContent.size(), 4u);
+    std::set<const Surface*> act(binContent.begin(), binContent.end());
 
-    std::set<const Surface*> exp;
-    exp.insert(A);
-    exp.insert(B);
-
-    BOOST_CHECK(act == exp);
+    std::set<const Surface*> exp({A, B});
+    BOOST_CHECK(std::ranges::includes(act, exp));
   }
 
   // VARIABLE
@@ -662,23 +644,15 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_barrelStagger,
     tr = Transform3::Identity();
 
     auto pAxisPhiVar =
-        createVariableAxis(tgContext, brlRaw, BinningValue::binPhi, pl, tr);
+        createVariableAxis(tgContext, brlRaw, AxisDirection::AxisPhi, pl, tr);
     auto pAxisZVar =
-        createVariableAxis(tgContext, brlRaw, BinningValue::binZ, pl, tr);
+        createVariableAxis(tgContext, brlRaw, AxisDirection::AxisZ, pl, tr);
 
     itr = tr.inverse();
 
-    auto globalToLocalVar = [tr](const Vector3& pos) {
-      Vector3 rot = tr * pos;
-      return Vector2(phi(rot), rot.z());
-    };
-    auto localToGlobalVar = [R, itr](const Vector2& loc) {
-      return itr * Vector3(R * std::cos(loc[0]), R * std::sin(loc[0]), loc[1]);
-    };
-
-    auto sl2 = makeSurfaceGridLookup2D<detail::AxisBoundaryType::Closed,
-                                       detail::AxisBoundaryType::Bound>(
-        globalToLocalVar, localToGlobalVar, pAxisPhiVar, pAxisZVar);
+    auto sl2 = makeSurfaceGridLookup2D<AxisBoundaryType::Closed,
+                                       AxisBoundaryType::Bound>(
+        cylinder, 1., pAxisPhiVar, pAxisZVar);
 
     sl2->fill(tgContext, brlRaw);
     SurfaceArray sa2(std::move(sl2), brl);
@@ -699,7 +673,7 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_barrelStagger,
     for (const auto& edge : axes.at(0)->getBinEdges()) {
       BOOST_TEST_INFO("phi edge index " << i);
       auto phiEdge = phiEdgesExp.at(i);
-      CHECK_CLOSE_ABS(edge, phiEdge, 1e-5 * M_PI);
+      CHECK_CLOSE_ABS(edge, phiEdge, 1e-5 * std::numbers::pi);
       i++;
     }
     i = 0;
@@ -713,21 +687,17 @@ BOOST_FIXTURE_TEST_CASE(SurfaceArrayCreator_barrelStagger,
       auto A = pr.first;
       auto B = pr.second;
 
-      Vector3 ctr = A->binningPosition(tgContext, binR);
-      auto binContent = sa2.at(ctr);
-      BOOST_CHECK_EQUAL(binContent.size(), 2u);
-      std::set<const Surface*> act;
-      act.insert(binContent[0]);
-      act.insert(binContent[1]);
+      Vector3 ctr = A->referencePosition(tgContext, AxisDirection::AxisR);
+      auto binContent = sa2.at(ctr, ctr.normalized());
+      BOOST_CHECK_EQUAL(binContent.size(), 4u);
+      std::set<const Surface*> act(binContent.begin(), binContent.end());
 
-      std::set<const Surface*> exp;
-      exp.insert(A);
-      exp.insert(B);
-
-      BOOST_CHECK(act == exp);
+      std::set<const Surface*> exp({A, B});
+      BOOST_CHECK(std::ranges::includes(act, exp));
     }
   }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Acts::Test
+
+}  // namespace ActsTests

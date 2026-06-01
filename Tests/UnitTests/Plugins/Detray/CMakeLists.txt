@@ -1,0 +1,3 @@
+set(unittest_extra_libraries ActsPluginDetray)
+add_unittest(DetrayPayloadConverter DetrayPayloadConverterTests.cpp)
+add_unittest(DetrayMaterialConversion DetrayMaterialConversionTests.cpp)

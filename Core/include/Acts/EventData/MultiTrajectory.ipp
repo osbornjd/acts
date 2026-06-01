@@ -1,18 +1,18 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Utilities/AlgebraHelpers.hpp"
-#include "Acts/Utilities/TypeTraits.hpp"
+#pragma once
 
-#include <bitset>
-#include <cstdint>
+#include "Acts/EventData/MultiTrajectory.hpp"
+
+#include "Acts/EventData/Types.hpp"
+
 #include <type_traits>
-#include <vector>
 
 #include <Eigen/Core>
 
@@ -20,12 +20,10 @@ namespace Acts {
 
 template <typename D>
 template <typename F>
-void MultiTrajectory<D>::visitBackwards(IndexType iendpoint,
-                                        F&& callable) const {
-  static_assert(detail_lt::VisitorConcept<F, ConstTrackStateProxy>,
-                "Callable needs to satisfy VisitorConcept");
-
-  if (iendpoint == MultiTrajectoryTraits::kInvalid) {
+void MultiTrajectory<D>::visitBackwards(IndexType iendpoint, F&& callable) const
+  requires detail_lt::VisitorConcept<F, ConstTrackStateProxy>
+{
+  if (iendpoint == kTrackIndexInvalid) {
     throw std::runtime_error(
         "Cannot visit backwards with kInvalid as endpoint");
   }

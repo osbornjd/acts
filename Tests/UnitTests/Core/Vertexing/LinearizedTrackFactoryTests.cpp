@@ -1,13 +1,11 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -26,25 +24,26 @@
 #include "Acts/Propagator/StraightLineStepper.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
 #include "Acts/Vertexing/LinearizedTrack.hpp"
 #include "Acts/Vertexing/NumericalTrackLinearizer.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <random>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-namespace bdata = boost::unit_test::data;
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 
-namespace Acts::Test {
+namespace ActsTests {
 
 using Covariance = BoundSquareMatrix;
 // We will compare analytical and numerical computations in the case of a
@@ -57,7 +56,7 @@ using NumericalLinearizer = NumericalTrackLinearizer;
 using StraightNumericalLinearizer = NumericalTrackLinearizer;
 
 // Create a test context
-GeometryContext geoContext = GeometryContext();
+GeometryContext geoContext = GeometryContext::dangerouslyDefaultConstruct();
 MagneticFieldContext magFieldContext = MagneticFieldContext();
 
 // Vertex x/y position distribution
@@ -73,9 +72,10 @@ std::uniform_real_distribution<double> z0Dist(-0.2_mm, 0.2_mm);
 // Track pT distribution
 std::uniform_real_distribution<double> pTDist(0.4_GeV, 10_GeV);
 // Track phi distribution
-std::uniform_real_distribution<double> phiDist(-M_PI, M_PI);
+std::uniform_real_distribution<double> phiDist(-std::numbers::pi,
+                                               std::numbers::pi);
 // Track theta distribution
-std::uniform_real_distribution<double> thetaDist(1.0, M_PI - 1.0);
+std::uniform_real_distribution<double> thetaDist(1., std::numbers::pi - 1.);
 // Track charge helper distribution
 std::uniform_real_distribution<double> qDist(-1, 1);
 // Track time distribution
@@ -89,6 +89,7 @@ std::uniform_real_distribution<double> resQoPDist(0.0, 0.1);
 // Track time resolution distribution
 std::uniform_real_distribution<double> resTDist(0.1_ns, 0.2_ns);
 
+BOOST_AUTO_TEST_SUITE(VertexingSuite)
 ///
 /// @brief Test HelicalTrackLinearizer by comparing it to NumericalTrackLinearizer.
 ///
@@ -143,7 +144,7 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
   // Construct random track emerging from vicinity of vertex position
   for (unsigned int iTrack = 0; iTrack < nTracks; iTrack++) {
     // Random charge
-    double q = qDist(gen) < 0 ? -1. : 1.;
+    double q = std::copysign(1., qDist(gen));
 
     // Random track parameters
     BoundVector paramVec;
@@ -276,4 +277,6 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
   }
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

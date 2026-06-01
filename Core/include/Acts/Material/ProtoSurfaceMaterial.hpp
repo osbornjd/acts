@@ -1,25 +1,27 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Detector/ProtoBinning.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
+#include "Acts/Utilities/ProtoAxis.hpp"
 
-#include <cstddef>
 #include <iosfwd>
+#include <vector>
 
 namespace Acts {
 
-/// @class ProtoSurfaceMaterial
+/// @addtogroup material
+/// @{
+
 ///
 /// @brief proxy to SurfaceMaterial hand over BinUtility or other suitable
 /// binning description
@@ -37,8 +39,8 @@ class ProtoSurfaceMaterialT : public ISurfaceMaterial {
   /// Constructor with BinningType
   /// @param binning a binning description for the material map binning
   /// @param mappingType is the type of surface mapping associated to the surface
-  ProtoSurfaceMaterialT(const BinningType& binning,
-                        MappingType mappingType = MappingType::Default)
+  explicit ProtoSurfaceMaterialT(const BinningType& binning,
+                                 MappingType mappingType = MappingType::Default)
       : ISurfaceMaterial(1., mappingType), m_binning(binning) {}
 
   /// Copy constructor
@@ -50,7 +52,8 @@ class ProtoSurfaceMaterialT : public ISurfaceMaterial {
   /// Copy move constructor
   ///
   /// @param smproxy The source proxy
-  ProtoSurfaceMaterialT(ProtoSurfaceMaterialT<BinningType>&& smproxy) = default;
+  ProtoSurfaceMaterialT(ProtoSurfaceMaterialT<BinningType>&& smproxy) noexcept =
+      default;
 
   /// Destructor
   ~ProtoSurfaceMaterialT() override = default;
@@ -65,11 +68,11 @@ class ProtoSurfaceMaterialT : public ISurfaceMaterial {
   ///
   /// @param smproxy The source proxy
   ProtoSurfaceMaterialT<BinningType>& operator=(
-      ProtoSurfaceMaterialT<BinningType>&& smproxy) = default;
+      ProtoSurfaceMaterialT<BinningType>&& smproxy) noexcept = default;
 
-  /// Scale operator - dummy implementation
+  /// Scale operation - dummy implementation
   ///
-  ProtoSurfaceMaterialT<BinningType>& operator*=(double /*scale*/) final {
+  ProtoSurfaceMaterialT<BinningType>& scale(double /*factor*/) final {
     return (*this);
   }
 
@@ -97,7 +100,7 @@ class ProtoSurfaceMaterialT : public ISurfaceMaterial {
   /// @param sl is the output stream
   std::ostream& toStream(std::ostream& sl) const final {
     sl << "Acts::ProtoSurfaceMaterial : " << std::endl;
-    sl << m_binning.toString() << std::endl;
+    sl << m_binning << std::endl;
     return sl;
   }
 
@@ -106,12 +109,19 @@ class ProtoSurfaceMaterialT : public ISurfaceMaterial {
   BinningType m_binning;
 
   /// Dummy material properties
-  MaterialSlab m_materialSlab;
+  MaterialSlab m_materialSlab = MaterialSlab::Nothing();
 };
 
+/// @brief Type alias for a prototype surface material using BinUtility
+/// A surface material implementation that uses BinUtility for binning
 using ProtoSurfaceMaterial = ProtoSurfaceMaterialT<Acts::BinUtility>;
 
+/// @brief Type alias for a prototype surface material using a grid of ProtoAxis
+/// A surface material implementation that uses a vector of ProtoAxis for
+/// grid-based binning
 using ProtoGridSurfaceMaterial =
-    ProtoSurfaceMaterialT<Acts::Experimental::BinningDescription>;
+    ProtoSurfaceMaterialT<std::vector<DirectedProtoAxis>>;
+
+/// @}
 
 }  // namespace Acts

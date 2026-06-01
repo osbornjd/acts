@@ -1,26 +1,23 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // TODO We still use some Kalman Fitter functionalities. Check for replacement
 
-#include "Acts/Definitions/Direction.hpp"
-#include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/EventData/MultiTrajectory.hpp"
 #include "Acts/EventData/TrackContainer.hpp"
-#include "Acts/EventData/TrackStatePropMask.hpp"
 #include "Acts/EventData/VectorMultiTrajectory.hpp"
 #include "Acts/EventData/VectorTrackContainer.hpp"
 #include "Acts/EventData/detail/CorrectedTransformationFreeToBound.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Propagator/DirectNavigator.hpp"
-#include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
+#include "Acts/Propagator/SympyStepper.hpp"
 #include "Acts/TrackFitting/GlobalChiSquareFitter.hpp"
 #include "Acts/TrackFitting/KalmanFitter.hpp"
 #include "Acts/Utilities/Delegate.hpp"
@@ -31,23 +28,14 @@
 #include "ActsExamples/TrackFitting/RefittingCalibrator.hpp"
 #include "ActsExamples/TrackFitting/TrackFitterFunction.hpp"
 
-#include <algorithm>
-#include <cmath>
 #include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
 
-namespace Acts {
-class MagneticFieldProvider;
-class SourceLink;
-class Surface;
-class TrackingGeometry;
-}  // namespace Acts
-
 namespace {
 
-using Stepper = Acts::EigenStepper<>;
+using Stepper = Acts::SympyStepper;
 using Propagator = Acts::Propagator<Stepper, Acts::Navigator>;
 using Fitter =
     Acts::Experimental::Gx2Fitter<Propagator, Acts::VectorMultiTrajectory>;
@@ -69,7 +57,6 @@ struct GlobalChiSquareFitterFunctionImpl final : public TrackFitterFunction {
   bool energyLoss = false;
   Acts::FreeToBoundCorrection freeToBoundCorrection;
   std::size_t nUpdateMax = 5;
-  bool zeroField = false;
   double relChi2changeCutOff = 1e-7;
 
   IndexSourceLink::SurfaceAccessor m_slSurfaceAccessor;
@@ -87,15 +74,19 @@ struct GlobalChiSquareFitterFunctionImpl final : public TrackFitterFunction {
         extensions;
     extensions.calibrator.connect<&calibrator_t::calibrate>(&calibrator);
 
-    extensions.surfaceAccessor
-        .connect<&IndexSourceLink::SurfaceAccessor::operator()>(
-            &m_slSurfaceAccessor);
+    if (options.doRefit) {
+      extensions.surfaceAccessor.connect<&RefittingCalibrator::accessSurface>();
+    } else {
+      extensions.surfaceAccessor
+          .connect<&IndexSourceLink::SurfaceAccessor::operator()>(
+              &m_slSurfaceAccessor);
+    }
 
     const Acts::Experimental::Gx2FitterOptions gx2fOptions(
         options.geoContext, options.magFieldContext, options.calibrationContext,
-        extensions, options.propOptions, &(*options.referenceSurface),
+        extensions, options.propOptions, options.referenceSurface,
         multipleScattering, energyLoss, freeToBoundCorrection, nUpdateMax,
-        zeroField, relChi2changeCutOff);
+        relChi2changeCutOff);
 
     return gx2fOptions;
   }
@@ -110,17 +101,18 @@ struct GlobalChiSquareFitterFunctionImpl final : public TrackFitterFunction {
                       gx2fOptions, tracks);
   }
 
-  // We need a placeholder for the directNavigator overload. Otherwise, we would
-  // have an unimplemented pure virtual method in a final class.
+  // The direct navigation is not implemented for the GX2F. Instead we ignore it
+  // and fall back to the standard navigation.
   TrackFitterResult operator()(
-      const std::vector<Acts::SourceLink>& /*sourceLinks*/,
-      const TrackParameters& /*initialParameters*/,
-      const GeneralFitterOptions& /*options*/,
-      const RefittingCalibrator& /*calibrator*/,
+      const std::vector<Acts::SourceLink>& sourceLinks,
+      const TrackParameters& initialParameters,
+      const GeneralFitterOptions& options,
+      const RefittingCalibrator& calibrator,
       const std::vector<const Acts::Surface*>& /*surfaceSequence*/,
-      TrackContainer& /*tracks*/) const override {
-    throw std::runtime_error(
-        "direct navigation with GX2 fitter is not implemented");
+      TrackContainer& tracks) const override {
+    const auto gx2fOptions = makeGx2fOptions(options, calibrator);
+    return fitter.fit(sourceLinks.begin(), sourceLinks.end(), initialParameters,
+                      gx2fOptions, tracks);
   }
 };
 
@@ -132,7 +124,7 @@ ActsExamples::makeGlobalChiSquareFitterFunction(
     std::shared_ptr<const Acts::MagneticFieldProvider> magneticField,
     bool multipleScattering, bool energyLoss,
     Acts::FreeToBoundCorrection freeToBoundCorrection, std::size_t nUpdateMax,
-    bool zeroField, double relChi2changeCutOff, const Acts::Logger& logger) {
+    double relChi2changeCutOff, const Acts::Logger& logger) {
   // Stepper should be copied into the fitters
   const Stepper stepper(std::move(magneticField));
 
@@ -162,7 +154,6 @@ ActsExamples::makeGlobalChiSquareFitterFunction(
   fitterFunction->energyLoss = energyLoss;
   fitterFunction->freeToBoundCorrection = freeToBoundCorrection;
   fitterFunction->nUpdateMax = nUpdateMax;
-  fitterFunction->zeroField = zeroField;
   fitterFunction->relChi2changeCutOff = relChi2changeCutOff;
 
   return fitterFunction;

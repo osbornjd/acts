@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -17,7 +17,6 @@
 #include "Acts/Geometry/LayerArrayCreator.hpp"
 #include "Acts/Geometry/LayerCreator.hpp"
 #include "Acts/Geometry/PlaneLayer.hpp"
-#include "Acts/Geometry/SurfaceArrayCreator.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Geometry/TrackingGeometryBuilder.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
@@ -31,44 +30,42 @@
 #include "Acts/Propagator/StraightLineStepper.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
-#include "Acts/Tests/CommonHelpers/DetectorElementStub.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Tests/CommonHelpers/MeasurementsCreator.hpp"
-#include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
+#include "Acts/Surfaces/SurfaceArray.hpp"
 #include "Acts/TrackFitting/GainMatrixSmoother.hpp"
 #include "Acts/TrackFitting/GainMatrixUpdater.hpp"
 #include "Acts/TrackFitting/KalmanFitter.hpp"
-#include "Acts/TrackFitting/detail/KalmanGlobalCovariance.hpp"
 #include "Acts/Utilities/CalibrationContext.hpp"
 #include "ActsAlignment/Kernel/Alignment.hpp"
+#include "ActsTests/CommonHelpers/DetectorElementStub.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
+#include "ActsTests/CommonHelpers/MeasurementsCreator.hpp"
+#include "ActsTests/CommonHelpers/PredefinedMaterials.hpp"
 
-#include <cmath>
 #include <random>
 #include <string>
 
 namespace {
+
 using namespace Acts;
 using namespace ActsAlignment;
-using namespace Acts::Test;
+using namespace ActsTests;
 using namespace Acts::detail::Test;
 using namespace Acts::UnitLiterals;
 
-using StraightPropagator =
-    Acts::Propagator<Acts::StraightLineStepper, Acts::Navigator>;
-using ConstantFieldStepper = Acts::EigenStepper<>;
-using ConstantFieldPropagator =
-    Acts::Propagator<ConstantFieldStepper, Acts::Navigator>;
+using StraightPropagator = Propagator<StraightLineStepper, Navigator>;
+using ConstantFieldStepper = EigenStepper<>;
+using ConstantFieldPropagator = Propagator<ConstantFieldStepper, Navigator>;
 
-using KalmanUpdater = Acts::GainMatrixUpdater;
-using KalmanSmoother = Acts::GainMatrixSmoother;
+using KalmanUpdater = GainMatrixUpdater;
+using KalmanSmoother = GainMatrixSmoother;
 using KalmanFitterType =
-    Acts::KalmanFitter<ConstantFieldPropagator, VectorMultiTrajectory>;
+    KalmanFitter<ConstantFieldPropagator, VectorMultiTrajectory>;
 
 KalmanUpdater kfUpdater;
 KalmanSmoother kfSmoother;
 
 // Create a test context
-const GeometryContext geoCtx;
+const auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
 const MagneticFieldContext magCtx;
 const CalibrationContext calCtx;
 
@@ -93,12 +90,12 @@ struct TelescopeDetector {
   /// Default constructor for the Cubic tracking geometry
   ///
   /// @param gctx the geometry context for this geometry at building time
-  TelescopeDetector(std::reference_wrapper<const GeometryContext> gctx)
+  explicit TelescopeDetector(std::reference_wrapper<const GeometryContext> gctx)
       : geoContext(gctx) {
     // Construct the rotation
-    rotation.col(0) = Acts::Vector3(0, 0, -1);
-    rotation.col(1) = Acts::Vector3(0, 1, 0);
-    rotation.col(2) = Acts::Vector3(1, 0, 0);
+    rotation.col(0) = Vector3(0, 0, -1);
+    rotation.col(1) = Vector3(0, 1, 0);
+    rotation.col(2) = Vector3(1, 0, 0);
 
     // Boundaries of the surfaces
     rBounds = std::make_shared<const RectangleBounds>(0.1_m, 0.1_m);
@@ -116,8 +113,8 @@ struct TelescopeDetector {
     using namespace UnitLiterals;
 
     unsigned int nLayers = 6;
-    std::vector<ActsScalar> positions = {-500_mm, -300_mm, -100_mm,
-                                         100_mm,  300_mm,  500_mm};
+    std::vector<double> positions = {-500_mm, -300_mm, -100_mm,
+                                     100_mm,  300_mm,  500_mm};
     auto length = positions.back() - positions.front();
 
     std::vector<LayerPtr> layers(nLayers);
@@ -158,7 +155,7 @@ struct TelescopeDetector {
     // Create the layer array
     std::unique_ptr<const LayerArray> layArr(layArrCreator.layerArray(
         geoContext, layVec, positions.front() - 2._mm, positions.back() + 2._mm,
-        BinningType::arbitrary, BinningValue::binX));
+        BinningType::arbitrary, AxisDirection::AxisX));
 
     // Build the tracking volume
     auto trackVolume = std::make_shared<TrackingVolume>(
@@ -205,7 +202,7 @@ ConstantFieldPropagator makeConstantFieldPropagator(
 }
 
 // Construct initial track parameters.
-CurvilinearTrackParameters makeParameters() {
+BoundTrackParameters makeParameters() {
   // create covariance matrix from reasonable standard deviations
   BoundVector stddev;
   stddev[eBoundLoc0] = 100_um;
@@ -226,8 +223,8 @@ CurvilinearTrackParameters makeParameters() {
   // define a track in the transverse plane along x
   Vector4 mPos4(-1_m, loc0, loc1, t);
 
-  return CurvilinearTrackParameters(mPos4, phi, theta, qOverP, cov,
-                                    ParticleHypothesis::pion());
+  return BoundTrackParameters::createCurvilinear(mPos4, phi, theta, qOverP, cov,
+                                                 ParticleHypothesis::pion());
 }
 
 // detector resolutions
@@ -239,9 +236,9 @@ const MeasurementResolutionMap resolutions = {
 
 struct KalmanFitterInputTrajectory {
   // The source links
-  std::vector<TestSourceLink> sourcelinks;
+  std::vector<TestSourceLink> sourceLinks;
   // The start parameters
-  std::optional<CurvilinearTrackParameters> startParameters;
+  std::optional<BoundTrackParameters> startParameters;
 };
 
 ///
@@ -264,7 +261,7 @@ std::vector<KalmanFitterInputTrajectory> createTrajectories(
     // Extract measurements from result of propagation.
     KalmanFitterInputTrajectory traj;
     traj.startParameters = start;
-    traj.sourcelinks = measurements.sourceLinks;
+    traj.sourceLinks = measurements.sourceLinks;
 
     trajectories.push_back(std::move(traj));
   }
@@ -300,11 +297,11 @@ BOOST_AUTO_TEST_CASE(ZeroFieldKalmanAlignment) {
   extensions.surfaceAccessor
       .connect<&TestSourceLink::SurfaceAccessor::operator()>(&surfaceAccessor);
   KalmanFitterOptions kfOptions(geoCtx, magCtx, calCtx, extensions,
-                                PropagatorPlainOptions());
+                                PropagatorPlainOptions(geoCtx, magCtx));
 
   // Construct a non-updating alignment updater
   AlignedTransformUpdater voidAlignUpdater =
-      [](DetectorElementBase* /*element*/, const GeometryContext& /*gctx*/,
+      [](SurfacePlacementBase* /*element*/, const GeometryContext& /*gctx*/,
          const Transform3& /*transform*/) { return true; };
 
   // Construct the alignment options
@@ -330,7 +327,7 @@ BOOST_AUTO_TEST_CASE(ZeroFieldKalmanAlignment) {
   kfOptions.referenceSurface = &(*inputTraj.startParameters).referenceSurface();
 
   auto evaluateRes = alignZero.evaluateTrackAlignmentState(
-      kfOptions.geoContext, inputTraj.sourcelinks, *inputTraj.startParameters,
+      kfOptions.geoContext, inputTraj.sourceLinks, *inputTraj.startParameters,
       kfOptions, idxedAlignSurfaces, AlignmentMask::All);
   BOOST_CHECK(evaluateRes.ok());
 
@@ -373,10 +370,10 @@ BOOST_AUTO_TEST_CASE(ZeroFieldKalmanAlignment) {
   // Test the align method
   std::vector<std::vector<TestSourceLink>> trajCollection;
   trajCollection.reserve(10);
-  std::vector<CurvilinearTrackParameters> sParametersCollection;
+  std::vector<BoundTrackParameters> sParametersCollection;
   sParametersCollection.reserve(10);
   for (const auto& traj : trajectories) {
-    trajCollection.push_back(traj.sourcelinks);
+    trajCollection.push_back(traj.sourceLinks);
     sParametersCollection.push_back(*traj.startParameters);
   }
   auto alignRes =

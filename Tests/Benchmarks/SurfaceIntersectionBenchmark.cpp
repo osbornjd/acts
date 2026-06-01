@@ -1,13 +1,12 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Units.hpp"
@@ -19,27 +18,30 @@
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/StrawSurface.hpp"
-#include "Acts/Tests/CommonHelpers/BenchmarkTools.hpp"
+#include "ActsTests/CommonHelpers/BenchmarkTools.hpp"
 
 #include <cmath>
+#include <numbers>
 #include <random>
 
-namespace bdata = boost::unit_test::data;
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 
-namespace Acts::Test {
+namespace bdata = boost::unit_test::data;
+
+namespace ActsTests {
 
 // Some randomness & number crunching
 unsigned int ntests = 10;
 unsigned int nrepts = 2000;
-const bool boundaryCheck = false;
+const BoundaryTolerance boundaryTolerance = BoundaryTolerance::Infinite();
 const bool testPlane = true;
 const bool testDisc = true;
 const bool testCylinder = true;
 const bool testStraw = true;
 
 // Create a test context
-GeometryContext tgContext = GeometryContext();
+GeometryContext tgContext = GeometryContext::dangerouslyDefaultConstruct();
 
 // Create a test plane in 10 m distance
 // Some random transform
@@ -78,10 +80,10 @@ MicroBenchmarkResult intersectionTest(const surface_t& surface, double phi,
 
   Vector3 direction(cosPhi * sinTheta, sinPhi * sinTheta, cosTheta);
 
-  return Acts::Test::microBenchmark(
+  return microBenchmark(
       [&] {
         return surface.intersect(tgContext, origin, direction,
-                                 BoundaryCheck(boundaryCheck));
+                                 boundaryTolerance);
       },
       nrepts);
 }
@@ -89,14 +91,14 @@ MicroBenchmarkResult intersectionTest(const surface_t& surface, double phi,
 BOOST_DATA_TEST_CASE(
     benchmark_surface_intersections,
     bdata::random((bdata::engine = std::mt19937(), bdata::seed = 21,
-                   bdata::distribution =
-                       std::uniform_real_distribution<double>(-M_PI, M_PI))) ^
+                   bdata::distribution = std::uniform_real_distribution<double>(
+                       -std::numbers::pi, std::numbers::pi))) ^
         bdata::random((bdata::engine = std::mt19937(), bdata::seed = 22,
                        bdata::distribution =
                            std::uniform_real_distribution<double>(-0.3, 0.3))) ^
         bdata::xrange(ntests),
     phi, theta, index) {
-  (void)index;
+  static_cast<void>(index);
 
   std::cout << std::endl
             << "Benchmarking theta=" << theta << ", phi=" << phi << "..."
@@ -117,9 +119,10 @@ BOOST_DATA_TEST_CASE(
   }
   if (testStraw) {
     std::cout << "- Straw: "
-              << intersectionTest<StrawSurface>(*aStraw, phi, theta + M_PI)
+              << intersectionTest<StrawSurface>(*aStraw, phi,
+                                                theta + std::numbers::pi)
               << std::endl;
   }
 }
 
-}  // namespace Acts::Test
+}  // namespace ActsTests

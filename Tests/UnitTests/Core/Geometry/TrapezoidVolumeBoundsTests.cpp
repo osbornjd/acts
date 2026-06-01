@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -15,17 +15,20 @@
 #include "Acts/Geometry/TrapezoidVolumeBounds.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/BoundingBox.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <utility>
 #include <vector>
 
-namespace Acts {
-namespace Test {
-BOOST_AUTO_TEST_SUITE(Volumes)
+using namespace Acts;
+
+namespace ActsTests {
+
+BOOST_AUTO_TEST_SUITE(GeometrySuite)
 
 BOOST_AUTO_TEST_CASE(bounding_box_creation) {
   float tol = 1e-4;
@@ -44,7 +47,7 @@ BOOST_AUTO_TEST_CASE(bounding_box_creation) {
   CHECK_CLOSE_ABS(bb.max(), Vector3(10, 38, 24), tol);
   CHECK_CLOSE_ABS(bb.min(), Vector3(-10, 22, 16), tol);
 
-  trf = AngleAxis3(M_PI / 2., Vector3(-2, 4, 5).normalized());
+  trf = AngleAxis3(std::numbers::pi / 2., Vector3(-2, 4, 5).normalized());
 
   bb = tvb.boundingBox(&trf);
   CHECK_CLOSE_ABS(bb.max(), Vector3(9.32577, 11.4906, 11.5777), tol);
@@ -57,12 +60,11 @@ BOOST_AUTO_TEST_CASE(TrapezoidVolumeBoundarySurfaces) {
   auto tvbOrientedSurfaces = tvb.orientedSurfaces(Transform3::Identity());
   BOOST_CHECK_EQUAL(tvbOrientedSurfaces.size(), 6);
 
-  auto geoCtx = GeometryContext();
+  auto geoCtx = GeometryContext::dangerouslyDefaultConstruct();
 
   for (auto& os : tvbOrientedSurfaces) {
     auto osCenter = os.surface->center(geoCtx);
-    const auto* pSurface =
-        dynamic_cast<const Acts::PlaneSurface*>(os.surface.get());
+    const auto* pSurface = dynamic_cast<const PlaneSurface*>(os.surface.get());
     BOOST_REQUIRE_MESSAGE(pSurface != nullptr,
                           "The surface is not a plane surface");
     auto osNormal = pSurface->normal(geoCtx);
@@ -78,31 +80,35 @@ BOOST_AUTO_TEST_CASE(TrapezoidVolumeBoundarySurfaces) {
   Vector3 zaxis(0., 0., 1.);
 
   // Test the orientation of the boundary surfaces
-  auto nFaceXY =
-      tvbOrientedSurfaces[negativeFaceXY].surface->transform(geoCtx).rotation();
+  auto nFaceXY = tvbOrientedSurfaces[negativeFaceXY]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(nFaceXY.col(0).isApprox(xaxis));
   BOOST_CHECK(nFaceXY.col(1).isApprox(yaxis));
   BOOST_CHECK(nFaceXY.col(2).isApprox(zaxis));
 
-  auto pFaceXY =
-      tvbOrientedSurfaces[positiveFaceXY].surface->transform(geoCtx).rotation();
+  auto pFaceXY = tvbOrientedSurfaces[positiveFaceXY]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(pFaceXY.col(0).isApprox(xaxis));
   BOOST_CHECK(pFaceXY.col(1).isApprox(yaxis));
   BOOST_CHECK(pFaceXY.col(2).isApprox(zaxis));
 
-  auto nFaceZX =
-      tvbOrientedSurfaces[negativeFaceZX].surface->transform(geoCtx).rotation();
+  auto nFaceZX = tvbOrientedSurfaces[negativeFaceZX]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(nFaceZX.col(0).isApprox(zaxis));
   BOOST_CHECK(nFaceZX.col(1).isApprox(xaxis));
   BOOST_CHECK(nFaceZX.col(2).isApprox(yaxis));
 
-  auto pFaceZX =
-      tvbOrientedSurfaces[positiveFaceZX].surface->transform(geoCtx).rotation();
+  auto pFaceZX = tvbOrientedSurfaces[positiveFaceZX]
+                     .surface->localToGlobalTransform(geoCtx)
+                     .rotation();
   BOOST_CHECK(pFaceZX.col(0).isApprox(zaxis));
   BOOST_CHECK(pFaceZX.col(1).isApprox(xaxis));
   BOOST_CHECK(pFaceZX.col(2).isApprox(yaxis));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-}  // namespace Test
-}  // namespace Acts
+
+}  // namespace ActsTests

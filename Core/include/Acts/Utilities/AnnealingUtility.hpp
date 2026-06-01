@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -21,10 +21,10 @@ class AnnealingUtility {
   /// @brief The annealing state
   /// Resetting the state is done by just creating a new instance
   struct State {
-    // Points to current temperature value in m_cfg.setOfTemperatures
+    /// Index pointing to current temperature value in configuration array
     unsigned int currentTemperatureIndex{0};
 
-    // Checks if equilibrium is reached
+    /// Flag indicating whether equilibrium has been reached in annealing
     bool equilibriumReached{false};
   };
 
@@ -32,16 +32,23 @@ class AnnealingUtility {
   struct Config {
     Config();
 
-    // Insensitivity of calculated weight at cutoff
+    /// Constructor with parameters
+    /// @param cutOff_ Cut-off threshold value
+    /// @param setOfTemperatures_ Vector of temperature values for annealing
+    Config(double cutOff_, std::vector<double> setOfTemperatures_)
+        : cutOff(cutOff_), setOfTemperatures(std::move(setOfTemperatures_)) {}
+
+    /// Insensitivity threshold for calculated weight at cutoff
     double cutOff{9.};
 
-    // Set of temperatures, annealing starts at setOfTemperatures[0]
-    // and anneals towards setOfTemperatures[last]
+    /// Temperature sequence for annealing process, starts at first value
+    /// and progresses towards the last value
     std::vector<double> setOfTemperatures{64., 16., 4., 2., 1.5, 1.};
   };
 
   /// Constructor
-  AnnealingUtility(const Config& cfg = Config()) : m_cfg(cfg) {
+  /// @param cfg The annealing configuration parameters
+  explicit AnnealingUtility(const Config& cfg = Config()) : m_cfg(cfg) {
     // Set Gaussian cut-off terms for each temperature
     for (double temp : cfg.setOfTemperatures) {
       m_gaussCutTempVec.push_back(std::exp(-cfg.cutOff / (2. * temp)));
@@ -49,6 +56,7 @@ class AnnealingUtility {
   }
 
   /// Does the actual annealing step
+  /// @param state The state object to perform annealing on
   void anneal(State& state) const;
 
   /// @brief Weight access

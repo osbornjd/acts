@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
@@ -14,7 +14,6 @@
 #include "Acts/Definitions/Direction.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/EventData/Charge.hpp"
 #include "Acts/EventData/GenericBoundTrackParameters.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
@@ -30,24 +29,22 @@
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
+#include "Acts/Utilities/Intersection.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Vertexing/ImpactPointEstimator.hpp"
-#include "Acts/Vertexing/TrackAtVertex.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
-#include <algorithm>
-#include <array>
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <numbers>
 #include <optional>
-#include <tuple>
 #include <utility>
 #include <vector>
 
-namespace {
+namespace ActsTests {
 
 namespace bd = boost::unit_test::data;
 
@@ -55,17 +52,17 @@ using namespace Acts;
 using namespace Acts::UnitLiterals;
 using Acts::VectorHelpers::makeVector4;
 
-using MagneticField = Acts::ConstantBField;
-using StraightPropagator = Acts::Propagator<StraightLineStepper>;
-using Stepper = Acts::EigenStepper<>;
+using MagneticField = ConstantBField;
+using StraightPropagator = Propagator<StraightLineStepper>;
+using Stepper = EigenStepper<>;
 using Propagator = Acts::Propagator<Stepper>;
-using Estimator = Acts::ImpactPointEstimator;
-using StraightLineEstimator = Acts::ImpactPointEstimator;
+using Estimator = ImpactPointEstimator;
+using StraightLineEstimator = ImpactPointEstimator;
 
-const Acts::GeometryContext geoContext;
-const Acts::MagneticFieldContext magFieldContext;
+const auto geoContext = GeometryContext::dangerouslyDefaultConstruct();
+const MagneticFieldContext magFieldContext;
 
-Acts::MagneticFieldProvider::Cache magFieldCache() {
+MagneticFieldProvider::Cache magFieldCache() {
   return NullBField{}.makeCache(magFieldContext);
 }
 
@@ -103,8 +100,7 @@ Estimator makeEstimator(double bZ) {
 }
 
 // Construct a diagonal track covariance w/ reasonable values.
-Acts::BoundSquareMatrix makeBoundParametersCovariance(
-    double stdDevTime = 30_ps) {
+BoundSquareMatrix makeBoundParametersCovariance(double stdDevTime = 30_ps) {
   BoundVector stddev;
   stddev[eBoundLoc0] = 15_um;
   stddev[eBoundLoc1] = 100_um;
@@ -116,7 +112,7 @@ Acts::BoundSquareMatrix makeBoundParametersCovariance(
 }
 
 // Construct a diagonal vertex covariance w/ reasonable values.
-Acts::SquareMatrix4 makeVertexCovariance() {
+SquareMatrix4 makeVertexCovariance() {
   Vector4 stddev;
   stddev[ePos0] = 10_um;
   stddev[ePos1] = 10_um;
@@ -129,9 +125,8 @@ Acts::SquareMatrix4 makeVertexCovariance() {
 std::uniform_real_distribution<double> uniformDist(0.0, 1.0);
 // random sign
 std::uniform_real_distribution<double> signDist(-1, 1);
-}  // namespace
 
-BOOST_AUTO_TEST_SUITE(VertexingImpactPointEstimator)
+BOOST_AUTO_TEST_SUITE(VertexingSuite)
 
 // Check `calculateDistance`, `estimate3DImpactParameters`, and
 // `getVertexCompatibility`.
@@ -182,7 +177,7 @@ BOOST_DATA_TEST_CASE(SingleTrackDistanceParametersCompatibility3D, tracks, d0,
   // BOOST_CHECK_NE(atPerigee[eBoundPhi], atIp3d[eBoundPhi]);
   CHECK_CLOSE_ABS(atPerigee[eBoundTheta], atIp3d[eBoundTheta], 0.01_mrad);
   CHECK_CLOSE_REL(atPerigee[eBoundQOverP], atIp3d[eBoundQOverP],
-                  std::numeric_limits<ActsScalar>::epsilon());
+                  std::numeric_limits<double>::epsilon());
 
   // check that we get sensible compatibility scores
   // this is a chi2-like value and should always be positive
@@ -195,6 +190,7 @@ BOOST_DATA_TEST_CASE(SingleTrackDistanceParametersCompatibility3D, tracks, d0,
 BOOST_DATA_TEST_CASE(TimeAtPca, tracksWithoutIPs* vertices, t0, phi, theta, p,
                      q, vx0, vy0, vz0, vt0) {
   using Propagator = Acts::Propagator<Stepper>;
+  using PropagatorOptions = Propagator::Options<>;
   using StraightPropagator = Acts::Propagator<StraightLineStepper>;
 
   // Set up quantities for constant B field
@@ -239,7 +235,7 @@ BOOST_DATA_TEST_CASE(TimeAtPca, tracksWithoutIPs* vertices, t0, phi, theta, p,
 
   // Correct quantities for checking if IP estimation worked
   // Time of the track with respect to the vertex
-  ActsScalar corrTimeDiff = t0 - vt0;
+  double corrTimeDiff = t0 - vt0;
 
   // Momentum direction at vertex (i.e., at 3D PCA)
   double cosPhi = std::cos(phi);
@@ -256,12 +252,16 @@ BOOST_DATA_TEST_CASE(TimeAtPca, tracksWithoutIPs* vertices, t0, phi, theta, p,
 
   // Set up the propagator options (they are the same with and without B field)
   PropagatorOptions pOptions(geoContext, magFieldContext);
-  auto intersection = refPerigeeSurface
-                          ->intersect(geoContext, params.position(geoContext),
-                                      params.direction(), BoundaryCheck(false))
-                          .closest();
+  Intersection3D intersection =
+      refPerigeeSurface
+          ->intersect(geoContext, params.position(geoContext),
+                      params.direction(), BoundaryTolerance::Infinite())
+          .closest();
   pOptions.direction =
       Direction::fromScalarZeroAsPositive(intersection.pathLength());
+
+  StraightPropagator::Options<> straightPOptions(geoContext, magFieldContext);
+  straightPOptions.direction = pOptions.direction;
 
   // Propagate to the 2D PCA of the reference point in a constant B field
   auto result = propagator->propagate(params, *refPerigeeSurface, pOptions);
@@ -269,8 +269,8 @@ BOOST_DATA_TEST_CASE(TimeAtPca, tracksWithoutIPs* vertices, t0, phi, theta, p,
   const auto& refParams = *result->endParameters;
 
   // Propagate to the 2D PCA of the reference point when B = 0
-  auto zeroFieldResult =
-      straightLinePropagator->propagate(params, *refPerigeeSurface, pOptions);
+  auto zeroFieldResult = straightLinePropagator->propagate(
+      params, *refPerigeeSurface, straightPOptions);
   BOOST_CHECK(zeroFieldResult.ok());
   const auto& zeroFieldRefParams = *zeroFieldResult->endParameters;
 
@@ -301,12 +301,12 @@ BOOST_DATA_TEST_CASE(TimeAtPca, tracksWithoutIPs* vertices, t0, phi, theta, p,
                              geoContext, rParams, vtxPos, state)
                           .value();
 
-    ActsVector<4> distVec = distAndMom.first;
+    Vector4 distVec = distAndMom.first;
     Vector3 momDir = distAndMom.second;
 
     // Check quantities:
     // Spatial distance should be 0 as track passes through the vertex
-    ActsScalar dist = distVec.head<3>().norm();
+    double dist = distVec.head<3>().norm();
     CHECK_CLOSE_ABS(dist, 0., 30_nm);
     // Distance in time should correspond to the time of the track in a
     // coordinate system with the vertex as the origin since the track passes
@@ -362,12 +362,15 @@ BOOST_DATA_TEST_CASE(VertexCompatibility4D, IPs* vertices, d0, l0, vx0, vy0,
   double timeDiffFar = timeDiffFactor * 0.11_ps;
 
   // Different random signs for the time offsets
-  double sgnClose = signDist(gen) < 0 ? -1. : 1.;
-  double sgnFar = signDist(gen) < 0 ? -1. : 1.;
+  double sgnClose = std::copysign(1., signDist(gen));
+  double sgnFar = std::copysign(1., signDist(gen));
 
   BoundVector paramVecClose = BoundVector::Zero();
   paramVecClose[eBoundLoc0] = d0;
   paramVecClose[eBoundLoc1] = l0;
+  paramVecClose[eBoundPhi] = 0;
+  paramVecClose[eBoundTheta] = std::numbers::pi / 2;
+  paramVecClose[eBoundQOverP] = 0;
   paramVecClose[eBoundTime] = vt0 + sgnClose * timeDiffClose;
 
   BoundVector paramVecFar = paramVecClose;
@@ -429,7 +432,7 @@ BOOST_AUTO_TEST_CASE(SingleTrackDistanceParametersAthenaRegression) {
       Surface::makeShared<PerigeeSurface>(pos1.segment<3>(ePos0));
   // Some fixed track parameter values
   auto params1 = BoundTrackParameters::create(
-                     perigeeSurface, geoContext, pos1, mom1, 1_e / mom1.norm(),
+                     geoContext, perigeeSurface, pos1, mom1, 1_e / mom1.norm(),
                      BoundTrackParameters::CovarianceMatrix::Identity(),
                      ParticleHypothesis::pion())
                      .value();
@@ -537,3 +540,5 @@ BOOST_DATA_TEST_CASE(SingeTrackImpactParameters, tracks* vertices, d0, l0, t0,
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

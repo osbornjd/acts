@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -24,7 +24,8 @@ namespace ActsExamples {
 /// calls.
 class IReader : public SequenceElement {
  public:
-  /// Provide range of available events or [0, SIZE_MAX) if undefined.
+  /// Provide range of available events or [0,
+  /// std::numeric_limits<std::size_t>::max()) if undefined.
   ///
   /// The upper limit is exclusive, i.e. [0,3) means events 0, 1, and 2.
   virtual std::pair<std::size_t, std::size_t> availableEvents() const = 0;
@@ -35,6 +36,13 @@ class IReader : public SequenceElement {
   /// will most likely not be called in order. Implementations must use the
   /// event number provided to select the proper data to be read.
   virtual ProcessCode read(const AlgorithmContext& context) = 0;
+
+  /// Instructs this reader to skip over a fixed number of events
+  /// @param events
+  /// @return Process code indicating if the skip was successful
+  virtual ProcessCode skip(std::size_t /*events*/) {
+    return ProcessCode::SUCCESS;
+  }
 
   /// Internal execute method forwards to the read method as mutable
   /// @param context The algorithm context
@@ -47,6 +55,9 @@ class IReader : public SequenceElement {
 
   /// Fulfill the algorithm interface
   ProcessCode finalize() override { return ProcessCode::SUCCESS; }
+
+  /// Return the type for debug output
+  std::string_view typeName() const override { return "Reader"; }
 };
 
 }  // namespace ActsExamples

@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -24,6 +24,8 @@ class ISurfaceMaterial;
 
 /// @class AccumulatedSurfaceMaterial
 ///
+/// @ingroup material_mapping
+///
 /// This class is used by the SurfaceMaterialMapper in order to
 /// accumulate/collect material information during the mapping process.
 ///
@@ -31,13 +33,15 @@ class ISurfaceMaterial;
 /// a new SurfaceMaterial object as a unique_ptr after finalisation
 class AccumulatedSurfaceMaterial {
  public:
+  /// Type alias for vector of accumulated material slabs
   using AccumulatedVector = std::vector<AccumulatedMaterialSlab>;
+  /// Type alias for matrix (vector of vectors) of accumulated material slabs
   using AccumulatedMatrix = std::vector<AccumulatedVector>;
 
   /// Default Constructor - for homogeneous material
   ///
   /// @param splitFactor is the pre/post splitting directive
-  AccumulatedSurfaceMaterial(double splitFactor = 0.);
+  explicit AccumulatedSurfaceMaterial(double splitFactor = 0.);
 
   /// Explicit constructor with only full MaterialSlab,
   /// for one-dimensional binning.
@@ -49,8 +53,8 @@ class AccumulatedSurfaceMaterial {
   ///
   /// @param binUtility defines the binning structure on the surface
   /// @param splitFactor is the pre/post splitting directive
-  AccumulatedSurfaceMaterial(const BinUtility& binUtility,
-                             double splitFactor = 0.);
+  explicit AccumulatedSurfaceMaterial(const BinUtility& binUtility,
+                                      double splitFactor = 0.);
 
   /// Copy Constructor
   ///
@@ -65,12 +69,14 @@ class AccumulatedSurfaceMaterial {
   /// Assignment Move operator
   ///
   /// @param asma is the source object to be copied
+  /// @return Reference to this object after move assignment
   AccumulatedSurfaceMaterial& operator=(AccumulatedSurfaceMaterial&& asma) =
       default;
 
   /// Assignment operator
   ///
   /// @param asma is the source object to be copied
+  /// @return Reference to this object after copy assignment
   AccumulatedSurfaceMaterial& operator=(
       const AccumulatedSurfaceMaterial& asma) = default;
 
@@ -78,6 +84,7 @@ class AccumulatedSurfaceMaterial {
   ~AccumulatedSurfaceMaterial() = default;
 
   /// Return the BinUtility
+  /// @return Reference to the bin utility used for material binning
   const BinUtility& binUtility() const;
 
   /// Assign a material properties object
@@ -135,12 +142,15 @@ class AccumulatedSurfaceMaterial {
   void trackAverage(const Vector3& gp, bool emptyHit = false);
 
   /// Total average creates SurfaceMaterial
+  /// @return Unique pointer to the averaged surface material
   std::unique_ptr<const ISurfaceMaterial> totalAverage();
 
   /// Access to the accumulated material
+  /// @return Reference to the matrix of accumulated material data
   const AccumulatedMatrix& accumulatedMaterial() const;
 
   /// Access to the split factor
+  /// @return The split factor used for material averaging
   double splitFactor() const;
 
  private:

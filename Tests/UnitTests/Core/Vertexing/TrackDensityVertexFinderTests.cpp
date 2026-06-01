@@ -1,58 +1,52 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Definitions/Common.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/EventData/Charge.hpp"
 #include "Acts/EventData/GenericBoundTrackParameters.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Utilities/UnitVectors.hpp"
-#include "Acts/Vertexing/DummyVertexFitter.hpp"
 #include "Acts/Vertexing/GaussianTrackDensity.hpp"
 #include "Acts/Vertexing/TrackDensityVertexFinder.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
-#include <algorithm>
-#include <cmath>
-#include <functional>
 #include <iostream>
 #include <memory>
+#include <numbers>
 #include <random>
-#include <string>
 #include <system_error>
 #include <vector>
 
-namespace bdata = boost::unit_test::data;
+using namespace Acts;
 using namespace Acts::UnitLiterals;
 using Acts::VectorHelpers::makeVector4;
 
-namespace Acts::Test {
+namespace ActsTests {
 
 using Covariance = BoundSquareMatrix;
 
 // Create a test context
-GeometryContext geoContext = GeometryContext();
+GeometryContext geoContext = GeometryContext::dangerouslyDefaultConstruct();
 MagneticFieldContext magFieldContext = MagneticFieldContext();
 
+BOOST_AUTO_TEST_SUITE(VertexingSuite)
 ///
 /// @brief Unit test for TrackDensityVertexFinder using same configuration
 /// and values as VertexSeedFinderTestAlg in Athena implementation, i.e.
@@ -71,7 +65,8 @@ BOOST_AUTO_TEST_CASE(track_density_finder_test) {
   VertexingOptions vertexingOptions(geoContext, magFieldContext);
   GaussianTrackDensity::Config densityCfg;
   densityCfg.extractParameters.connect<&InputTrack::extractParameters>();
-  TrackDensityVertexFinder finder{{{densityCfg}}};
+  TrackDensityVertexFinder finder{
+      TrackDensityVertexFinder::Config{Acts::GaussianTrackDensity(densityCfg)}};
   auto state = finder.makeState(magFieldContext);
 
   // Start creating some track parameters
@@ -82,17 +77,17 @@ BOOST_AUTO_TEST_CASE(track_density_finder_test) {
   // Test finder for some fixed track parameter values
   auto params1a =
       BoundTrackParameters::create(
-          perigeeSurface, geoContext, makeVector4(pos1a, 0), mom1a.normalized(),
+          geoContext, perigeeSurface, makeVector4(pos1a, 0), mom1a.normalized(),
           1_e / mom1a.norm(), covMat, ParticleHypothesis::pion())
           .value();
   auto params1b =
       BoundTrackParameters::create(
-          perigeeSurface, geoContext, makeVector4(pos1b, 0), mom1b.normalized(),
+          geoContext, perigeeSurface, makeVector4(pos1b, 0), mom1b.normalized(),
           -1_e / mom1b.norm(), covMat, ParticleHypothesis::pion())
           .value();
   auto params1c =
       BoundTrackParameters::create(
-          perigeeSurface, geoContext, makeVector4(pos1c, 0), mom1c.normalized(),
+          geoContext, perigeeSurface, makeVector4(pos1c, 0), mom1c.normalized(),
           1_e / mom1c.norm(), covMat, ParticleHypothesis::pion())
           .value();
 
@@ -150,7 +145,8 @@ BOOST_AUTO_TEST_CASE(track_density_finder_constr_test) {
   VertexingOptions vertexingOptions(geoContext, magFieldContext, constraint);
   GaussianTrackDensity::Config densityCfg;
   densityCfg.extractParameters.connect<&InputTrack::extractParameters>();
-  TrackDensityVertexFinder finder{{{densityCfg}}};
+  TrackDensityVertexFinder finder{
+      TrackDensityVertexFinder::Config{Acts::GaussianTrackDensity(densityCfg)}};
   auto state = finder.makeState(magFieldContext);
 
   // Start creating some track parameters
@@ -161,17 +157,17 @@ BOOST_AUTO_TEST_CASE(track_density_finder_constr_test) {
   // Test finder for some fixed track parameter values
   auto params1a =
       BoundTrackParameters::create(
-          perigeeSurface, geoContext, makeVector4(pos1a, 0), mom1a.normalized(),
+          geoContext, perigeeSurface, makeVector4(pos1a, 0), mom1a.normalized(),
           1_e / mom1a.norm(), covMat, ParticleHypothesis::pion())
           .value();
   auto params1b =
       BoundTrackParameters::create(
-          perigeeSurface, geoContext, makeVector4(pos1b, 0), mom1b.normalized(),
+          geoContext, perigeeSurface, makeVector4(pos1b, 0), mom1b.normalized(),
           -1_e / mom1b.norm(), covMat, ParticleHypothesis::pion())
           .value();
   auto params1c =
       BoundTrackParameters::create(
-          perigeeSurface, geoContext, makeVector4(pos1c, 0), mom1c.normalized(),
+          geoContext, perigeeSurface, makeVector4(pos1c, 0), mom1c.normalized(),
           -1_e / mom1c.norm(), covMat, ParticleHypothesis::pion())
           .value();
 
@@ -207,7 +203,8 @@ std::normal_distribution<double> z2dist(-3_mm, 0.5_mm);
 // Track pT distribution
 std::uniform_real_distribution<double> pTDist(0.1_GeV, 100_GeV);
 // Track phi distribution
-std::uniform_real_distribution<double> phiDist(-M_PI, M_PI);
+std::uniform_real_distribution<double> phiDist(-std::numbers::pi,
+                                               std::numbers::pi);
 // Track eta distribution
 std::uniform_real_distribution<double> etaDist(-4., 4.);
 
@@ -226,7 +223,8 @@ BOOST_AUTO_TEST_CASE(track_density_finder_random_test) {
   VertexingOptions vertexingOptions(geoContext, magFieldContext);
   GaussianTrackDensity::Config densityCfg;
   densityCfg.extractParameters.connect<&InputTrack::extractParameters>();
-  TrackDensityVertexFinder finder{{{densityCfg}}};
+  TrackDensityVertexFinder finder{
+      TrackDensityVertexFinder::Config{Acts::GaussianTrackDensity(densityCfg)}};
   auto state = finder.makeState(magFieldContext);
 
   int mySeed = 31415;
@@ -245,11 +243,11 @@ BOOST_AUTO_TEST_CASE(track_density_finder_random_test) {
     double pt = pTDist(gen);
     double phi = phiDist(gen);
     double eta = etaDist(gen);
-    double charge = etaDist(gen) > 0 ? 1 : -1;
+    double charge = std::copysign(1., etaDist(gen));
 
     // project the position on the surface
     Vector3 direction = makeDirectionFromPhiEta(phi, eta);
-    auto intersection =
+    Intersection3D intersection =
         perigeeSurface->intersect(geoContext, pos, direction).closest();
     pos = intersection.position();
 
@@ -258,7 +256,7 @@ BOOST_AUTO_TEST_CASE(track_density_finder_random_test) {
     pos[eZ] = ((i % 4) == 0) ? z2dist(gen) : z1dist(gen);
 
     trackVec.push_back(BoundTrackParameters::create(
-                           perigeeSurface, geoContext, makeVector4(pos, 0),
+                           geoContext, perigeeSurface, makeVector4(pos, 0),
                            direction, charge / pt, covMat,
                            ParticleHypothesis::pion())
                            .value());
@@ -283,7 +281,8 @@ BOOST_AUTO_TEST_CASE(track_density_finder_random_test) {
 
 // Dummy user-defined InputTrackStub type
 struct InputTrackStub {
-  InputTrackStub(const BoundTrackParameters& params) : m_parameters(params) {}
+  explicit InputTrackStub(const BoundTrackParameters& params)
+      : m_parameters(params) {}
 
   const BoundTrackParameters& parameters() const { return m_parameters; }
 
@@ -326,7 +325,8 @@ BOOST_AUTO_TEST_CASE(track_density_finder_usertrack_test) {
 
   GaussianTrackDensity::Config densityCfg;
   densityCfg.extractParameters.connect(extractParameters);
-  TrackDensityVertexFinder finder{{{densityCfg}}};
+  TrackDensityVertexFinder finder{
+      TrackDensityVertexFinder::Config{Acts::GaussianTrackDensity(densityCfg)}};
   auto state = finder.makeState(magFieldContext);
 
   // Start creating some track parameters
@@ -336,17 +336,17 @@ BOOST_AUTO_TEST_CASE(track_density_finder_usertrack_test) {
 
   // Test finder for some fixed track parameter values
   InputTrackStub params1a(BoundTrackParameters::create(
-                              perigeeSurface, geoContext, makeVector4(pos1a, 0),
+                              geoContext, perigeeSurface, makeVector4(pos1a, 0),
                               mom1a, 1_e / mom1a.norm(), covMat,
                               ParticleHypothesis::pion())
                               .value());
   InputTrackStub params1b(BoundTrackParameters::create(
-                              perigeeSurface, geoContext, makeVector4(pos1b, 0),
+                              geoContext, perigeeSurface, makeVector4(pos1b, 0),
                               mom1b, -1_e / mom1b.norm(), covMat,
                               ParticleHypothesis::pion())
                               .value());
   InputTrackStub params1c(BoundTrackParameters::create(
-                              perigeeSurface, geoContext, makeVector4(pos1c, 0),
+                              geoContext, perigeeSurface, makeVector4(pos1c, 0),
                               mom1c, -1_e / mom1c.norm(), covMat,
                               ParticleHypothesis::pion())
                               .value());
@@ -371,4 +371,6 @@ BOOST_AUTO_TEST_CASE(track_density_finder_usertrack_test) {
   }
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

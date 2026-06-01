@@ -1,18 +1,19 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "Acts/Plugins/Onnx/MLTrackClassifier.hpp"
+#include "ActsPlugins/Onnx/MLTrackClassifier.hpp"
 
 #include <cassert>
 #include <stdexcept>
 
 // prediction function
-Acts::MLTrackClassifier::TrackLabels Acts::MLTrackClassifier::predictTrackLabel(
+ActsPlugins::MLTrackClassifier::TrackLabels
+ActsPlugins::MLTrackClassifier::predictTrackLabel(
     std::vector<float>& inputFeatures, double decisionThreshProb) const {
   // check that the decision threshold is a probability
   if (!((0. <= decisionThreshProb) && (decisionThreshProb <= 1.))) {
@@ -35,10 +36,9 @@ Acts::MLTrackClassifier::TrackLabels Acts::MLTrackClassifier::predictTrackLabel(
 }
 
 // function that checks if the predicted track label is duplicate
-bool Acts::MLTrackClassifier::isDuplicate(std::vector<float>& inputFeatures,
-                                          double decisionThreshProb) const {
-  Acts::MLTrackClassifier::TrackLabels predictedLabel =
-      Acts::MLTrackClassifier::predictTrackLabel(inputFeatures,
-                                                 decisionThreshProb);
-  return predictedLabel == Acts::MLTrackClassifier::TrackLabels::eDuplicate;
+bool ActsPlugins::MLTrackClassifier::isDuplicate(
+    std::vector<float>& inputFeatures, double decisionThreshProb) const {
+  MLTrackClassifier::TrackLabels predictedLabel =
+      MLTrackClassifier::predictTrackLabel(inputFeatures, decisionThreshProb);
+  return predictedLabel == MLTrackClassifier::TrackLabels::eDuplicate;
 }

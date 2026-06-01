@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -37,31 +37,32 @@ class ZScanVertexFinder final : public IVertexFinder {
     /// @brief Finder configuration
     ///
     /// @param ipEst ImpactPointEstimator
-    Config(const ImpactPointEstimator& ipEst) : ipEstimator(ipEst) {}
+    explicit Config(const ImpactPointEstimator& ipEst) : ipEstimator(ipEst) {}
 
-    // ImpactPointEstimator
+    /// Impact point estimator for vertex finding
     ImpactPointEstimator ipEstimator;
 
-    // FsmwMode1dFinder
+    /// Mode finder for 1D z-position determination
     FsmwMode1dFinder mode1dFinder;
 
-    // disables all weights, set all weights to 1.
+    /// Flag to disable all weights, set all weights to 1
     bool disableAllWeights = false;
-    // constraint parameters
+    /// Constraint cutoff parameter for vertex fitting
     float constraintcutoff = 9.;
+    /// Constraint temperature parameter for annealing
     float constrainttemp = 1.;
-    // use LogPt for weighting
+    /// Flag to use log(pT) for track weighting
     bool useLogPt = true;
-    // use pt for weighting
+    /// Flag to use pT for track weighting
     bool usePt = false;
-    // minimum pt
+    /// Minimum pT threshold for track selection
     double minPt = 0.4 * UnitConstants::GeV;
-    // exponent used for weighting if usePt
+    /// Exponent used for pT weighting when usePt is enabled
     double expPt = 1.;
-    // minimum required weight
+    /// Minimum required weight for track inclusion
     double minWeight = 0.01;
 
-    // Function to extract parameters from InputTrack
+    /// Function to extract parameters from InputTrack
     InputTrack::Extractor extractParameters;
   };
 
@@ -72,9 +73,10 @@ class ZScanVertexFinder final : public IVertexFinder {
   ///
   /// @param cfg Configuration object
   /// @param logger Logging instance
-  ZScanVertexFinder(const Config& cfg,
-                    std::unique_ptr<const Logger> logger =
-                        getDefaultLogger("ZScanVertexFinder", Logging::INFO));
+  explicit ZScanVertexFinder(const Config& cfg,
+                             std::unique_ptr<const Logger> logger =
+                                 getDefaultLogger("ZScanVertexFinder",
+                                                  Logging::INFO));
 
   /// @brief Function that determines single vertex,
   /// based on z0 values of input tracks,

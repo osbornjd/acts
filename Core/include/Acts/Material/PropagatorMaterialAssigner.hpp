@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -12,14 +12,13 @@
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Material/interface/IAssignmentFinder.hpp"
-#include "Acts/Propagator/AbortList.hpp"
-#include "Acts/Propagator/ActionList.hpp"
-#include "Acts/Propagator/Propagator.hpp"
+#include "Acts/Propagator/ActorList.hpp"
 #include "Acts/Propagator/SurfaceCollector.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/VectorHelpers.hpp"
 
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -30,6 +29,8 @@ namespace Acts {
 /// This is to be used with a SurfaceCollector<>
 struct MaterialSurfaceIdentifier {
   /// check if the surface has material
+  /// @param sf Surface to check for material
+  /// @return True if the surface has material assigned to it
   bool operator()(const Surface& sf) const {
     return (sf.surfaceMaterial() != nullptr);
   }
@@ -42,9 +43,11 @@ struct InteractionVolumeCollector {
   /// @note the map is to avoid double counting as this is
   /// called in an action list
   struct this_result {
+    /// Map of collected volume assignments by geometry identifier
     std::map<GeometryIdentifier, IAssignmentFinder::VolumeAssignment> collected;
   };
 
+  /// Type alias for volume collection result
   using result_type = this_result;
 
   /// Collector action for the ActionList of the Propagator
@@ -62,9 +65,9 @@ struct InteractionVolumeCollector {
   /// @param [in,out] result is the mutable result object
   template <typename propagator_state_t, typename stepper_t,
             typename navigator_t>
-  void operator()(propagator_state_t& state, const stepper_t& stepper,
-                  const navigator_t& navigator, result_type& result,
-                  const Logger& /*logger*/) const {
+  Result<void> act(propagator_state_t& state, const stepper_t& stepper,
+                   const navigator_t& navigator, result_type& result,
+                   const Logger& /*logger*/) const {
     // Retrieve the current volume
     auto currentVolume = navigator.currentVolume(state.navigation);
 
@@ -84,6 +87,7 @@ struct InteractionVolumeCollector {
         (collIt->second).exit = stepper.position(state.stepping);
       }
     }
+    return Result<void>::success();
   }
 };
 
@@ -99,7 +103,7 @@ class PropagatorMaterialAssigner final : public IAssignmentFinder {
  public:
   /// @brief  Construct with propagator
   /// @param propagator
-  PropagatorMaterialAssigner(propagator_t propagator)
+  explicit PropagatorMaterialAssigner(propagator_t propagator)
       : m_propagator(std::move(propagator)) {}
 
   /// @brief Method for generating assignment candidates for the
@@ -124,18 +128,20 @@ class PropagatorMaterialAssigner final : public IAssignmentFinder {
 
     using VectorHelpers::makeVector4;
     // Neutral curvilinear parameters
-    NeutralCurvilinearTrackParameters start(
-        makeVector4(position, 0), direction, 1, std::nullopt,
-        NeutralParticleHypothesis::geantino());
+    NeutralBoundTrackParameters start =
+        NeutralBoundTrackParameters::createCurvilinear(
+            makeVector4(position, 0), direction, 1, std::nullopt,
+            NeutralParticleHypothesis::geantino());
 
     // Prepare Action list and abort list
     using MaterialSurfaceCollector =
         SurfaceCollector<MaterialSurfaceIdentifier>;
-    using ActionList =
-        ActionList<MaterialSurfaceCollector, InteractionVolumeCollector>;
-    using AbortList = AbortList<EndOfWorldReached>;
+    using ActorList = ActorList<MaterialSurfaceCollector,
+                                InteractionVolumeCollector, EndOfWorldReached>;
+    using PropagatorOptions =
+        typename propagator_t::template Options<ActorList>;
 
-    PropagatorOptions<ActionList, AbortList> options(gctx, mctx);
+    PropagatorOptions options(gctx, mctx);
 
     const auto& result = m_propagator.propagate(start, options).value();
 
@@ -152,7 +158,7 @@ class PropagatorMaterialAssigner final : public IAssignmentFinder {
     // The volume collection results
     auto vcResult =
         result.template get<InteractionVolumeCollector::result_type>();
-    for (auto [geoId, vIntersection] : vcResult.collected) {
+    for (const auto& [geoId, vIntersection] : vcResult.collected) {
       candidates.second.push_back(vIntersection);
     }
 

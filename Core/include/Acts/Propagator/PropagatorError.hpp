@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
@@ -13,13 +13,21 @@
 
 namespace Acts {
 
+/// Error codes for propagator operations
+/// @ingroup errors
 enum class PropagatorError {
   // ensure all values are non-zero
+  /// Propagation failed
   Failure = 1,
-  WrongDirection,
+  /// Propagation reached the configured maximum number of steps
   StepCountLimitReached,
+  /// Propagation reached the configured maximum number of next target calls
+  NextTargetLimitReached,
 };
 
+/// Create error code from PropagatorError
+/// @param e The error code enum value
+/// @return Standard error code
 std::error_code make_error_code(Acts::PropagatorError e);
 
 }  // namespace Acts

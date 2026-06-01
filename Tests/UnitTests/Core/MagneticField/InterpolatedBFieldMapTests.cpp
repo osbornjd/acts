@@ -1,39 +1,38 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/MagneticField/InterpolatedBFieldMap.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
-#include "Acts/MagneticField/MagneticFieldProvider.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
+#include "Acts/Utilities/Axis.hpp"
+#include "Acts/Utilities/AxisDefinitions.hpp"
 #include "Acts/Utilities/Grid.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Utilities/VectorHelpers.hpp"
-#include "Acts/Utilities/detail/Axis.hpp"
-#include "Acts/Utilities/detail/AxisFwd.hpp"
-#include "Acts/Utilities/detail/grid_helper.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 #include <array>
 #include <cstddef>
-#include <functional>
 #include <optional>
-#include <tuple>
 #include <utility>
-#include <vector>
 
 using Acts::VectorHelpers::perp;
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTests {
 
 // Create a test context
 MagneticFieldContext mfContext = MagneticFieldContext();
+
+BOOST_AUTO_TEST_SUITE(MagneticFieldSuite)
 
 BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
   // definition of dummy BField
@@ -57,14 +56,13 @@ BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
   };
 
   // magnetic field known on grid in (r,z)
-  detail::EquidistantAxis r(0.0, 4.0, 4u);
-  detail::EquidistantAxis z(-5, 7, 6u);
+  Axis r(0.0, 4.0, 4u);
+  Axis z(-5, 7, 6u);
 
-  using Grid_t =
-      Grid<Vector3, detail::EquidistantAxis, detail::EquidistantAxis>;
+  Grid g(Type<Vector3>, std::move(r), std::move(z));
+
+  using Grid_t = decltype(g);
   using BField_t = InterpolatedBFieldMap<Grid_t>;
-
-  Grid_t g(std::make_tuple(std::move(r), std::move(z)));
 
   // set grid values
   for (std::size_t i = 1; i <= g.numLocalBins().at(0) + 1; ++i) {
@@ -123,17 +121,13 @@ BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
   CHECK_CLOSE_REL(c.getField(transformPos(pos)),
                   BField::value({{perp(pos), pos.z()}}), 1e-6);
 
-  ActsMatrix<3, 3> deriv;
-
   pos << 1, 1, -5.5;  // this position is outside the grid
   BOOST_CHECK(!b.isInside(pos));
   BOOST_CHECK(!b.getField(pos, bCacheAny).ok());
-  BOOST_CHECK(!b.getFieldGradient(pos, deriv, bCacheAny).ok());
 
   pos << 1, 6, -1.7;  // this position is outside the grid
   BOOST_CHECK(!b.isInside(pos));
   BOOST_CHECK(!b.getField(pos, bCacheAny).ok());
-  BOOST_CHECK(!b.getFieldGradient(pos, deriv, bCacheAny).ok());
 
   pos << 0, 1.5, -2.5;
   BOOST_CHECK(b.isInside(pos));
@@ -167,4 +161,7 @@ BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
   BOOST_CHECK(c.isInside(transformPos((pos << 0, 2, -4.7).finished())));
   BOOST_CHECK(!c.isInside(transformPos((pos << 5, 2, 14.).finished())));
 }
-}  // namespace Acts::Test
+
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

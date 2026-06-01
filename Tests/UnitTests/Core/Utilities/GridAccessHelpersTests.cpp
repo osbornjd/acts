@@ -1,29 +1,28 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2024 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "Acts/Definitions/Algebra.hpp"
-#include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Grid.hpp"
 #include "Acts/Utilities/GridAccessHelpers.hpp"
 #include "Acts/Utilities/GridAxisGenerators.hpp"
+#include "ActsTests/CommonHelpers/FloatComparisons.hpp"
 
 using namespace Acts;
 
-namespace bd = boost::unit_test::data;
+namespace ActsTests {
 
-BOOST_AUTO_TEST_SUITE(GridAccessHelpersTests)
+BOOST_AUTO_TEST_SUITE(UtilitiesSuite)
 
 BOOST_AUTO_TEST_CASE(Grid1DAccess) {
-  Acts::GridAxisGenerators::EqBound eqBound{{0., 10.}, 10};
-  using GridType = Acts::GridAxisGenerators::EqBound::grid_type<std::size_t>;
+  GridAxisGenerators::EqBound eqBound{{0., 10.}, 10};
+  using GridType = GridAxisGenerators::EqBound::grid_type<std::size_t>;
   using PointType = GridType::point_t;
   auto grid = GridType(eqBound());
 
@@ -47,9 +46,9 @@ BOOST_AUTO_TEST_CASE(Grid1DAccess) {
 
   // Global access
   Vector3 gPosition{0.5, 3.5, 6.5};
-  std::vector<BinningValue> fCast = {Acts::binX};
-  std::vector<BinningValue> sCast = {Acts::binY};
-  std::vector<BinningValue> tCast = {Acts::binZ};
+  std::vector<AxisDirection> fCast = {AxisDirection::AxisX};
+  std::vector<AxisDirection> sCast = {AxisDirection::AxisY};
+  std::vector<AxisDirection> tCast = {AxisDirection::AxisZ};
 
   auto fgAccess = GridAccessHelpers::castPosition<GridType>(gPosition, fCast);
   auto sgAccess = GridAccessHelpers::castPosition<GridType>(gPosition, sCast);
@@ -59,19 +58,19 @@ BOOST_AUTO_TEST_CASE(Grid1DAccess) {
   BOOST_CHECK_EQUAL(grid.atPosition(tgAccess), 6u);
 
   // Can this go into a delegate?
-  auto gsu = std::make_unique<const Acts::GridAccess::GlobalSubspace<binX>>();
-  Acts::GridAccess::GlobalToGridLocal1DimDelegate gsuDelegate;
-  gsuDelegate.connect<&Acts::GridAccess::GlobalSubspace<binX>::toGridLocal>(
-      std::move(gsu));
+  auto gsu = std::make_unique<
+      const GridAccess::GlobalSubspace<AxisDirection::AxisX>>();
+  GridAccess::GlobalToGridLocal1DimDelegate gsuDelegate;
+  gsuDelegate
+      .connect<&GridAccess::GlobalSubspace<AxisDirection::AxisX>::toGridLocal>(
+          std::move(gsu));
 
   BOOST_CHECK(gsuDelegate.connected());
 }
 
 BOOST_AUTO_TEST_CASE(Grid2DAccess) {
-  Acts::GridAxisGenerators::EqBoundEqBound eqeqBound{
-      {0., 10.}, 10, {0., 10.}, 10};
-  using GridType =
-      Acts::GridAxisGenerators::EqBoundEqBound::grid_type<std::size_t>;
+  GridAxisGenerators::EqBoundEqBound eqeqBound{{0., 10.}, 10, {0., 10.}, 10};
+  using GridType = GridAxisGenerators::EqBoundEqBound::grid_type<std::size_t>;
   using PointType = GridType::point_t;
   auto grid = GridType(eqeqBound());
   for (std::size_t j = 0; j < 10u; ++j) {
@@ -89,32 +88,34 @@ BOOST_AUTO_TEST_CASE(Grid2DAccess) {
 
   // Global access
   Vector3 gPosition{0.5, 3.5, 6.5};
-  std::vector<BinningValue> fCast = {Acts::binX, Acts::binY};
+  std::vector<AxisDirection> fCast = {AxisDirection::AxisX,
+                                      AxisDirection::AxisY};
   auto fgAccess = GridAccessHelpers::castPosition<GridType>(gPosition, fCast);
   BOOST_CHECK_EQUAL(grid.atPosition(fgAccess), 300u);
 }
 
 BOOST_AUTO_TEST_CASE(GlobalToGridLocalTests) {
-  Acts::GridAccess::GlobalSubspace<binX, binY> gssXY;
+  GridAccess::GlobalSubspace<AxisDirection::AxisX, AxisDirection::AxisY> gssXY;
 
   auto xy = gssXY.toGridLocal(Vector3{1., 2., 3.});
   BOOST_CHECK_EQUAL(xy[0], 1.);
   BOOST_CHECK_EQUAL(xy[1], 2.);
 
-  Acts::GridAccess::GlobalSubspace<binZ> gssZ;
+  GridAccess::GlobalSubspace<AxisDirection::AxisZ> gssZ;
   auto z = gssZ.toGridLocal(Vector3{1., 2., 3.});
   BOOST_CHECK_EQUAL(z[0], 3.);
 
-  Acts::GridAccess::Affine3Transformed<Acts::GridAccess::GlobalSubspace<binZ>>
-      gssZT(gssZ, Acts::Transform3(Acts::Transform3::Identity())
-                      .pretranslate(Vector3{0., 0., 100.}));
+  GridAccess::Affine3Transformed<
+      GridAccess::GlobalSubspace<AxisDirection::AxisZ>>
+      gssZT(gssZ, Transform3{Transform3::Identity()}.pretranslate(
+                      Vector3{0., 0., 100.}));
 
   auto zt = gssZT.toGridLocal(Vector3{1., 2., 3.});
   BOOST_CHECK_EQUAL(zt[0], 103.);
 }
 
 BOOST_AUTO_TEST_CASE(BoundToGridLocalTests) {
-  Acts::GridAccess::LocalSubspace<0u, 1u> bssXY;
+  GridAccess::LocalSubspace<0u, 1u> bssXY;
   auto xy = bssXY.toGridLocal(Vector2{
       1.,
       2.,
@@ -125,9 +126,9 @@ BOOST_AUTO_TEST_CASE(BoundToGridLocalTests) {
 }
 
 BOOST_AUTO_TEST_CASE(BoundCylinderToZPhiTests) {
-  Acts::ActsScalar radius = 100.;
-  Acts::ActsScalar shift = 0.;
-  Acts::GridAccess::BoundCylinderToZPhi bctzp(radius, shift);
+  double radius = 100.;
+  double shift = 0.;
+  GridAccess::BoundCylinderToZPhi bctzp(radius, shift);
 
   auto zphi = bctzp.toGridLocal(Vector2{0.25 * radius, 52.});
 
@@ -136,3 +137,5 @@ BOOST_AUTO_TEST_CASE(BoundCylinderToZPhiTests) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTests

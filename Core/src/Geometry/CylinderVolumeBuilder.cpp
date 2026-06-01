@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "Acts/Geometry/CylinderVolumeBuilder.hpp"
 
@@ -23,40 +23,37 @@
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Surfaces/SurfaceBounds.hpp"
-#include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Helpers.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
-#include <math.h>
 
-Acts::CylinderVolumeBuilder::CylinderVolumeBuilder(
-    const Acts::CylinderVolumeBuilder::Config& cvbConfig,
+namespace Acts {
+
+CylinderVolumeBuilder::CylinderVolumeBuilder(
+    const CylinderVolumeBuilder::Config& cvbConfig,
     std::unique_ptr<const Logger> logger)
-    : Acts::ITrackingVolumeBuilder(), m_cfg(), m_logger(std::move(logger)) {
+    : ITrackingVolumeBuilder(), m_cfg(), m_logger(std::move(logger)) {
   setConfiguration(cvbConfig);
 }
 
-Acts::CylinderVolumeBuilder::~CylinderVolumeBuilder() = default;
+CylinderVolumeBuilder::~CylinderVolumeBuilder() = default;
 
-void Acts::CylinderVolumeBuilder::setConfiguration(
-    const Acts::CylinderVolumeBuilder::Config& cvbConfig) {
+void CylinderVolumeBuilder::setConfiguration(
+    const CylinderVolumeBuilder::Config& cvbConfig) {
   // @todo check consistency
   // copy the configuration
   m_cfg = cvbConfig;
 }
 
-void Acts::CylinderVolumeBuilder::setLogger(
-    std::unique_ptr<const Logger> newLogger) {
+void CylinderVolumeBuilder::setLogger(std::unique_ptr<const Logger> newLogger) {
   m_logger = std::move(newLogger);
 }
 
-std::shared_ptr<Acts::TrackingVolume>
-Acts::CylinderVolumeBuilder::trackingVolume(
+std::shared_ptr<TrackingVolume> CylinderVolumeBuilder::trackingVolume(
     const GeometryContext& gctx, TrackingVolumePtr existingVolume,
     std::shared_ptr<const VolumeBounds> externalBounds) const {
   ACTS_DEBUG("Configured to build volume : " << m_cfg.volumeName);
@@ -68,7 +65,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
   // -----------------------------------------------------------------------------
   MutableTrackingVolumePtr volume = nullptr;
 
-  // now analyize the layers that are provided
+  // now analyze the layers that are provided
   // -----------------------------------------------------
   ACTS_DEBUG("-> Building layers");
   LayerVector negativeLayers;
@@ -109,10 +106,10 @@ Acts::CylinderVolumeBuilder::trackingVolume(
     wConfig.existingVolumeConfig.rMax =
         existingBounds->get(CylinderVolumeBounds::eMaxR);
     wConfig.existingVolumeConfig.zMin =
-        existingVolume->center().z() -
+        existingVolume->center(gctx).z() -
         existingBounds->get(CylinderVolumeBounds::eHalfLengthZ);
     wConfig.existingVolumeConfig.zMax =
-        existingVolume->center().z() +
+        existingVolume->center(gctx).z() +
         existingBounds->get(CylinderVolumeBounds::eHalfLengthZ);
   }
   //
@@ -171,7 +168,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
   }
 
   std::string layerConfiguration = "|";
-  if (wConfig.nVolumeConfig) {
+  if (wConfig.nVolumeConfig.present) {
     // negative layers are present
     ACTS_VERBOSE("Negative layers are present: rmin, rmax | zmin, zmax = "
                  << wConfig.nVolumeConfig.toString());
@@ -185,7 +182,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
     // add to the string output
     layerConfiguration += " Negative Endcap |";
   }
-  if (wConfig.cVolumeConfig) {
+  if (wConfig.cVolumeConfig.present) {
     // central layers are present
     ACTS_VERBOSE("Central layers are present:  rmin, rmax | zmin, zmax = "
                  << wConfig.cVolumeConfig.toString());
@@ -199,7 +196,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
     // add to the string output
     layerConfiguration += " Barrel |";
   }
-  if (wConfig.pVolumeConfig) {
+  if (wConfig.pVolumeConfig.present) {
     // positive layers are present
     ACTS_VERBOSE("Positive layers are present: rmin, rmax | zmin, zmax = "
                  << wConfig.pVolumeConfig.toString());
@@ -226,7 +223,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
                << '\n'
                << wConfig.toString());
   // now let's understand the wrapping if needed
-  if (wConfig.existingVolumeConfig) {
+  if (wConfig.existingVolumeConfig.present) {
     wConfig.wrapInsertAttach();
     ACTS_VERBOSE("Configuration after wrapping, insertion, attachment "
                  << '\n'
@@ -242,7 +239,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
   auto tvHelper = m_cfg.trackingVolumeHelper;
   // the barrel is always created
   auto barrel =
-      wConfig.cVolumeConfig
+      wConfig.cVolumeConfig.present
           ? tvHelper->createTrackingVolume(
                 gctx, wConfig.cVolumeConfig.layers,
                 wConfig.cVolumeConfig.volumes, m_cfg.volumeMaterial,
@@ -258,7 +255,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
       [&](VolumeConfig& centralConfig, VolumeConfig& endcapConfig,
           const std::string& endcapName) -> MutableTrackingVolumePtr {
     // No config - no volume
-    if (!endcapConfig) {
+    if (!endcapConfig.present) {
       return nullptr;
     }
     // Check for ring layout
@@ -274,19 +271,17 @@ Acts::CylinderVolumeBuilder::trackingVolume(
           double tolerance = m_cfg.ringTolerance;
           // Search for the rmin value  - and insert if necessary
           double rMin = discBounds->rMin();
-          auto innerSearch = std::find_if(
-              innerRadii.begin(), innerRadii.end(), [&](double reference) {
-                return std::abs(rMin - reference) < tolerance;
-              });
+          auto innerSearch = std::ranges::find_if(innerRadii, [&](double r) {
+            return std::abs(rMin - r) < tolerance;
+          });
           if (innerSearch == innerRadii.end()) {
             innerRadii.push_back(rMin);
           }
           // Search for the rmax value - and insert if necessary
           double rMax = discBounds->rMax();
-          auto outerSearch = std::find_if(
-              outerRadii.begin(), outerRadii.end(), [&](double reference) {
-                return std::abs(rMax - reference) < tolerance;
-              });
+          auto outerSearch = std::ranges::find_if(outerRadii, [&](double r) {
+            return std::abs(rMax - r) < tolerance;
+          });
           if (outerSearch == outerRadii.end()) {
             outerRadii.push_back(rMax);
           }
@@ -295,8 +290,8 @@ Acts::CylinderVolumeBuilder::trackingVolume(
 
       // we check radii for consistency from the inside outwards, so need to
       // sort
-      std::sort(innerRadii.begin(), innerRadii.end());
-      std::sort(outerRadii.begin(), outerRadii.end());
+      std::ranges::sort(innerRadii);
+      std::ranges::sort(outerRadii);
 
       ACTS_DEBUG("Inner radii:" << [&]() {
         std::stringstream ss;
@@ -319,7 +314,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
         // The inter volume radii
         ACTS_VERBOSE("Checking ring radius consistency");
         std::vector<double> interRadii = {};
-        for (int ir = 1; ir < int(innerRadii.size()); ++ir) {
+        for (std::size_t ir = 1; ir < innerRadii.size(); ++ir) {
           // Check whether inner/outer radii are consistent
           ACTS_VERBOSE(
               "or #" << ir - 1 << " < ir #" << ir << ": " << outerRadii[ir - 1]
@@ -353,13 +348,12 @@ Acts::CylinderVolumeBuilder::trackingVolume(
           // Filling loop
           for (const auto& elay : endcapConfig.layers) {
             // Getting the reference radius
-            double test =
-                elay->surfaceRepresentation().binningPositionValue(gctx, binR);
+            double test = elay->surfaceRepresentation().referencePositionValue(
+                gctx, AxisDirection::AxisR);
             // Find the right bin
-            auto ringVolume = std::find_if(
-                volumeRminRmax.begin(), volumeRminRmax.end(),
-                [&](const auto& reference) {
-                  return (test > reference.first && test < reference.second);
+            auto ringVolume =
+                std::ranges::find_if(volumeRminRmax, [&](const auto& vrr) {
+                  return (test > vrr.first && test < vrr.second);
                 });
             if (ringVolume != volumeRminRmax.end()) {
               unsigned int ringBin =
@@ -425,14 +419,11 @@ Acts::CylinderVolumeBuilder::trackingVolume(
       // Set the inner or outer material
       if (!m_cfg.buildToRadiusZero) {
         volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[0],
-                                       Acts::tubeInnerCover);
+                                       tubeInnerCover);
       }
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[1],
-                                     Acts::tubeOuterCover);
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[2],
-                                     Acts::negativeFaceXY);
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[3],
-                                     Acts::positiveFaceXY);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[1], tubeOuterCover);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[2], negativeFaceXY);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[3], positiveFaceXY);
     }
     if (barrel) {
       // Assign boundary material if existing
@@ -441,14 +432,11 @@ Acts::CylinderVolumeBuilder::trackingVolume(
       // Set the inner or outer material
       if (!m_cfg.buildToRadiusZero) {
         volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[0],
-                                       Acts::tubeInnerCover);
+                                       tubeInnerCover);
       }
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[1],
-                                     Acts::tubeOuterCover);
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[3],
-                                     Acts::negativeFaceXY);
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[4],
-                                     Acts::positiveFaceXY);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[1], tubeOuterCover);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[3], negativeFaceXY);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[4], positiveFaceXY);
     }
     if (pEndcap) {
       volumesContainer.push_back(pEndcap);
@@ -456,14 +444,11 @@ Acts::CylinderVolumeBuilder::trackingVolume(
       // Set the inner or outer material
       if (!m_cfg.buildToRadiusZero) {
         volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[0],
-                                       Acts::tubeInnerCover);
+                                       tubeInnerCover);
       }
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[1],
-                                     Acts::tubeOuterCover);
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[4],
-                                     Acts::negativeFaceXY);
-      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[5],
-                                     Acts::positiveFaceXY);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[1], tubeOuterCover);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[4], negativeFaceXY);
+      volume->assignBoundaryMaterial(m_cfg.boundaryMaterial[5], positiveFaceXY);
     }
     // and low lets create the new volume
     volume =
@@ -481,7 +466,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
   if (existingVolumeCp) {
     // Check if gaps are needed
     std::vector<TrackingVolumePtr> existingContainer;
-    if (wConfig.fGapVolumeConfig) {
+    if (wConfig.fGapVolumeConfig.present) {
       // create the gap volume
       auto fGap = tvHelper->createGapTrackingVolume(
           gctx, wConfig.cVolumeConfig.volumes, m_cfg.volumeMaterial,
@@ -492,7 +477,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
       existingContainer.push_back(fGap);
     }
     existingContainer.push_back(existingVolumeCp);
-    if (wConfig.sGapVolumeConfig) {
+    if (wConfig.sGapVolumeConfig.present) {
       // create the gap volume
       auto sGap = tvHelper->createGapTrackingVolume(
           gctx, wConfig.cVolumeConfig.volumes, m_cfg.volumeMaterial,
@@ -555,7 +540,7 @@ Acts::CylinderVolumeBuilder::trackingVolume(
 }
 
 // -----------------------------
-Acts::VolumeConfig Acts::CylinderVolumeBuilder::analyzeContent(
+VolumeConfig CylinderVolumeBuilder::analyzeContent(
     const GeometryContext& gctx, const LayerVector& lVector,
     const MutableTrackingVolumeVector& mtvVector) const {
   // @TODO add envelope tolerance
@@ -569,9 +554,10 @@ Acts::VolumeConfig Acts::CylinderVolumeBuilder::analyzeContent(
     // loop over the layer
     for (auto& layer : lVector) {
       // the thickness of the layer needs to be taken into account
-      double thickness = layer->thickness();
+      double thickness = layer->layerThickness();
       // get the center of the layer
       const Vector3& center = layer->surfaceRepresentation().center(gctx);
+      double rCenter = std::hypot(center.x(), center.y());
       // check if it is a cylinder layer
       const CylinderLayer* cLayer =
           dynamic_cast<const CylinderLayer*>(layer.get());
@@ -588,8 +574,8 @@ Acts::VolumeConfig Acts::CylinderVolumeBuilder::analyzeContent(
             CylinderBounds::eHalfLengthZ);
         lConfig.rMin =
             std::min(lConfig.rMin, rMinC - m_cfg.layerEnvelopeR.first);
-        lConfig.rMax =
-            std::max(lConfig.rMax, rMaxC + m_cfg.layerEnvelopeR.second);
+        lConfig.rMax = std::max(lConfig.rMax,
+                                rCenter + rMaxC + m_cfg.layerEnvelopeR.second);
         lConfig.zMin =
             std::min(lConfig.zMin, center.z() - hZ - m_cfg.layerEnvelopeZ);
         lConfig.zMax =
@@ -606,8 +592,8 @@ Acts::VolumeConfig Acts::CylinderVolumeBuilder::analyzeContent(
         double zMaxD = center.z() + 0.5 * thickness;
         lConfig.rMin =
             std::min(lConfig.rMin, rMinD - m_cfg.layerEnvelopeR.first);
-        lConfig.rMax =
-            std::max(lConfig.rMax, rMaxD + m_cfg.layerEnvelopeR.second);
+        lConfig.rMax = std::max(lConfig.rMax,
+                                rCenter + rMaxD + m_cfg.layerEnvelopeR.second);
         lConfig.rMin = std::max(0.0, lConfig.rMin);
         lConfig.zMin = std::min(lConfig.zMin, zMinD - m_cfg.layerEnvelopeZ);
         lConfig.zMax = std::max(lConfig.zMax, zMaxD + m_cfg.layerEnvelopeZ);
@@ -642,3 +628,5 @@ Acts::VolumeConfig Acts::CylinderVolumeBuilder::analyzeContent(
   // and return what you have
   return lConfig;
 }
+
+}  // namespace Acts

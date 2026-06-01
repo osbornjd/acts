@@ -1,21 +1,21 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Material/AccumulatedVolumeMaterial.hpp"
 #include "Acts/Material/Material.hpp"
+#include "Acts/Utilities/Axis.hpp"
+#include "Acts/Utilities/AxisDefinitions.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Grid.hpp"
-#include "Acts/Utilities/detail/Axis.hpp"
-#include "Acts/Utilities/detail/AxisFwd.hpp"
 
 #include <array>
 #include <cstddef>
@@ -28,14 +28,30 @@ namespace Acts {
 
 class MaterialSlab;
 
-using EAxis = Acts::detail::EquidistantAxis;
+/// @brief Type alias for equidistant axis with open boundary type
+/// @details Used for defining grid axes with equally spaced bins and open boundaries
+using EAxis = Acts::Axis<AxisType::Equidistant>;
+
+/// @brief Type alias for a 2-dimensional grid
+/// @details Grid structure for storing values with two dimensions
 using Grid2D = Acts::Grid<Acts::AccumulatedVolumeMaterial, EAxis, EAxis>;
+
+/// @brief Type alias for a 3-dimensional grid
+/// @details Grid structure for storing values with three dimensions
 using Grid3D = Acts::Grid<Acts::AccumulatedVolumeMaterial, EAxis, EAxis, EAxis>;
+
+/// @brief Type alias for a 2-dimensional material grid
+/// @details Grid structure for storing material parameters with two dimensions
 using MaterialGrid2D =
     Acts::Grid<Acts::Material::ParametersVector, EAxis, EAxis>;
+
+/// @brief Type alias for a 3-dimensional material grid
+/// @details Grid structure for storing material parameters with three dimensions
 using MaterialGrid3D =
     Acts::Grid<Acts::Material::ParametersVector, EAxis, EAxis, EAxis>;
 
+/// @brief Type alias for the axis data in material grids
+/// @details Tuple containing the minimum value, maximum value, and number of bins for an axis
 using MaterialGridAxisData = std::tuple<double, double, std::size_t>;
 
 /// @brief Helper method that creates the cache grid for the mapping. This
@@ -71,7 +87,7 @@ Grid3D createGrid(MaterialGridAxisData gridAxis1,
 ///
 /// @return a coordinate transform function
 std::function<double(Acts::Vector3)> globalToLocalFromBin(
-    Acts::BinningValue& type);
+    Acts::AxisDirection& type);
 
 /// @brief Create a 2DGrid using a BinUtility.
 /// Also determine the corresponding global to local transform and grid mapping

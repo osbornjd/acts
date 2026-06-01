@@ -1,10 +1,10 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2017-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <boost/test/unit_test.hpp>
 
@@ -21,7 +21,11 @@
 #include <memory>
 #include <vector>
 
-namespace Acts::Test {
+using namespace Acts;
+
+namespace ActsTest {
+
+BOOST_AUTO_TEST_SUITE(MaterialSuite)
 
 /// Test the constructors
 BOOST_AUTO_TEST_CASE(AccumulatedSurfaceMaterial_construction_test) {
@@ -35,7 +39,7 @@ BOOST_AUTO_TEST_CASE(AccumulatedSurfaceMaterial_construction_test) {
 
   // Test:
   // BinsSurfaceMaterial accumulation - 1D
-  BinUtility binUtility1D(10, -5., 5., open, binX);
+  BinUtility binUtility1D(10, -5., 5., open, AxisDirection::AxisX);
   AccumulatedSurfaceMaterial material1D{binUtility1D};
   auto accMat1D = material1D.accumulatedMaterial();
   BOOST_CHECK_EQUAL(accMat1D.size(), 1u);
@@ -43,8 +47,8 @@ BOOST_AUTO_TEST_CASE(AccumulatedSurfaceMaterial_construction_test) {
 
   // Test:
   // BinsSurfaceMaterial accumulation - 2D
-  BinUtility binUtility2D(10, -5., 5., open, binX);
-  binUtility2D += BinUtility(20, -10., 10., open, binY);
+  BinUtility binUtility2D(10, -5., 5., open, AxisDirection::AxisX);
+  binUtility2D += BinUtility(20, -10., 10., open, AxisDirection::AxisY);
   AccumulatedSurfaceMaterial material2D{binUtility2D};
   auto accMat2D = material2D.accumulatedMaterial();
   BOOST_CHECK_EQUAL(accMat2D.size(), 20u);
@@ -91,8 +95,8 @@ BOOST_AUTO_TEST_CASE(AccumulatedSurfaceMaterial_fill_convert_1D) {
   MaterialSlab four(mat, 4.);
 
   // BinsSurfaceMaterial accumulation - 2D
-  BinUtility binUtility2D(2, -1., 1., open, binX);
-  binUtility2D += BinUtility(2, -1., 1., open, binY);
+  BinUtility binUtility2D(2, -1., 1., open, AxisDirection::AxisX);
+  binUtility2D += BinUtility(2, -1., 1., open, AxisDirection::AxisY);
   AccumulatedSurfaceMaterial material2D{binUtility2D};
   const std::vector<std::array<std::size_t, 3>> bin;
 
@@ -185,4 +189,6 @@ BOOST_AUTO_TEST_CASE(AccumulatedSurfaceMaterial_variance_0D) {
   BOOST_CHECK_EQUAL(trackCount, 2u);
 }
 
-}  // namespace Acts::Test
+BOOST_AUTO_TEST_SUITE_END()
+
+}  // namespace ActsTest

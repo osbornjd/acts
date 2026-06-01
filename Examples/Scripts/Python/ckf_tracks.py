@@ -5,7 +5,8 @@ from typing import Optional
 
 import acts
 from acts import UnitConstants as u
-from acts.examples import GenericDetector, RootParticleReader
+from acts.examples import GenericDetector
+from acts.examples.root import RootParticleReader
 
 
 def runCKFTracks(
@@ -23,22 +24,26 @@ def runCKFTracks(
 ):
     from acts.examples.simulation import (
         addParticleGun,
+        MomentumConfig,
         EtaConfig,
         PhiConfig,
         ParticleConfig,
         addFatras,
         addDigitization,
+        ParticleSelectorConfig,
+        addDigiParticleSelection,
     )
 
     from acts.examples.reconstruction import (
         addSeeding,
-        TruthSeedRanges,
-        ParticleSmearingSigmas,
+        TrackSmearingSigmas,
         SeedFinderConfigArg,
         SeedFinderOptionsArg,
         SeedingAlgorithm,
         TruthEstimatedSeedingAlgorithmConfigArg,
         addCKFTracks,
+        TrackSelectorConfig,
+        CkfConfig,
     )
 
     s = s or acts.examples.Sequencer(
@@ -52,9 +57,10 @@ def runCKFTracks(
     if inputParticlePath is None:
         addParticleGun(
             s,
-            EtaConfig(-2.0, 2.0),
-            ParticleConfig(4, acts.PdgParticle.eMuon, True),
+            MomentumConfig(1 * u.GeV, 10 * u.GeV, transverse=True),
+            EtaConfig(-2.0, 2.0, uniform=True),
             PhiConfig(0.0, 360.0 * u.degree),
+            ParticleConfig(4, acts.PdgParticle.eMuon, randomizeCharge=True),
             multiplicity=2,
             rnd=rnd,
         )
@@ -67,7 +73,7 @@ def runCKFTracks(
             RootParticleReader(
                 level=acts.logging.INFO,
                 filePath=str(inputParticlePath.resolve()),
-                outputParticles="particles_input",
+                outputParticles="particles_generated",
             )
         )
 
@@ -86,15 +92,35 @@ def runCKFTracks(
         rnd=rnd,
     )
 
+    addDigiParticleSelection(
+        s,
+        ParticleSelectorConfig(
+            pt=(0.5 * u.GeV, None),
+            measurements=(9, None),
+            removeNeutral=True,
+        ),
+    )
+
     addSeeding(
         s,
         trackingGeometry,
         field,
-        TruthSeedRanges(pt=(500.0 * u.MeV, None), nHits=(9, None)),
-        ParticleSmearingSigmas(pRel=0.01),  # only used by SeedingAlgorithm.TruthSmeared
+        TrackSmearingSigmas(  # only used by SeedingAlgorithm.TruthSmeared
+            # zero everything so the CKF has a chance to find the measurements
+            loc0=0,
+            loc0PtA=0,
+            loc0PtB=0,
+            loc1=0,
+            loc1PtA=0,
+            loc1PtB=0,
+            time=0,
+            phi=0,
+            theta=0,
+            ptRel=0,
+        ),
         SeedFinderConfigArg(
             r=(None, 200 * u.mm),  # rMin=default, 33mm
-            deltaR=(1 * u.mm, 60 * u.mm),
+            deltaR=(1 * u.mm, 300 * u.mm),
             collisionRegion=(-250 * u.mm, 250 * u.mm),
             z=(-2000 * u.mm, 2000 * u.mm),
             maxSeedsPerSpM=1,
@@ -105,11 +131,26 @@ def runCKFTracks(
         ),
         SeedFinderOptionsArg(bFieldInZ=2 * u.T, beamPos=(0.0, 0.0)),
         TruthEstimatedSeedingAlgorithmConfigArg(deltaR=(10.0 * u.mm, None)),
-        seedingAlgorithm=SeedingAlgorithm.TruthSmeared
-        if truthSmearedSeeded
-        else SeedingAlgorithm.TruthEstimated
-        if truthEstimatedSeeded
-        else SeedingAlgorithm.Default,
+        seedingAlgorithm=(
+            SeedingAlgorithm.TruthSmeared
+            if truthSmearedSeeded
+            else (
+                SeedingAlgorithm.TruthEstimated
+                if truthEstimatedSeeded
+                else SeedingAlgorithm.GridTriplet
+            )
+        ),
+        initialSigmas=[
+            1 * u.mm,
+            1 * u.mm,
+            1 * u.degree,
+            1 * u.degree,
+            0 * u.e / u.GeV,
+            1 * u.ns,
+        ],
+        initialSigmaQoverPt=0.1 * u.e / u.GeV,
+        initialSigmaPtRel=0.1,
+        initialVarInflation=[1.0] * 6,
         geoSelectionConfigFile=geometrySelection,
         outputDirRoot=outputDir,
         rnd=rnd,  # only used by SeedingAlgorithm.TruthSmeared
@@ -119,8 +160,24 @@ def runCKFTracks(
         s,
         trackingGeometry,
         field,
+        TrackSelectorConfig(
+            pt=(500 * u.MeV, None),
+            absEta=(None, 3.0),
+            loc0=(-4.0 * u.mm, 4.0 * u.mm),
+            nMeasurementsMin=7,
+            maxHoles=2,
+            maxOutliers=2,
+        ),
+        CkfConfig(
+            chi2CutOffMeasurement=15.0,
+            chi2CutOffOutlier=25.0,
+            numMeasurementsCutOff=10,
+            seedDeduplication=True if not truthSmearedSeeded else False,
+            stayOnSeed=True if not truthSmearedSeeded else False,
+        ),
         outputDirRoot=outputDir,
         outputDirCsv=outputDir / "csv" if outputCsv else None,
+        writeTrackStates=True,
     )
 
     return s
@@ -129,7 +186,9 @@ def runCKFTracks(
 if "__main__" == __name__:
     srcdir = Path(__file__).resolve().parent.parent.parent.parent
 
-    detector, trackingGeometry, decorators = GenericDetector.create()
+    detector = GenericDetector()
+    trackingGeometry = detector.trackingGeometry()
+    decorators = detector.contextDecorators()
 
     field = acts.ConstantBField(acts.Vector3(0, 0, 2 * u.T))
 
@@ -141,10 +200,8 @@ if "__main__" == __name__:
         trackingGeometry,
         decorators,
         field=field,
-        geometrySelection=srcdir
-        / "Examples/Algorithms/TrackFinding/share/geoSelection-genericDetector.json",
-        digiConfigFile=srcdir
-        / "Examples/Algorithms/Digitization/share/default-smearing-config-generic.json",
+        geometrySelection=srcdir / "Examples/Configs/generic-seeding-config.json",
+        digiConfigFile=srcdir / "Examples/Configs/generic-digi-smearing-config.json",
         truthSmearedSeeded=False,
         truthEstimatedSeeded=False,
         inputParticlePath=inputParticlePath,

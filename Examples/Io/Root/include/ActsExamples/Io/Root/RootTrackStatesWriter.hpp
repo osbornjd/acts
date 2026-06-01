@@ -1,15 +1,15 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2019-2023 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Utilities/Logger.hpp"
-#include "ActsExamples/EventData/Index.hpp"
+#include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/SimHit.hpp"
 #include "ActsExamples/EventData/SimParticle.hpp"
 #include "ActsExamples/EventData/Track.hpp"
@@ -26,12 +26,8 @@
 
 class TFile;
 class TTree;
-namespace ActsFatras {
-class Barcode;
-}  // namespace ActsFatras
 
 namespace ActsExamples {
-struct AlgorithmContext;
 
 /// @class RootTrackStatesWriter
 ///
@@ -89,7 +85,17 @@ class RootTrackStatesWriter final : public WriterT<ConstTrackContainer> {
                      const ConstTrackContainer& tracks) override;
 
  private:
-  enum ParameterType { ePredicted, eFiltered, eSmoothed, eUnbiased, eSize };
+  enum ParameterType { ePredicted = 0, eFiltered, eSmoothed, eUnbiased, eSize };
+  enum class StateType : int {
+    eMeasurement = 0,
+    eOutlier,
+    eHole,
+    eMaterial,
+    eUnknown,
+    eSizeState
+  };
+
+  static StateType getStateType(ConstTrackStateProxy state);
 
   /// The config class
   Config m_cfg;
@@ -98,19 +104,42 @@ class RootTrackStatesWriter final : public WriterT<ConstTrackContainer> {
   ReadDataHandle<TrackParticleMatching> m_inputTrackParticleMatching{
       this, "InputTrackParticleMatching"};
   ReadDataHandle<SimHitContainer> m_inputSimHits{this, "InputSimHits"};
-  ReadDataHandle<HitSimHitsMap> m_inputMeasurementSimHitsMap{
+  ReadDataHandle<MeasurementSimHitsMap> m_inputMeasurementSimHitsMap{
       this, "InputMeasurementSimHitsMap"};
 
   /// Mutex used to protect multi-threaded writes
   std::mutex m_writeMutex;
+
   /// The output file
   TFile* m_outputFile{nullptr};
   /// The output tree
   TTree* m_outputTree{nullptr};
+
   /// the event number
-  uint32_t m_eventNr{0};
+  std::uint32_t m_eventNr{0};
   /// the track number
-  uint32_t m_trackNr{0};
+  std::uint32_t m_trackNr{0};
+
+  /// number of all states
+  unsigned int m_nStates{0};
+  /// number of states with measurements
+  unsigned int m_nMeasurements{0};
+
+  /// volume identifier
+  std::vector<int> m_volumeID;
+  /// layer identifier
+  std::vector<int> m_layerID;
+  /// surface identifier
+  std::vector<int> m_moduleID;
+
+  /// track state type
+  std::vector<int> m_stateType;
+
+  /// chisq from filtering
+  std::vector<float> m_chi2;
+
+  /// path length
+  std::vector<float> m_pathLength;
 
   /// Global truth hit position x
   std::vector<float> m_t_x;
@@ -140,21 +169,14 @@ class RootTrackStatesWriter final : public WriterT<ConstTrackContainer> {
   /// truth parameter eT
   std::vector<float> m_t_eT;
 
-  /// event-unique particle identifier a.k.a barcode for hits per each surface
-  std::vector<std::vector<std::uint64_t>> m_particleId;
+  std::vector<std::vector<std::uint32_t>> m_particleVertexPrimary;
+  std::vector<std::vector<std::uint32_t>> m_particleVertexSecondary;
+  std::vector<std::vector<std::uint32_t>> m_particleParticle;
+  std::vector<std::vector<std::uint32_t>> m_particleGeneration;
+  std::vector<std::vector<std::uint32_t>> m_particleSubParticle;
 
-  /// number of all states
-  unsigned int m_nStates{0};
-  /// number of states with measurements
-  unsigned int m_nMeasurements{0};
-  /// volume identifier
-  std::vector<int> m_volumeID;
-  /// layer identifier
-  std::vector<int> m_layerID;
-  /// surface identifier
-  std::vector<int> m_moduleID;
-  /// path length
-  std::vector<float> m_pathLength;
+  /// dimension of measurement
+  std::vector<int> m_dim_hit;
   /// uncalibrated measurement local x
   std::vector<float> m_lx_hit;
   /// uncalibrated measurement local y
@@ -177,8 +199,6 @@ class RootTrackStatesWriter final : public WriterT<ConstTrackContainer> {
   std::vector<float> m_pull_x_hit;
   /// hit pull y
   std::vector<float> m_pull_y_hit;
-  /// dimension of measurement
-  std::vector<int> m_dim_hit;
 
   /// number of states which have filtered/predicted/smoothed/unbiased
   /// parameters
@@ -249,8 +269,6 @@ class RootTrackStatesWriter final : public WriterT<ConstTrackContainer> {
   std::array<std::vector<float>, eSize> m_eta;
   /// predicted/filtered/smoothed/unbiased parameter pT
   std::array<std::vector<float>, eSize> m_pT;
-
-  std::vector<float> m_chi2;  ///< chisq from filtering
 };
 
 }  // namespace ActsExamples

@@ -1,36 +1,33 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
 
 #include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Definitions/Alignment.hpp"
 #include "Acts/Definitions/Tolerance.hpp"
-#include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/Polyhedron.hpp"
-#include "Acts/Surfaces/BoundaryCheck.hpp"
+#include "Acts/Surfaces/BoundaryTolerance.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/RegularSurface.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/SurfaceConcept.hpp"
-#include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Concepts.hpp"
+#include "Acts/Utilities/AxisDefinitions.hpp"
+#include "Acts/Utilities/Logger.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Utilities/detail/RealQuadraticEquation.hpp"
 
-#include <cmath>
-#include <cstddef>
 #include <memory>
+#include <numbers>
 #include <string>
 
 namespace Acts {
-class DetectorElementBase;
 
 /// @class CylinderSurface
 ///
@@ -57,7 +54,7 @@ class CylinderSurface : public RegularSurface {
   /// @param bevelMinZ (optional) The bevel on the negative z side
   /// @param bevelMaxZ (optional) The bevel on the positive z sid The bevel on the positive z side
   CylinderSurface(const Transform3& transform, double radius, double halfz,
-                  double halfphi = M_PI, double avphi = 0.,
+                  double halfphi = std::numbers::pi, double avphi = 0.,
                   double bevelMinZ = 0., double bevelMaxZ = 0.);
 
   /// Constructor from Transform3 and CylinderBounds arguments
@@ -68,12 +65,17 @@ class CylinderSurface : public RegularSurface {
   CylinderSurface(const Transform3& transform,
                   std::shared_ptr<const CylinderBounds> cbounds);
 
-  /// Constructor from DetectorElementBase: Element proxy
+  /// Constructor from SurfacePlacementBase: Element proxy
   ///
   /// @param cbounds are the provided cylinder bounds (shared)
-  /// @param detelement is the linked detector element to this surface
+  /// @param placement Reference to the surface placement
+  /// @note The Surface does not take any ownership over the
+  ///       `SurfacePlacementBase` it is expected that the user
+  ///        ensures the life-time of the `SurfacePlacementBase`
+  ///        and that the `Surface` is actually owned by
+  ///        the `SurfacePlacementBase` instance
   CylinderSurface(std::shared_ptr<const CylinderBounds> cbounds,
-                  const DetectorElementBase& detelement);
+                  const SurfacePlacementBase& placement);
 
   /// Copy constructor
   ///
@@ -89,22 +91,20 @@ class CylinderSurface : public RegularSurface {
                   const Transform3& shift);
 
  public:
-  ~CylinderSurface() override = default;
-  CylinderSurface() = delete;
-
   /// Assignment operator
   ///
   /// @param other is the source cylinder for the copy
+  /// @return Reference to this CylinderSurface after assignment
   CylinderSurface& operator=(const CylinderSurface& other);
 
   /// The binning position method - is overloaded for r-type binning
   ///
   /// @param gctx The current geometry context object, e.g. alignment
-  /// @param bValue is the type of global binning to be done
+  /// @param aDir is the axis Direction of global binning to be done
   ///
   /// @return is the global position to be used for binning
-  Vector3 binningPosition(const GeometryContext& gctx,
-                          BinningValue bValue) const final;
+  Vector3 referencePosition(const GeometryContext& gctx,
+                            AxisDirection aDir) const final;
 
   /// Return the measurement frame - this is needed for alignment, in particular
   /// The measurement frame of a cylinder is the tangential plane at a given
@@ -119,6 +119,7 @@ class CylinderSurface : public RegularSurface {
                                  const Vector3& direction) const final;
 
   /// Return the surface type
+  /// @return Surface type identifier
   SurfaceType type() const override;
 
   /// Return method for surface normal information
@@ -158,7 +159,14 @@ class CylinderSurface : public RegularSurface {
   virtual Vector3 rotSymmetryAxis(const GeometryContext& gctx) const;
 
   /// This method returns the CylinderBounds by reference
+  /// @return Reference to the cylinder bounds
   const CylinderBounds& bounds() const final;
+
+  /// This method returns the shared_ptr to the CylinderBounds
+  const std::shared_ptr<const CylinderBounds>& boundsPtr() const;
+  /// Overwrite the existing surface bounds with new ones
+  /// @param newBounds: Pointer to the new bounds
+  void assignSurfaceBounds(std::shared_ptr<const CylinderBounds> newBounds);
 
   /// Local to global transformation
   ///
@@ -186,17 +194,18 @@ class CylinderSurface : public RegularSurface {
   /// @param gctx The current geometry context object, e.g. alignment
   /// @param position The position to start from
   /// @param direction The direction at start
-  /// @param bcheck the Boundary Check
+  /// @param boundaryTolerance the Boundary Check Tolerance
   /// @param tolerance the tolerance used for the intersection
   ///
   /// If possible returns both solutions for the cylinder
   ///
   /// @return SurfaceIntersection object (contains intersection & surface)
-  SurfaceMultiIntersection intersect(
+  MultiIntersection3D intersect(
       const GeometryContext& gctx, const Vector3& position,
       const Vector3& direction,
-      const BoundaryCheck& bcheck = BoundaryCheck(false),
-      ActsScalar tolerance = s_onSurfaceTolerance) const final;
+      const BoundaryTolerance& boundaryTolerance =
+          BoundaryTolerance::Infinite(),
+      double tolerance = s_onSurfaceTolerance) const final;
 
   /// Path correction due to incident of the track
   ///
@@ -209,18 +218,25 @@ class CylinderSurface : public RegularSurface {
                         const Vector3& direction) const final;
 
   /// Return method for properly formatted output string
+  /// @return String representation of the class name
   std::string name() const override;
 
   /// Return a Polyhedron for a cylinder
   ///
+  /// This method represents the cylinder as a polyhedron with a given number
+  /// of segments to represent a quarter of a full circle. The polyedron will
+  /// consist of the vertices of the cylinder on both sides, and faces between
+  /// them, both as rectangular faces and as triangular faces.
+  ///
   /// @param gctx The current geometry context object, e.g. alignment
-  /// @param lseg Number of segments along curved lines, it represents
-  /// the full 2*M_PI coverange, if lseg is set to 1 only the extrema
-  /// are given
+  /// @param quarterSegments The number of segments to approximate a quarter of the
+  /// full circle; it's chosen to be 1, only the extrema points (-pi, -0.5pi,
+  /// 0., 0.5pi) are inserted to capture the correct extent in the x-y plane
   ///
   /// @return A list of vertices and a face/facett description of it
-  Polyhedron polyhedronRepresentation(const GeometryContext& gctx,
-                                      std::size_t lseg) const override;
+  Polyhedron polyhedronRepresentation(
+      const GeometryContext& gctx,
+      unsigned int quarterSegments = 2u) const override;
 
   /// Calculate the derivative of path length at the geometry constraint or
   /// point-of-closest-approach w.r.t. alignment parameters of the surface (i.e.
@@ -246,6 +262,21 @@ class CylinderSurface : public RegularSurface {
   /// cartesian coordinates
   ActsMatrix<2, 3> localCartesianToBoundLocalDerivative(
       const GeometryContext& gctx, const Vector3& position) const final;
+
+  /// Merge two cylinder surfaces into a single one.
+  /// @image html Cylinder_Merging.svg
+  /// @note The surfaces need to be *compatible*, i.e. have cylinder bounds
+  ///       that align, and have the same radius
+  /// @param other The other cylinder surface to merge with
+  /// @param direction The axis direction: either @c AxisZ or @c AxisRPhi
+  /// @param externalRotation If true, any phi rotation is done in the transform
+  /// @param logger The logger to use
+  /// @return The merged cylinder surface and a boolean indicating if surfaces are reversed
+  /// @note The returned boolean is `false` if `this` is *left* or
+  ///       *counter-clockwise* of @p other, and `true` if not.
+  std::pair<std::shared_ptr<CylinderSurface>, bool> mergedWith(
+      const CylinderSurface& other, AxisDirection direction,
+      bool externalRotation, const Logger& logger = getDummyLogger()) const;
 
  protected:
   std::shared_ptr<const CylinderBounds> m_bounds;  //!< bounds (shared)
@@ -289,6 +320,7 @@ class CylinderSurface : public RegularSurface {
       const Vector3& direction) const;
 };
 
-ACTS_STATIC_CHECK_CONCEPT(RegularSurfaceConcept, CylinderSurface);
+static_assert(RegularSurfaceConcept<CylinderSurface>,
+              "CylinderSurface does not fulfill RegularSurfaceConcept");
 
 }  // namespace Acts

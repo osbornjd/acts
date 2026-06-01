@@ -1,15 +1,12 @@
-// This file is part of the Acts project.
+// This file is part of the ACTS project.
 //
-// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
+// Copyright (C) 2016 CERN for the benefit of the ACTS project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #pragma once
-
-// Workaround for building on clang+libstdc++
-#include "Acts/Utilities/detail/ReferenceWrapperAnyCompat.hpp"
 
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
@@ -18,12 +15,9 @@
 #include "Acts/Material/AccumulatedSurfaceMaterial.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Material/MaterialInteraction.hpp"
-#include "Acts/Propagator/MaterialInteractor.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/StraightLineStepper.hpp"
-#include "Acts/Propagator/SurfaceCollector.hpp"
-#include "Acts/Propagator/VolumeCollector.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
@@ -42,6 +36,9 @@ struct MaterialInteraction;
 
 /// @brief selector for finding surface
 struct MaterialSurface {
+  /// Selection function for surfaces with material
+  /// @param sf The surface to check
+  /// @return True if surface has material, false otherwise
   bool operator()(const Surface& sf) const {
     return (sf.surfaceMaterial() != nullptr);
   }
@@ -49,6 +46,9 @@ struct MaterialSurface {
 
 /// @brief selector for finding volume
 struct MaterialVolume {
+  /// Selection function for volumes with material
+  /// @param vf The tracking volume to check
+  /// @return True if volume has material, false otherwise
   bool operator()(const TrackingVolume& vf) const {
     return (vf.volumeMaterial() != nullptr);
   }
@@ -82,6 +82,7 @@ struct MaterialVolume {
 ///
 class SurfaceMaterialMapper {
  public:
+  /// Type alias for straight line propagator used in material mapping
   using StraightLinePropagator = Propagator<StraightLineStepper, Navigator>;
 
   /// @struct Config
@@ -152,6 +153,7 @@ class SurfaceMaterialMapper {
   /// This method takes a TrackingGeometry,
   /// finds all surfaces with material proxis
   /// and returns you a Cache object tO be used
+  /// @return State object configured for material mapping
   State createState(const GeometryContext& gctx,
                     const MagneticFieldContext& mctx,
                     const TrackingGeometry& tGeometry) const;
@@ -225,4 +227,5 @@ class SurfaceMaterialMapper {
   /// The logging instance
   std::unique_ptr<const Logger> m_logger;
 };
+
 }  // namespace Acts
