@@ -62,6 +62,7 @@ def runGeometry(
             writer.write(context, trackingGeometry)
 
         if outputJson:
+            print("json surface writer")
             # if not os.path.isdir(outputDir / "json"):
             #    os.makedirs(outputDir / "json")
             writer = JsonSurfacesWriter(
@@ -72,7 +73,7 @@ def runGeometry(
                 writeSensitive=True,
             )
             writer.write(context)
-
+            print("jmconvertercfg")
             jmConverterCfg = MaterialMapJsonConverter.Config(
                 processSensitives=True,
                 processApproaches=True,
@@ -82,7 +83,7 @@ def runGeometry(
                 processNonMaterial=True,
                 context=context.geoContext,
             )
-
+            print("jsonmaterialwriter")
             jmw = JsonMaterialWriter(
                 level=acts.logging.VERBOSE,
                 converterCfg=jmConverterCfg,
@@ -91,11 +92,22 @@ def runGeometry(
             )
 
             jmw.write(trackingGeometry)
-
+            print("Finished")
 
 if "__main__" == __name__:
+    jsonFile="/cvmfs/sphenix.sdcc.bnl.gov/calibrations/sphnxpro/cdb/ACTSGEOMETRYCONFIG/79/0e/790e3c6de619a65cce779262022539b1_tgeo-sphenix-mms-actsv45.0.0.json"
+    tgeo_fileName = "/sphenix/user/jdosbo/git/sphenix/reco_geometry_macros/detectors/sPHENIX/sPHENIXActsGeom.root"
+    customLogLevel = acts.examples.defaultLogging(logLevel=acts.logging.INFO)
+    from acts.examples.tgeo import TGeoDetector
     # detector = acts.examples.GenericDetector()
-    detector = getOpenDataDetector()
+    config = TGeoDetector.Config()
+
+    config.fileName = tgeo_fileName
+    config.surfaceLogLevel = acts.logging.INFO
+    config.layerLogLevel = acts.logging.INFO
+    config.volumeLogLevel = acts.logging.INFO
+    config.readJson(str(jsonFile))
+    detector = TGeoDetector(config)
     trackingGeometry = detector.trackingGeometry()
     decorators = detector.contextDecorators()
 

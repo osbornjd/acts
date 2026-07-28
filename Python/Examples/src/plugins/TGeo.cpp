@@ -38,7 +38,7 @@ PYBIND11_MODULE(ActsExamplesPythonBindingsTGeo, tgeo) {
                    [](TGeoDetector::Config& cfg, const std::string& file) {
                      cfg.readJson(file);
                    });
-
+    c.def("readJson", &TGeoDetector::Config::readJson);
     py::enum_<TGeoDetector::Config::SubVolume>(c, "SubVolume")
         .value("Negative", TGeoDetector::Config::SubVolume::Negative)
         .value("Central", TGeoDetector::Config::SubVolume::Central)

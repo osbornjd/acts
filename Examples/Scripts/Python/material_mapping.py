@@ -31,7 +31,7 @@ from acts.examples.json import (
     JsonMaterialWriter,
     JsonFormat,
 )
-
+import acts.examples.geant4
 from acts.examples.odd import getOpenDataDetector
 
 
@@ -163,8 +163,20 @@ if "__main__" == __name__:
         exit()
 
     mapName = args.outFile.split(".")[0]
+    jsonFile="/cvmfs/sphenix.sdcc.bnl.gov/calibrations/sphnxpro/cdb/ACTSGEOMETRYCONFIG/79/0e/790e3c6de619a65cce779262022539b1_tgeo-sphenix-mms-actsv45.0.0.json"
+    tgeo_fileName = "/sphenix/user/jdosbo/git/sphenix/reco_geometry_macros/detectors/sPHENIX/sPHENIXActsGeom.root"
+    customLogLevel = acts.examples.defaultLogging(logLevel=acts.logging.INFO)
+    from acts.examples.tgeo import TGeoDetector
+    # detector = acts.examples.GenericDetector()
+    config = TGeoDetector.Config()
 
-    detector = getOpenDataDetector(None)
+    config.fileName = tgeo_fileName
+    config.surfaceLogLevel = acts.logging.INFO
+    config.layerLogLevel = acts.logging.INFO
+    config.volumeLogLevel = acts.logging.INFO
+    config.readJson(str(jsonFile))
+    detector = TGeoDetector(config)
+    #detector = getOpenDataDetector(None)
     trackingGeometry = detector.trackingGeometry()
     decorators = detector.contextDecorators()
 
